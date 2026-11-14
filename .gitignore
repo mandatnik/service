@@ -36,3 +36,6 @@ evidence/local/
 /deploy/msi/obj/
 *.wixpdb
 .runner
+
+# Local Windows BSOD research fixture (large binaries and dumps)
+/test-bsod/

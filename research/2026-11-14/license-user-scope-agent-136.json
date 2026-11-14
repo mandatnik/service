@@ -1,0 +1,17 @@
+{
+  "Host": "WORKSTATION-1",
+  "Identity": "HACK\\agent",
+  "SID": "S-1-5-21-2458881001-951638917-3945708937-1113",
+  "IsAdministrator": true,
+  "UserProfile": "C:\\Users\\agent",
+  "IsValid": true,
+  "Type": "Client",
+  "ValidTo": "Unlimited",
+  "RuntimeEqualsSuppliedLicense": true,
+  "AcquireCode": "0x00000000",
+  "ReadLicenseCode": "0x00000000",
+  "COMType": 0,
+  "COMExpire": "1899-12-30T00:00:00.0000000",
+  "LicenseWriteAttempted": false,
+  "CollectedUTC": "2026-11-14T10:46:08.4072340Z"
+}
