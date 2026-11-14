@@ -59,6 +59,14 @@ const (
 	CodeRegistrationDeny  = "registration_denied"
 	CodeProtocolVersion   = "protocol_version_unsupported"
 	CodeNoPendingIdentity = "no_pending_identity"
+	CodeUnauthorized      = "unauthorized"
+	CodeIPNotAllowed      = "ip_not_allowed"
+	CodeInvalidRequest    = "invalid_request"
+	CodeInvalidFilter     = "invalid_filter"
+	CodeDuplicateName     = "duplicate_name"
+	CodeInvalidRules      = "invalid_rules"
+	CodeConflict          = "conflict"
+	CodeRateLimited       = "rate_limited"
 )
 
 // Agreed operational constants. The 10 minute poll interval, one day default
@@ -74,6 +82,7 @@ const (
 	MaxCertificatesPerReport = 5000
 	MaxSourcesPerReport      = 256
 	MaxProfilesPerReport     = 256
+	MaxLicensesPerReport     = 32
 	MaxFilesPerFolder        = 10000
 	MaxDERBytes              = 1024 * 1024
 	MaxPublicKeyPEMBytes     = 4096

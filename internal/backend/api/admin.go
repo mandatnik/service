@@ -186,6 +186,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case parts[0] == "api-keys":
+		s.adminAPIKeys(w, r, session, parts)
 	case parts[0] == "inventory-settings" || parts[0] == "groups" || parts[0] == "folder-policies":
 		s.adminInventory(w, r, session, parts)
 	case path == "session" && r.Method == http.MethodGet:

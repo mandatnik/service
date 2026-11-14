@@ -36,6 +36,7 @@ type DB struct {
 type Config struct {
 	AgentListen           string `json:"agent_listen"`
 	AdminListen           string `json:"admin_listen"`
+	IntegrationListen     string `json:"integration_listen"`
 	TLSCertFile           string `json:"tls_cert_file"`
 	TLSKeyFile            string `json:"tls_key_file"`
 	LogFile               string `json:"log_file"`
@@ -82,8 +83,14 @@ func (c *Config) Validate() error {
 	if err := validateListen("admin_listen", c.AdminListen); err != nil {
 		return err
 	}
-	if c.AgentListen == c.AdminListen {
-		return fmt.Errorf("agent_listen and admin_listen must differ")
+	if strings.TrimSpace(c.IntegrationListen) == "" {
+		c.IntegrationListen = "0.0.0.0:8446"
+	}
+	if err := validateListen("integration_listen", c.IntegrationListen); err != nil {
+		return err
+	}
+	if c.AgentListen == c.AdminListen || c.AgentListen == c.IntegrationListen || c.AdminListen == c.IntegrationListen {
+		return fmt.Errorf("agent_listen, admin_listen and integration_listen must differ")
 	}
 	if c.TLSCertFile == "" || c.TLSKeyFile == "" {
 		return fmt.Errorf("tls_cert_file and tls_key_file are required")

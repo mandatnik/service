@@ -578,6 +578,11 @@ VALUES (@p1,1,1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p
 	if err != nil {
 		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "store CSP state"}
 	}
+	if report.CSP.Licenses != nil {
+		if apiErr := s.applyLicensesTx(ctx, tx, identity, report, now); apiErr != nil {
+			return apiErr
+		}
+	}
 	if exists && (oldKind != report.CSP.License.Kind || oldState != report.CSP.License.State || oldProduct != report.CSP.ProductVersion) {
 		_ = insertEvent(ctx, tx, identity.MachineID, identity.RegistrationID, report.ReportID, nil,
 			"license_changed", "info", "CryptoPro version or license state changed",

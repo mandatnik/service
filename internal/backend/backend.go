@@ -58,9 +58,10 @@ func serve(ctx context.Context, cfg config.Config, logger *Logger) error {
 	apiServer := api.New(persistence, logger, cfg)
 	agentServer := newHTTPServer(cfg.AgentListen, apiServer.AgentHandler())
 	adminServer := newHTTPServer(cfg.AdminListen, apiServer.AdminHandler())
-	logger.Logf("backend ready: agent=%s admin=%s db=%s/%s", cfg.AgentListen, cfg.AdminListen, cfg.DB.Server, cfg.DB.Database)
+	integrationServer := newHTTPServer(cfg.IntegrationListen, apiServer.IntegrationHandler())
+	logger.Logf("backend ready: agent=%s admin=%s integration=%s db=%s/%s", cfg.AgentListen, cfg.AdminListen, cfg.IntegrationListen, cfg.DB.Server, cfg.DB.Database)
 
-	errorChannel := make(chan error, 2)
+	errorChannel := make(chan error, 3)
 	var wg sync.WaitGroup
 	start := func(name string, server *http.Server) {
 		wg.Add(1)
@@ -74,6 +75,7 @@ func serve(ctx context.Context, cfg config.Config, logger *Logger) error {
 	}
 	start("agent", agentServer)
 	start("admin", adminServer)
+	start("integration", integrationServer)
 
 	var runErr error
 	select {
@@ -89,6 +91,9 @@ func serve(ctx context.Context, cfg config.Config, logger *Logger) error {
 	}
 	if err := adminServer.Shutdown(shutdownCtx); err != nil {
 		logger.Logf("admin shutdown: %v", err)
+	}
+	if err := integrationServer.Shutdown(shutdownCtx); err != nil {
+		logger.Logf("integration shutdown: %v", err)
 	}
 	wg.Wait()
 	logger.Logf("backend stopped")

@@ -13,6 +13,7 @@ import EventsView from './components/EventsView.vue'
 import SettingsView from './components/SettingsView.vue'
 import GroupsView from './components/GroupsView.vue'
 import PoliciesView from './components/PoliciesView.vue'
+import ApiKeysView from './components/ApiKeysView.vue'
 
 const session = ref(null)
 const checking = ref(true)
@@ -32,13 +33,15 @@ const nav = [
   { id: 'licensing', label: 'Лицензии', hint: 'КриптоПро CSP' },
   { id: 'hostnames', label: 'Hostname', hint: 'Конфликты' },
   { id: 'events', label: 'События', hint: 'Диагностика' },
+  { id: 'api-keys', label: 'API-ключи', hint: 'Интеграции' },
   { id: 'settings', label: 'Настройки', hint: 'Сбор' }
 ]
 const titles = {
   groups: 'Группы машин', policies: 'Политики папок',
   overview: 'Обзор', machines: 'Рабочие машины', machine: 'Карточка машины',
   certificates: 'Сертификаты', certificate: 'Карточка сертификата', licensing: 'Лицензирование',
-  hostnames: 'Hostname и конфликты', events: 'События', settings: 'Настройки сбора'
+  hostnames: 'Hostname и конфликты', events: 'События', 'api-keys': 'API-ключи интеграций',
+  settings: 'Настройки сбора'
 }
 const title = computed(() => titles[view.value] || 'Админка')
 
@@ -138,6 +141,7 @@ onUnmounted(() => {
         <EventsView v-else-if="view === 'events'" />
         <GroupsView v-else-if="view === 'groups'" />
         <PoliciesView v-else-if="view === 'policies'" />
+        <ApiKeysView v-else-if="view === 'api-keys'" />
         <SettingsView v-else-if="view === 'settings'" />
       </div>
       <footer class="app-footer">Telehack 2026 · только авторизованный административный доступ</footer>

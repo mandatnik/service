@@ -143,6 +143,7 @@ VALUES (@p1, NULL, NULL, NULL, @p2, @p3, @p4, @p5, @p6)`,
 type MachineSummary struct {
 	MachineID         string     `json:"machine_id"`
 	DisplayName       string     `json:"display_name"`
+	FirstSeen         *time.Time `json:"first_seen,omitempty"`
 	UUID              string     `json:"uuid,omitempty"`
 	Hostname          string     `json:"hostname,omitempty"`
 	RegistrationState string     `json:"registration_state"`
@@ -264,7 +265,7 @@ WHERE ` + strings.Join(where, " AND ")
 	queryArgs := append([]any(nil), args...)
 	queryArgs = append(queryArgs, (page-1)*pageSize, pageSize)
 	query := `
-SELECT m.machine_id, m.display_name,
+SELECT m.machine_id, m.display_name, m.created_at,
        r.uuid, r.hostname, r.state, r.last_seen_at, r.last_source_ip, r.last_dns_status,
        c.product_version, c.core_version, c.license_kind, c.license_kind_raw, c.license_state, c.term_kind, c.is_trial,
        rp.report_id, rp.status, rp.collected_at, COALESCE(rp.applied_sources,0),
@@ -282,6 +283,7 @@ SELECT m.machine_id, m.display_name,
 	for rows.Next() {
 		var item MachineSummary
 		var id mssql.NullUniqueIdentifier
+		var created time.Time
 		var uuid mssql.NullUniqueIdentifier
 		var hostname, regState sql.NullString
 		var lastSeen sql.NullTime
@@ -291,12 +293,14 @@ SELECT m.machine_id, m.display_name,
 		var reportStatus sql.NullString
 		var collected sql.NullTime
 		var applied, users, certs, conflict int
-		if err := rows.Scan(&id, &item.DisplayName, &uuid, &hostname, &regState, &lastSeen, &ip, &dns,
+		if err := rows.Scan(&id, &item.DisplayName, &created, &uuid, &hostname, &regState, &lastSeen, &ip, &dns,
 			&product, &core, &kind, &raw, &state, &term, &trial, &reportID, &reportStatus, &collected, &applied,
 			&users, &certs, &conflict); err != nil {
 			return Page[MachineSummary]{}, err
 		}
 		item.MachineID = uuidString(id.UUID)
+		createdUTC := created.UTC()
+		item.FirstSeen = &createdUTC
 		item.UUID = nullUUIDString(uuid)
 		item.Hostname = nullString(hostname)
 		item.RegistrationState = nullString(regState)
@@ -334,6 +338,9 @@ type RegistrationInfo struct {
 	UUID           string     `json:"uuid"`
 	Hostname       string     `json:"hostname"`
 	State          string     `json:"state"`
+	AgentVersion   string     `json:"agent_version,omitempty"`
+	OSVersion      string     `json:"os_version,omitempty"`
+	Architecture   string     `json:"architecture,omitempty"`
 	KeyFingerprint string     `json:"key_fingerprint"`
 	CreatedAt      time.Time  `json:"created_at"`
 	LastSeenAt     *time.Time `json:"last_seen_at,omitempty"`
@@ -436,7 +443,9 @@ func (s *Store) MachineDetail(ctx context.Context, machineID string) (*MachineDe
 	}
 	detail := &MachineDetail{Machine: page.Items[0], Registrations: []RegistrationInfo{}, Users: []MachineUserInfo{}, Sources: []SourceStateInfo{}, Reports: []ReportInfo{}, Events: []EventInfo{}, Jobs: []JobInfo{}, Hostnames: []HostnameInfo{}, CSP: map[string]any{}}
 	rows, err := s.DB.QueryContext(ctx, `
-SELECT registration_id, uuid, hostname, state, public_key_sha256, created_at, last_seen_at, last_source_ip, last_dns_status,
+SELECT registration_id, uuid, hostname, state, public_key_sha256,
+       COALESCE(agent_version,''), COALESCE(os_version,''), COALESCE(architecture,''),
+       created_at, last_seen_at, last_source_ip, last_dns_status,
        previous_registration_id, replaced_by_registration_id, revoked_at
 FROM dbo.registrations WHERE machine_id=@p1 ORDER BY registration_id`, machineID)
 	if err != nil {
@@ -449,7 +458,9 @@ FROM dbo.registrations WHERE machine_id=@p1 ORDER BY registration_id`, machineID
 		var ip []byte
 		var dns sql.NullString
 		var prev, replaced sql.NullInt64
-		if err := rows.Scan(&item.RegistrationID, &uuid, &item.Hostname, &item.State, &item.KeyFingerprint, &item.CreatedAt, &lastSeen, &ip, &dns, &prev, &replaced, &revoked); err != nil {
+		if err := rows.Scan(&item.RegistrationID, &uuid, &item.Hostname, &item.State, &item.KeyFingerprint,
+			&item.AgentVersion, &item.OSVersion, &item.Architecture,
+			&item.CreatedAt, &lastSeen, &ip, &dns, &prev, &replaced, &revoked); err != nil {
 			rows.Close()
 			return nil, err
 		}

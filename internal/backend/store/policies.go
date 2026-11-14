@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -10,6 +11,10 @@ import (
 	"telehack2026/internal/folderpolicy"
 	"telehack2026/internal/protocol"
 )
+
+// ErrInvalidRules marks policy rule compilation errors separately from SQL
+// failures so the integration API can return 422 instead of 500.
+var ErrInvalidRules = errors.New("invalid folder policy rules")
 
 type MachineGroup struct {
 	ID         string   `json:"id"`
@@ -275,7 +280,7 @@ func (s *Store) SaveFolderPolicy(ctx context.Context, p FolderPolicy, create boo
 		return "", fmt.Errorf("название политики должно содержать от 1 до 200 символов")
 	}
 	if _, err := folderpolicy.Compile(p.Rules); err != nil {
-		return "", err
+		return "", fmt.Errorf("%w: %v", ErrInvalidRules, err)
 	}
 	if err := validateIDs(p.MachineIDs); err != nil {
 		return "", err
