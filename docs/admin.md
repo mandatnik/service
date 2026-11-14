@@ -180,7 +180,7 @@ scan пропускаются и возвращаются в `skipped`; при �
 | --- | --- |
 | `display_name` | имя АРМ; если оно пустое, подставляется UUID регистрации, а при её отсутствии — `machine_id` |
 | `uuid`, `hostname`, `source_ip` | идентичность и последний источник |
-| `offline`, `last_seen_at` | связь; offline — нет активной связи более 20 минут |
+| `offline`, `last_seen_at` | связь; offline — нет активной связи 3 минуты и более |
 | `csp_present`, `product_version`, `license_kind` | установлен ли CSP, версия и клиентский/серверный тип |
 | `license_state`, `is_trial`, `term_kind`, `license_valid_to` | состояние, пробность, срок и дата окончания лицензии |
 | `registry_certificates` | уникальные сертификаты в личных хранилищах (`user_store`) |

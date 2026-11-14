@@ -35,8 +35,8 @@ let expiryTimer = null
 
 const nav = [
   { id: 'overview', label: 'Обзор', hint: 'Сводка' },
-  { id: 'machines', label: 'Машины', hint: 'Агенты и профили' },
-  { id: 'groups', label: 'Группы машин', hint: 'Состав групп' },
+  { id: 'machines', label: 'АРМ', hint: 'Агенты и профили' },
+  { id: 'groups', label: 'Группы АРМ', hint: 'Состав групп' },
   { id: 'policies', label: 'Политики папок', hint: 'Правила и назначения' },
   { id: 'certificates', label: 'Сертификаты', hint: 'Наблюдения' },
   { id: 'licensing', label: 'Лицензии', hint: 'КриптоПро CSP' },
@@ -47,8 +47,8 @@ const nav = [
   { id: 'settings', label: 'Настройки', hint: 'Сбор' }
 ]
 const titles = {
-  groups: 'Группы машин', policies: 'Политики папок',
-  overview: 'Обзор', machines: 'Рабочие машины', machine: 'Карточка машины',
+  groups: 'Группы рабочих мест', policies: 'Политики папок',
+  overview: 'Обзор', machines: 'Рабочие места', machine: 'Карточка машины',
   certificates: 'Сертификаты', certificate: 'Карточка сертификата', licensing: 'Лицензирование',
   tasks: 'Задачи',
   hostnames: 'Hostname и конфликты', events: 'События', 'api-keys': 'API-ключи интеграций',

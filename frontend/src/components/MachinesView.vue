@@ -2,14 +2,18 @@
 import { useAutoRefresh } from '../autoRefresh'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
-import { badgeClass, machineRowView } from '../format'
+import { badgeClass, machineRowView, pluralRu } from '../format'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
 import Pager from './Pager.vue'
+import RefreshControl from './RefreshControl.vue'
 
 const emit = defineEmits(['open-machine', 'open-group'])
 const selected = ref([]), catalog = ref({ groups: [] }), targetGroup = ref(''), newGroup = ref(''), adding = ref(false), message = ref('')
+const groupNotice = ref(null)
+const pollSeconds = ref(60)
 const scanBusy = ref(false)
+const pollText = computed(() => `Опрос агента — раз в ${pollSeconds.value} ${pluralRu(pollSeconds.value, ['секунду', 'секунды', 'секунд'])}`)
 const allSelected = computed(() => data.value.items.length > 0 && data.value.items.every(m => selected.value.includes(m.machine_id)))
 const rows = computed(() => data.value.items.map(machine => ({ machine, view: machineRowView(machine) })))
 function selectPage(checked) {
@@ -17,15 +21,27 @@ function selectPage(checked) {
   selected.value = checked ? [...new Set([...selected.value, ...ids])] : selected.value.filter(id => !ids.includes(id))
 }
 async function addToGroup() {
-  adding.value = true; error.value = ''; message.value = ''
+  adding.value = true; error.value = ''; message.value = ''; groupNotice.value = null
+  const count = selected.value.length
+  const target = targetGroup.value
   try {
-    if (targetGroup.value === 'new') await api.saveGroup({ name: newGroup.value, machine_ids: selected.value })
-    else await api.addGroupMembers(targetGroup.value, selected.value)
-    message.value = `Машины добавлены в группу: ${selected.value.length}.`; selected.value = []; newGroup.value = ''; targetGroup.value = ''; catalog.value = await api.inventorySettings()
+    let groupID = target
+    let groupName = catalog.value.groups.find(group => group.id === target)?.name || ''
+    if (target === 'new') {
+      const created = await api.saveGroup({ name: newGroup.value, machine_ids: selected.value })
+      groupID = created.id
+      groupName = newGroup.value.trim()
+    } else {
+      await api.addGroupMembers(target, selected.value)
+    }
+    selected.value = []; newGroup.value = ''; targetGroup.value = ''
+    await load()
+    if (target === 'new') groupName = catalog.value.groups.find(group => group.id === groupID)?.name || groupName
+    groupNotice.value = { title: 'Успешно!', text: `В группу «${groupName}» добавлено ${count} АРМ` }
   } catch (e) { error.value = e.message } finally { adding.value = false }
 }
 async function startScan() {
-  scanBusy.value = true; error.value = ''; message.value = ''
+  scanBusy.value = true; error.value = ''; message.value = ''; groupNotice.value = null
   try {
     const task = await api.createTask({ kind: 'scan', machine_ids: selected.value, group_ids: [], idempotency_key: crypto.randomUUID() })
     message.value = `Задача scan создана: ${task.task.id}.`
@@ -46,14 +62,21 @@ async function load() {
 }
 function apply() { page.value = 1; load() }
 function changePage(next) { page.value = next; load() }
-onMounted(load)
+async function loadPollInterval() {
+  try {
+    const result = await api.config()
+    const value = Number(result?.config?.poll_interval_seconds)
+    if (Number.isFinite(value) && value > 0) pollSeconds.value = value
+  } catch {}
+}
+onMounted(() => { load(); loadPollInterval() })
 useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
 </script>
 <template>
   <section>
     <div class="page-heading">
       <div><p class="muted">Рабочие станции (РС): агенты, лицензии, сертификаты и состояние.</p></div>
-      <button class="btn" @click="load">Обновить</button>
+      <div class="heading-actions"><button class="btn" @click="load">Обновить</button><RefreshControl /></div>
     </div>
     <div class="toolbar">
       <form class="search-form" @submit.prevent="apply">
@@ -66,10 +89,11 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
         </select>
         <button class="btn">Найти</button>
       </form>
-      <span class="muted">Опрос агента — настраивается сервером (по умолчанию 60 с)</span>
+      <span class="muted">{{ pollText }}</span>
     </div>
-    <form v-if="selected.length" class="panel selection-toolbar" @submit.prevent="addToGroup"><strong>Выбрано: {{ selected.length }}</strong><select v-model="targetGroup" aria-label="Группа для выбранных машин" required><option disabled value="">Добавить в группу…</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option><option value="new">+ Создать группу</option></select><input v-if="targetGroup === 'new'" v-model="newGroup" required maxlength="200" placeholder="Название новой группы" aria-label="Название новой группы" /><button class="btn btn-primary" :disabled="adding || !targetGroup">Добавить</button><button class="btn" type="button" :disabled="scanBusy" @click="startScan">Scan</button><button class="btn" type="button" :disabled="adding" @click="selected = []">Снять выбор</button></form>
-    <div v-if="message" class="alert alert-success">{{ message }}</div>
+    <form v-if="selected.length" class="panel selection-toolbar" @submit.prevent="addToGroup"><strong>Выбрано: {{ selected.length }}</strong><select v-model="targetGroup" aria-label="Группа для выбранных машин" required><option disabled value="">Добавить в группу…</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option><option value="new">+ Создать группу</option></select><input v-if="targetGroup === 'new'" v-model="newGroup" required maxlength="200" placeholder="Название новой группы" aria-label="Название новой группы" /><button class="btn btn-primary" :disabled="adding || !targetGroup">Добавить</button><button class="btn" type="button" :disabled="scanBusy" @click="startScan">Запросить информацию</button><button class="btn" type="button" :disabled="adding" @click="selected = []">Снять выбор</button></form>
+    <div v-if="groupNotice" class="alert alert-success" role="status"><strong>{{ groupNotice.title }}</strong><div>{{ groupNotice.text }}</div></div>
+    <div v-if="message" class="alert alert-success" role="status">{{ message }}</div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
       <div v-if="loading && !data.items.length" class="state">Загрузка…</div>

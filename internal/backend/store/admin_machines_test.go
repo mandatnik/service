@@ -1,6 +1,35 @@
 package store
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
+
+func TestMachineOffline(t *testing.T) {
+	now := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	recent := now.Add(-2*time.Minute - 59*time.Second)
+	threshold := now.Add(-3 * time.Minute)
+	stale := now.Add(-30 * time.Minute)
+	future := now.Add(time.Minute)
+	cases := []struct {
+		name     string
+		lastSeen *time.Time
+		want     bool
+	}{
+		{"never seen", nil, true},
+		{"recent contact", &recent, false},
+		{"contact exactly three minutes ago", &threshold, true},
+		{"contact thirty minutes ago", &stale, true},
+		{"future contact", &future, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := machineOffline(tc.lastSeen, now); got != tc.want {
+				t.Fatalf("machineOffline() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestMachineDisplayName(t *testing.T) {
 	const uuid = "528ad917-d441-4c84-8490-380c30e0986f"
