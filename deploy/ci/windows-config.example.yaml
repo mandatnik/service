@@ -7,13 +7,13 @@ runner:
   envs:
     TELEHACK_E2E_CONFIG: C:/TelehackCI/private/acceptance.json
     WIX_DIR: C:/TelehackCI/tools/wix314
-    GOPATH: C:/TelehackCI/cache/go
-    GOCACHE: C:/TelehackCI/cache/go-build
-    npm_config_cache: C:/TelehackCI/cache/npm
+    GOPATH: C:/TelehackCI/cache-system/go
+    GOCACHE: C:/TelehackCI/cache-system/go-build
+    npm_config_cache: C:/TelehackCI/cache-system/npm
 host:
-  workdir_parent: C:/TelehackCI/work
+  workdir_parent: C:/TelehackCI/work-system
 cache:
-  dir: C:/TelehackCI/cache/actions
+  dir: C:/TelehackCI/cache-system/actions
   host: 127.0.0.1
   port: 18088
 log:

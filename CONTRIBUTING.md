@@ -202,10 +202,16 @@ CI не устанавливает агент автоматически на м
 
 - `telehack-linux-140`: Ubuntu, `telehack-linux:host`, пользователь mimbol,
   `~/telehack-ci/`, автозапуск через его `crontab @reboot` и flock.
-- `telehack-windows-138`: Windows Server, `telehack-windows:host`, LocalService,
+- `telehack-windows-138`: Windows Server, `telehack-windows:host`, SYSTEM,
   `C:\TelehackCI\`, задача планировщика `TelehackGiteaRunner` при старте ОС.
 
 Host-раннеры предназначены для доверенного кода этого приватного репозитория.
+Windows-раннер использует SYSTEM для обязательной ICE-валидации WiX: обычные
+неинтерактивные сервисные учётные записи не могут запустить Windows Installer.
+Это [требование валидации WiX](https://docs.firegiant.com/wix/tools/validation/),
+валидация не отключается флагом -sval. Unit-тесты очереди также проверены под
+LocalService; их логика не требует административных ACL. Для ручной MSI-сборки
+в неинтерактивном Windows-сеансе используйте администратора / SYSTEM.
 Windows-конфиг SQL — в ACL-защищённом `C:\TelehackCI\private\acceptance.json`,
 путь передаётся через TELEHACK_E2E_CONFIG. Пароль — отдельным защищённым файлом.
 Runner registration tokens и `.runner` не хранятся в Git и не попадают
