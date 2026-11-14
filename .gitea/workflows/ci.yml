@@ -4,6 +4,8 @@ on:
     branches: ['**']
     tags: ['v*']
   workflow_dispatch:
+permissions:
+  contents: read
 # The SQL stand is shared. Never cancel its cleanup halfway through a test.
 concurrency:
   group: telehack-ci
@@ -28,6 +30,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   windows:
+    permissions:
+      contents: read
+      releases: write
     name: Windows tests and MSI
     needs: linux
     runs-on: telehack-windows
