@@ -33,5 +33,6 @@ function closeOnBackdrop(event) {
         <dt>Почта</dt><dd><a href="mailto:tsukrov.me@yandex.ru">tsukrov.me@yandex.ru</a></dd>
       </dl>
     </section>
+    <p class="authors-notice">Данная версия является демонстрационной. Её использование юр. лицами и хозяйствующими субъектами запрещено. Права авторов ПО для ЭВМ охраняются в соответствии с законодательством РФ. До публикации ПО произошло процедуру депонирования.</p>
   </dialog>
 </template>
