@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatTime, licenseKindLabel, stateLabel, trialLabel, licenseExpiry } from '../format'
@@ -18,6 +19,7 @@ async function load() {
 }
 function apply() { page.value = 1; load() }
 onMounted(load)
+useAutoRefresh(load, () => loading.value)
 </script>
 <template>
   <section>
@@ -25,7 +27,7 @@ onMounted(load)
     <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input aria-label="Поиск лицензий" v-model="query" placeholder="Машина или версия" /><select aria-label="Тип лицензии" v-model="kind" @change="apply"><option value="">Все типы</option><option value="client">Клиентская</option><option value="server">Серверная</option><option value="unknown">Неизвестно</option></select><button class="btn">Найти</button></form></div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
-      <div v-if="loading" class="state">Загрузка…</div>
+      <div v-if="loading && !data.items.length" class="state">Загрузка…</div>
       <EmptyState v-else-if="!data.items.length" title="Лицензии не найдены" text="Проверьте фильтры или дождитесь сбора CSP." />
       <table v-else class="data-table"><thead><tr><th>Машина</th><th>КриптоПро CSP</th><th>Тип лицензии</th><th>Состояние</th><th>Действует до</th><th>Вариант</th></tr></thead>
         <tbody v-for="l in data.items" :key="l.machine_id">

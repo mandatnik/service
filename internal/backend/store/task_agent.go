@@ -1094,3 +1094,19 @@ func commitAPIError(err error) *protocol.APIError {
 	}
 	return nil
 }
+
+// CheckScanTaskClaim prevents older agents from starting retired activation jobs.
+func (s *Store) CheckScanTaskClaim(ctx context.Context, identity *Identity, itemID string) *protocol.APIError {
+	var kind string
+	err := s.DB.QueryRowContext(ctx, `SELECT kind FROM dbo.task_items WHERE item_id=@p1 AND machine_id=@p2 AND registration_id=@p3`, itemID, identity.MachineID, identity.RegistrationID).Scan(&kind)
+	if errors.Is(err, sql.ErrNoRows) {
+		return &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item not found"}
+	}
+	if err != nil {
+		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "could not check task kind"}
+	}
+	if kind != protocol.TaskKindScan {
+		return &protocol.APIError{Code: protocol.CodeTaskConflict, Message: "remote activation is disabled"}
+	}
+	return nil
+}

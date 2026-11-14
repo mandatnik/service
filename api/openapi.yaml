@@ -180,74 +180,13 @@ paths:
       responses:
         '200':
           description: Диагностика принята
-  /api/admin/v1/license-pools:
-    get:
-      summary: Список пулов и счётчиков
-      responses:
-        '200': { description: Пулы }
-    post:
-      summary: Создать пул
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/LicensePoolInput' }
-      responses:
-        '201': { description: Пул создан }
-  /api/admin/v1/license-pools/{id}:
-    patch:
-      summary: Переименовать пул (версия/тип/срок неизменяемы)
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        '200': { description: Пул обновлён }
-  /api/admin/v1/license-pools/{id}/archive:
-    post:
-      summary: Архивировать или вернуть пул
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        '200': { description: Состояние архива обновлено }
-  /api/admin/v1/license-pools/{id}/licenses/import:
-    post:
-      summary: Атомарный импорт номеров; plaintext не возвращается и не аудируется
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        '200': { description: Импорт принят }
-        '422': { description: Импорт отклонён целиком }
-  /api/admin/v1/license-pools/{id}/licenses:
-    get:
-      summary: Ключи пула только с маской и безопасными кодами
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        '200': { description: Страница ключей }
-  /api/admin/v1/license-pools/{id}/history:
-    get:
-      summary: История закреплений и событий ключей без номеров
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        '200': { description: История }
-  /api/admin/v1/licenses/{id}/block:
-    post:
-      summary: Заблокировать свободный ключ с причиной
-      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        '200': { description: Ключ заблокирован }
-  /api/admin/v1/tasks/activation-preview:
-    post:
-      summary: Четыре списка совместимости и основания классификации
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ActivationPreviewInput' }
-      responses:
-        '200': { description: Preview со сроком 10 минут }
   /api/admin/v1/tasks:
     get:
       summary: Список задач с агрегатами
       responses:
         '200': { description: Задачи }
     post:
-      summary: Создать scan или install_license идемпотентно
+      summary: Создать задачу сканирования идемпотентно
       requestBody:
         required: true
         content:
@@ -775,9 +714,7 @@ components:
       type: object
       required: [kind, idempotency_key]
       properties:
-        kind: { type: string, enum: [scan, install_license] }
-        pool_id: { type: string, format: uuid }
-        preview_id: { type: string, format: uuid }
+        kind: { type: string, enum: [scan] }
         machine_ids: { type: array, maxItems: 5000, items: { type: string, format: uuid } }
         group_ids: { type: array, items: { type: string, format: uuid } }
         idempotency_key: { type: string, maxLength: 128 }

@@ -1,15 +1,15 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
 import { badgeClass, machineRowView } from '../format'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
 import Pager from './Pager.vue'
-import ActivationModal from './ActivationModal.vue'
 
 const emit = defineEmits(['open-machine', 'open-group'])
 const selected = ref([]), catalog = ref({ groups: [] }), targetGroup = ref(''), newGroup = ref(''), adding = ref(false), message = ref('')
-const activationVisible = ref(false), scanBusy = ref(false)
+const scanBusy = ref(false)
 const allSelected = computed(() => data.value.items.length > 0 && data.value.items.every(m => selected.value.includes(m.machine_id)))
 const rows = computed(() => data.value.items.map(machine => ({ machine, view: machineRowView(machine) })))
 function selectPage(checked) {
@@ -24,7 +24,6 @@ async function addToGroup() {
     message.value = `Машины добавлены в группу: ${selected.value.length}.`; selected.value = []; newGroup.value = ''; targetGroup.value = ''; catalog.value = await api.inventorySettings()
   } catch (e) { error.value = e.message } finally { adding.value = false }
 }
-function activationCreated(task) { message.value = `Задача активации создана: ${task.task.id}.`; selected.value = []; load() }
 async function startScan() {
   scanBusy.value = true; error.value = ''; message.value = ''
   try {
@@ -48,6 +47,7 @@ async function load() {
 function apply() { page.value = 1; load() }
 function changePage(next) { page.value = next; load() }
 onMounted(load)
+useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
 </script>
 <template>
   <section>
@@ -68,11 +68,11 @@ onMounted(load)
       </form>
       <span class="muted">Опрос агента — настраивается сервером (по умолчанию 60 с)</span>
     </div>
-    <form v-if="selected.length" class="panel selection-toolbar" @submit.prevent="addToGroup"><strong>Выбрано: {{ selected.length }}</strong><select v-model="targetGroup" aria-label="Группа для выбранных машин" required><option disabled value="">Добавить в группу…</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option><option value="new">+ Создать группу</option></select><input v-if="targetGroup === 'new'" v-model="newGroup" required maxlength="200" placeholder="Название новой группы" aria-label="Название новой группы" /><button class="btn btn-primary" :disabled="adding || !targetGroup">Добавить</button><button class="btn" type="button" :disabled="scanBusy" @click="startScan">Scan</button><button class="btn btn-primary" type="button" @click="activationVisible = true">Активировать лицензию</button><button class="btn" type="button" :disabled="adding" @click="selected = []">Снять выбор</button></form>
+    <form v-if="selected.length" class="panel selection-toolbar" @submit.prevent="addToGroup"><strong>Выбрано: {{ selected.length }}</strong><select v-model="targetGroup" aria-label="Группа для выбранных машин" required><option disabled value="">Добавить в группу…</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option><option value="new">+ Создать группу</option></select><input v-if="targetGroup === 'new'" v-model="newGroup" required maxlength="200" placeholder="Название новой группы" aria-label="Название новой группы" /><button class="btn btn-primary" :disabled="adding || !targetGroup">Добавить</button><button class="btn" type="button" :disabled="scanBusy" @click="startScan">Scan</button><button class="btn" type="button" :disabled="adding" @click="selected = []">Снять выбор</button></form>
     <div v-if="message" class="alert alert-success">{{ message }}</div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
-      <div v-if="loading" class="state">Загрузка…</div>
+      <div v-if="loading && !data.items.length" class="state">Загрузка…</div>
       <EmptyState v-else-if="!data.items.length" title="Машины не найдены" text="Проверьте фильтры или зарегистрируйте агент." />
       <table v-else class="data-table machines-table">
         <thead>
@@ -132,6 +132,6 @@ onMounted(load)
       </table>
       <Pager :page="data.page" :page-size="data.page_size" :total="data.total" @change="changePage" />
     </div>
-    <ActivationModal :visible="activationVisible" :machine-ids="selected" :group-ids="[]" @close="activationVisible = false" @created="activationCreated" />
+
   </section>
 </template>

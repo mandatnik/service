@@ -186,7 +186,7 @@ func (c *APIClient) capabilities(ctx context.Context, identity *Identity, encryp
 	data := signedData(protocol.OpCapabilities, protocol.PathCapabilities, identity)
 	data.Capabilities = []string{
 		protocol.TaskCapabilityV1, protocol.TaskCapabilityScheduleV2,
-		protocol.TaskCapabilityInstallV1, protocol.TaskCapabilityScanV1,
+		protocol.TaskCapabilityScanV1,
 		protocol.TaskCapabilityEnvelopeV1,
 	}
 	data.EncryptionKeyID = encryption.ActiveID()

@@ -50,6 +50,13 @@ func (s *Server) handleTaskSync(w http.ResponseWriter, r *http.Request, body []b
 		writeAPIError(w, apiErr)
 		return
 	}
+	items := response.Items[:0]
+	for _, item := range response.Items {
+		if item.Kind == protocol.TaskKindScan {
+			items = append(items, item)
+		}
+	}
+	response.Items = items
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -70,6 +77,10 @@ func (s *Server) handleTaskAck(w http.ResponseWriter, r *http.Request, body []by
 func (s *Server) handleTaskClaim(w http.ResponseWriter, r *http.Request, body []byte) {
 	identity, request, apiErr := s.verifyRequest(r.Context(), body, protocol.PathTaskClaim)
 	if apiErr != nil {
+		writeAPIError(w, apiErr)
+		return
+	}
+	if apiErr := s.store.CheckScanTaskClaim(r.Context(), identity, request.Data.TaskItemID); apiErr != nil {
 		writeAPIError(w, apiErr)
 		return
 	}

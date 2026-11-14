@@ -4,6 +4,7 @@ import { api, setCSRF } from './api'
 import { adminDisplayName, adminInitial, adminRoleLabel } from './identity'
 import AppFooter from './components/AppFooter.vue'
 import BrandLogo from './components/BrandLogo.vue'
+import RefreshControl from './components/RefreshControl.vue'
 import ThemePicker from './components/ThemePicker.vue'
 import NavIcon from './components/NavIcon.vue'
 import Login from './components/Login.vue'
@@ -13,7 +14,6 @@ import MachineDetail from './components/MachineDetail.vue'
 import CertificatesView from './components/CertificatesView.vue'
 import CertificateDetail from './components/CertificateDetail.vue'
 import LicensingView from './components/LicensingView.vue'
-import LicensePoolsView from './components/LicensePoolsView.vue'
 import TasksView from './components/TasksView.vue'
 import HostnamesView from './components/HostnamesView.vue'
 import EventsView from './components/EventsView.vue'
@@ -40,7 +40,6 @@ const nav = [
   { id: 'policies', label: 'Политики папок', hint: 'Правила и назначения' },
   { id: 'certificates', label: 'Сертификаты', hint: 'Наблюдения' },
   { id: 'licensing', label: 'Лицензии', hint: 'КриптоПро CSP' },
-  { id: 'license-pools', label: 'Пулы лицензий', hint: 'Ключи и резервы' },
   { id: 'tasks', label: 'Задачи', hint: 'Сбор и установка' },
   { id: 'hostnames', label: 'Имена машин', hint: 'Конфликты' },
   { id: 'events', label: 'События', hint: 'Диагностика' },
@@ -51,7 +50,7 @@ const titles = {
   groups: 'Группы машин', policies: 'Политики папок',
   overview: 'Обзор', machines: 'Рабочие машины', machine: 'Карточка машины',
   certificates: 'Сертификаты', certificate: 'Карточка сертификата', licensing: 'Лицензирование',
-  'license-pools': 'Пулы лицензий', tasks: 'Задачи',
+  tasks: 'Задачи',
   hostnames: 'Hostname и конфликты', events: 'События', 'api-keys': 'API-ключи интеграций',
   settings: 'Настройки сбора'
 }
@@ -153,7 +152,7 @@ onUnmounted(() => {
     <main id="main-content" class="content" tabindex="-1">
       <header class="topbar">
         <div class="topbar-title"><button class="btn menu-toggle" aria-controls="main-navigation" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen"><NavIcon name="menu" /> Меню</button><div><span class="eyebrow">Инвентаризация / {{ title }}</span><h1>{{ title }}</h1></div></div>
-        <ThemePicker />
+        <div class="topbar-controls"><RefreshControl v-if="['overview','machines','certificates','licensing','tasks','hostnames','events','groups','policies','api-keys'].includes(view)" /><ThemePicker /></div>
       </header>
       <div class="content-body">
         <OverviewView v-if="view === 'overview'" @navigate="navigate" />
@@ -162,7 +161,6 @@ onUnmounted(() => {
         <CertificatesView v-else-if="view === 'certificates'" @open-certificate="openCertificate" />
         <CertificateDetail v-else-if="view === 'certificate'" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />
         <LicensingView v-else-if="view === 'licensing'" />
-        <LicensePoolsView v-else-if="view === 'license-pools'" />
         <TasksView v-else-if="view === 'tasks'" />
         <HostnamesView v-else-if="view === 'hostnames'" @open-machine="openMachine" />
         <EventsView v-else-if="view === 'events'" />

@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatTime } from '../format'
@@ -17,6 +18,7 @@ async function load() {
 }
 function apply() { page.value = 1; load() }
 onMounted(load)
+useAutoRefresh(load, () => loading.value)
 </script>
 <template>
   <section>
@@ -24,7 +26,7 @@ onMounted(load)
     <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input aria-label="Поиск событий" v-model="query" placeholder="Тип или текст" /><select aria-label="Уровень события" v-model="severity" @change="apply"><option value="">Все уровни</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option></select><button class="btn">Найти</button></form></div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
-      <div v-if="loading" class="state">Загрузка…</div>
+      <div v-if="loading && !data.items.length" class="state">Загрузка…</div>
       <EmptyState v-else-if="!data.items.length" title="Событий нет" text="Измените фильтры или дождитесь активности агентов." />
       <div v-else class="event-list">
         <div v-for="e in data.items" :key="e.event_id" class="event-row"><div><span class="badge" :class="e.severity === 'error' ? 'badge-error' : (e.severity === 'warning' ? 'badge-warning' : 'badge-neutral')">{{ e.severity }}</span> <strong>{{ e.kind }}</strong><div>{{ e.message }}</div><div v-if="e.machine_id" class="small muted">machine {{ e.machine_id }}</div><details v-if="e.details_json"><summary class="small muted">Детали</summary><pre class="details-json">{{ e.details_json }}</pre></details></div><span class="muted small">{{ formatTime(e.created_at) }}</span></div>

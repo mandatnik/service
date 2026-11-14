@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatDate } from '../format'
@@ -21,6 +22,7 @@ async function load() {
 function apply() { page.value = 1; load() }
 function changePage(next) { page.value = next; load() }
 onMounted(load)
+useAutoRefresh(load, () => loading.value)
 </script>
 <template>
   <section>
@@ -28,7 +30,7 @@ onMounted(load)
     <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input aria-label="Поиск сертификатов" v-model="query" placeholder="Владелец, организация, номер или издатель" /><select aria-label="Фильтр по состоянию" v-model="status" @change="apply"><option value="">Все</option><option value="valid">Действительные</option><option value="expired">Истёкшие</option><option value="future">Ещё не действуют</option></select><button class="btn">Найти</button></form></div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
-      <div v-if="loading" class="state">Загрузка…</div>
+      <div v-if="loading && !data.items.length" class="state">Загрузка…</div>
       <EmptyState v-else-if="!data.items.length" title="Сертификаты не найдены" text="Проверьте фильтры или дождитесь сбора с машин." />
       <table v-else class="data-table"><thead><tr><th>Владелец</th><th>Сертификат</th><th>Срок</th><th>Найден на машинах</th><th>Встроенная лицензия</th></tr></thead>
         <tbody><tr v-for="c in data.items" :key="c.sha256" class="clickable" tabindex="0" @keydown.enter.self="emit('open-certificate', c.sha256)" @click="emit('open-certificate', c.sha256)">

@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import AssignmentsEditor from './AssignmentsEditor.vue'
@@ -10,6 +11,7 @@ async function save() { busy.value = true; error.value = ''; try { await api.sav
 async function remove(policy) { if (!confirm(`Удалить политику «${policy.name}» и её назначения?`)) return; busy.value = true; error.value = ''; try { await api.deletePolicy(policy.id); await load() } catch (e) { error.value = e.message } finally { busy.value = false } }
 const targetNames = (ids, items) => items.filter(item => ids.includes(item.id)).map(item => item.name).join(', ')
 onMounted(load)
+useAutoRefresh(load, () => busy.value || !!editing.value)
 </script>
 <template><section>
   <div class="page-heading"><p class="muted">Каждая политика — список шаблонов папок для назначенных машин и групп. Сканируются только файлы .cer.</p><button class="btn btn-primary" :disabled="busy" @click="edit()">Создать политику</button></div>

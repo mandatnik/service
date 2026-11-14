@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { onMounted, reactive, ref } from 'vue'
 import { api } from '../api'
 import { formatTime } from '../format'
@@ -109,6 +110,7 @@ async function copyToken() {
 }
 
 onMounted(load)
+useAutoRefresh(load, () => loading.value)
 </script>
 
 <template>

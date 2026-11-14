@@ -191,6 +191,10 @@ func (t *taskRuntime) RunDue(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		// Paused functionality must not execute previously queued license writes.
+		if entry.Kind != protocol.TaskKindScan {
+			continue
+		}
 		if entry.PendingResult != nil {
 			t.sendResult(ctx, entry, *entry.PendingResult, false)
 			continue
@@ -202,8 +206,6 @@ func (t *taskRuntime) RunDue(ctx context.Context) {
 		switch entry.Kind {
 		case protocol.TaskKindScan:
 			t.executeScan(ctx, entry)
-		case protocol.TaskKindInstallLicense:
-			t.executeInstall(ctx, entry)
 		}
 	}
 }

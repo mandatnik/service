@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatTime } from '../format'
@@ -13,13 +14,14 @@ async function load() {
   try { const result = await api.hostnames(); data.value = result.items || [] } catch (e) { error.value = e.message } finally { loading.value = false }
 }
 onMounted(load)
+useAutoRefresh(load, () => loading.value)
 </script>
 <template>
   <section>
     <div class="page-heading"><div><p class="muted">Резервирование имён машин. Перепривязка выполняется из карточки машины и фиксируется событием.</p></div><button class="btn" @click="load">Обновить</button></div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
-      <div v-if="loading" class="state">Загрузка…</div>
+      <div v-if="loading && !data.length" class="state">Загрузка…</div>
       <EmptyState v-else-if="!data.length" title="Hostname не зарезервированы" text="Имена появятся после регистрации агентов." />
       <table v-else class="data-table"><thead><tr><th>Hostname</th><th>Владелец</th><th>Конкурирующие регистрации</th></tr></thead>
         <tbody><tr v-for="h in data" :key="h.hostname_norm" :class="{ 'row-warning': h.competing.length }">

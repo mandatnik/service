@@ -1,5 +1,6 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { useAutoRefresh } from '../autoRefresh'
+import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatTime } from '../format'
 import ErrorState from './ErrorState.vue'
@@ -7,14 +8,13 @@ const emit = defineEmits(['navigate'])
 const data = ref(null)
 const error = ref('')
 const loading = ref(true)
-let timer
 async function load() {
   loading.value = true
   error.value = ''
   try { data.value = await api.overview() } catch (e) { error.value = e.message } finally { loading.value = false }
 }
-onMounted(() => { load(); timer = setInterval(load, 30000) })
-onUnmounted(() => clearInterval(timer))
+onMounted(load)
+useAutoRefresh(load, () => loading.value)
 </script>
 <template>
   <section>
