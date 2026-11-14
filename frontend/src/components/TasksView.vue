@@ -20,6 +20,7 @@ const busy = ref(false)
 const scanMachines = ref([])
 const machineCatalog = ref([])
 const scanBusy = ref(false)
+const activationVisible = ref(false)
 
 const taskState = value => ({
   queued: 'Ожидает', running: 'Выполняется', requires_attention: 'Нужно внимание',
@@ -56,6 +57,7 @@ const reasonLabel = value => ({
 })[value] || value || '—'
 
 async function loadCatalog() { try { const result = await api.inventorySettings(); machineCatalog.value = result.machines || [] } catch (e) { /* catalog is optional */ } }
+function activationCreated(task) { message.value = `Задача активации создана: ${task.task.id}.`; scanMachines.value = []; activationVisible.value = false; load() }
 async function createScanTask() {
   if (!scanMachines.value.length) { error.value = 'Выберите хотя бы одну машину для scan.'; return }
   scanBusy.value = true; error.value = ''
@@ -99,7 +101,7 @@ onMounted(() => { load(); loadCatalog() })
 <template>
   <section>
     <div class="page-heading"><div><p class="muted">Единая задача содержит отдельные выполнения на машинах. Счётчики и состояния вычисляются по выполнениям.</p></div><button class="btn" :disabled="loading" @click="load">Обновить</button></div>
-    <form class="panel settings-form" @submit.prevent="createScanTask"><h3>Новый scan</h3><p class="muted small">Запуск из раздела задач; выбор машин фиксируется в снимке получателей.</p><label class="field"><span>Машины</span><select v-model="scanMachines" multiple size="4" aria-label="Машины для scan"><option v-for="m in machineCatalog" :key="m.id" :value="m.id">{{ m.name }}</option></select></label><div class="heading-actions"><button class="btn btn-primary" :disabled="scanBusy || !scanMachines.length">Создать scan</button></div></form>
+    <form class="panel settings-form" @submit.prevent="createScanTask"><h3>Новый scan</h3><p class="muted small">Запуск из раздела задач; выбор машин фиксируется в снимке получателей.</p><label class="field"><span>Машины</span><select v-model="scanMachines" multiple size="4" aria-label="Машины для scan"><option v-for="m in machineCatalog" :key="m.id" :value="m.id">{{ m.name }}</option></select></label><div class="heading-actions"><button class="btn btn-primary" :disabled="scanBusy || !scanMachines.length">Создать scan</button><button class="btn" type="button" :disabled="!scanMachines.length" @click="activationVisible = true">Активировать лицензию</button></div></form>
     <div class="toolbar"><form class="search-form" @submit.prevent="apply"><select v-model="kind" @change="apply"><option value="">Все виды</option><option value="scan">scan</option><option value="install_license">Установка лицензии</option></select><select v-model="state" @change="apply"><option value="">Все состояния</option><option value="queued">Ожидает</option><option value="running">Выполняется</option><option value="requires_attention">Нужно внимание</option><option value="completed">Завершена</option><option value="partially_failed">Частичный результат</option><option value="failed">Ошибка</option><option value="cancelled">Отменена</option><option value="expired">Истекла</option></select><button class="btn">Найти</button></form></div>
     <div v-if="error" class="alert alert-error">{{ error }}</div>
     <div v-if="message" class="alert alert-info">{{ message }}</div>
@@ -145,5 +147,6 @@ onMounted(() => { load(); loadCatalog() })
         <div v-for="event in events" :key="event.sequence" class="event-row"><span class="small muted">#{{ event.sequence }} · {{ formatTime(event.created_at) }} · попытка {{ event.attempt_no }}</span><strong>{{ event.event_type }}</strong><pre v-if="event.details" class="details-json">{{ JSON.stringify(event.details, null, 2) }}</pre></div>
       </div>
     </div>
+    <ActivationModal :visible="activationVisible" :machine-ids="scanMachines" :group-ids="[]" @close="activationVisible = false" @created="activationCreated" />
   </section>
 </template>
