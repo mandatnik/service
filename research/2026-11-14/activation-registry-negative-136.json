@@ -1,0 +1,59 @@
+{
+  "Host": "WORKSTATION-1",
+  "Identity": "NT AUTHORITY\\SYSTEM",
+  "SID": "S-1-5-18",
+  "Session": 0,
+  "Method": "Registry64 ProductID + fresh-process CryptoAPI/COM",
+  "LicenseKeySavedInEvidence": false,
+  "RegistryPath": "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UserData\\S-1-5-18\\Products\\08F19F05793DC7340B8C2621D83E5BE5\\InstallProperties",
+  "NewValidLicenseTested": false,
+  "InvalidControlWritten": true,
+  "RestoredExact": true,
+  "Before": {
+    "Identity": "NT AUTHORITY\\SYSTEM",
+    "Session": 0,
+    "RegistryEqualsOriginal": true,
+    "RegistryEqualsInvalidControl": false,
+    "AcquireCode": "0x00000000",
+    "ReadLicenseCode": "0x00000000",
+    "RuntimeEqualsRegistry": true,
+    "RuntimeEqualsOriginal": true,
+    "RuntimeEqualsInvalidControl": false,
+    "COMType": 0,
+    "COMExpire": "2027-02-14T18:59:59.0000000",
+    "COMCode": "0x00000000"
+  },
+  "RollbackTaskRegistered": true,
+  "WithInvalidControl": {
+    "Identity": "NT AUTHORITY\\SYSTEM",
+    "Session": 0,
+    "RegistryEqualsOriginal": false,
+    "RegistryEqualsInvalidControl": true,
+    "AcquireCode": "0x00000000",
+    "ReadLicenseCode": "0x8009000A",
+    "RuntimeEqualsRegistry": false,
+    "RuntimeEqualsOriginal": false,
+    "RuntimeEqualsInvalidControl": false,
+    "COMCode": "0xFFFFFFFF"
+  },
+  "RollbackTaskDeleted": true,
+  "After": {
+    "Identity": "NT AUTHORITY\\SYSTEM",
+    "Session": 0,
+    "RegistryEqualsOriginal": true,
+    "RegistryEqualsInvalidControl": false,
+    "AcquireCode": "0x00000000",
+    "ReadLicenseCode": "0x00000000",
+    "RuntimeEqualsRegistry": true,
+    "RuntimeEqualsOriginal": true,
+    "RuntimeEqualsInvalidControl": false,
+    "COMType": 0,
+    "COMExpire": "2027-02-14T18:59:59.0000000",
+    "COMCode": "0x00000000"
+  },
+  "CollectedUTC": "2026-11-14T10:12:53.7601811Z",
+  "Cleanup": {
+    "ServiceDeleted": true,
+    "DirectoryDeleted": true
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "source": "local macOS SDK license_check; read-only cross-check, not activation",
+  "code": 0,
+  "validity": 2,
+  "type": 1,
+  "restrictions": 317,
+  "extra": 0,
+  "days_to_expire": 0,
+  "unix_end": 0,
+  "key_saved_in_evidence": false
+}

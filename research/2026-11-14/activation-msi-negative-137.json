@@ -1,0 +1,25 @@
+{
+  "Host": "WORKSTATION-2",
+  "Identity": "NT AUTHORITY\\SYSTEM",
+  "SID": "S-1-5-18",
+  "Session": 0,
+  "Method": "MsiDoActionW(ValidatePID)",
+  "LicenseKeySaved": false,
+  "InstallExecuteSequenceRun": false,
+  "UILevel": 2,
+  "CachedMSI": "C:\\Windows\\Installer\\2521.msi",
+  "OpenPackageCode": 0,
+  "ActionCode": 1626,
+  "ProductIDPresentAfterValidation": false,
+  "ProductIDEqualsInvalidInput": false,
+  "LicenseMessages": [],
+  "LicenseErrorTemplate": "You have entered invalid serial number.",
+  "RegistryUnchanged": true,
+  "AfterType": 1,
+  "AfterExpires": "2027-02-14T18:59:59.0000000",
+  "CollectedUTC": "2026-11-14T10:11:35.1803138Z",
+  "Cleanup": {
+    "ServiceDeleted": true,
+    "DirectoryDeleted": true
+  }
+}

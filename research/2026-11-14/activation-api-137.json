@@ -1,0 +1,51 @@
+{
+  "Host": "WORKSTATION-2",
+  "Identity": "NT AUTHORITY\\SYSTEM",
+  "SID": "S-1-5-18",
+  "Session": 0,
+  "Products": [
+    {
+      "GUID": "{407E5BA7-6406-40BF-A4DC-3654B8F584C1}",
+      "Version": "4.0.9963",
+      "Type": 1,
+      "Expires": "2027-02-14T18:59:59.0000000"
+    }
+  ],
+  "COMMembers": [
+    {
+      "Name": "GetExpireDate",
+      "Definition": "Date GetExpireDate (string)"
+    },
+    {
+      "Name": "GetInstallDate",
+      "Definition": "Date GetInstallDate (string)"
+    },
+    {
+      "Name": "GetType",
+      "Definition": "int GetType (string)"
+    }
+  ],
+  "NativeExports": [
+    {
+      "Path": "C:\\Program Files\\Common Files\\Crypto Pro\\Shared\\cplicmgmt.dll",
+      "Loaded": true,
+      "Exports": []
+    },
+    {
+      "Path": "C:\\Program Files\\Crypto Pro\\CSP\\cpcsp.dll",
+      "Loaded": true,
+      "Exports": []
+    },
+    {
+      "Path": "C:\\Program Files\\Crypto Pro\\CSP\\cpconfig.cpl",
+      "Loaded": true,
+      "Exports": []
+    }
+  ],
+  "LicenseWriteAttempted": false,
+  "CollectedUTC": "2026-11-14T09:57:51.2081203Z",
+  "Cleanup": {
+    "ServiceDeleted": true,
+    "DirectoryDeleted": true
+  }
+}

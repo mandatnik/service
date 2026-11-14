@@ -1,0 +1,21 @@
+{
+  "Identity": "NT AUTHORITY\\SYSTEM",
+  "Session": 0,
+  "AcquireCode": "0x00000000",
+  "ReadLicenseCode": "0x00000000",
+  "RuntimeEqualsRegistry": true,
+  "COMType": 0,
+  "COMExpire": "1899-12-30T00:00:00.0000000",
+  "COMCode": "0x00000000",
+  "Host": "WORKSTATION-1",
+  "CAdESIsValid": true,
+  "CAdESType": "Client",
+  "CAdESValidTo": "Unlimited",
+  "CAdESSerialEqualsRegistry": false,
+  "CollectedUTC": "2026-11-14T10:24:57.9840234Z",
+  "LicenseWriteAttempted": false,
+  "Cleanup": {
+    "ServiceDeleted": true,
+    "DirectoryDeleted": true
+  }
+}
