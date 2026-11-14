@@ -1,0 +1,14 @@
+# Embedded migration checksums and frontend assets must be identical on both OSes.
+* text=auto eol=lf
+*.sql text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.cer binary
+*.CER binary
+*.der binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.zip binary
+*.exe binary
+*.msi binary

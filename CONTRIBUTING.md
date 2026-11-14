@@ -17,6 +17,10 @@ Makefile работает в Linux и Windows: реализацию команд
 | SQL Server + стендовый конфиг | Только для integration / test-e2e |
 
 КриптоПро, его SDK и SQL Server не требуются для unit-тестов и сборки.
+`.gitattributes` сохраняет LF для SQL-миграций: встроенные контрольные суммы
+должны совпадать в Windows и Linux. Не меняйте окончания строк применённых
+миграций и не обновляйте их checksum в БД ради прохождения теста.
+
 Зависимости Go фиксируются `go.sum`, фронтенда — `frontend/package-lock.json`.
 `make frontend` выполняет `npm ci`, затем Vite production build; сборка EXE
 проверяет `go mod verify`. Бандл включается в бэкенд, CDN не используется.
