@@ -5,6 +5,8 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   build: {
+    // The backend serves a fixed bundle; keep the login background inside CSS.
+    assetsInlineLimit: 512 * 1024,
     outDir: '../internal/backend/web/dist',
     emptyOutDir: true,
     cssCodeSplit: false,
