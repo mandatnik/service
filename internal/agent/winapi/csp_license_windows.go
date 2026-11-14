@@ -137,6 +137,7 @@ func queryLicense(dispatch *ole.IDispatch, product CSPProduct) (protocol.License
 		// convert it to a 1899 UTC timestamp and do not mark it expired.
 		info.TimeBasis = "ole_automation_zero"
 		info.TermKind = "perpetual"
+		info.IsTrial = "no"
 		if info.Kind == "unknown" {
 			info.State = "unknown"
 		} else {
@@ -150,6 +151,16 @@ func queryLicense(dispatch *ole.IDispatch, product CSPProduct) (protocol.License
 		info.TimeBasis = "system_local_assumed"
 		info.TermKind = licenseclass.TermKind(true)
 		info.State = licenseclass.StateFromWallClock(localWall, time.Now())
+		// CPCSPLicense has no explicit trial flag. CryptoPro's built-in demo
+		// period is three months, so derive the mode only when the observed
+		// install-to-expiry span is unambiguous; otherwise keep unknown.
+		if installVariant, installErr := dispatch.CallMethod("GetInstallDate", product.GUID); installErr == nil {
+			installWall, installTimeErr := variantTime(installVariant)
+			installVariant.Clear()
+			if installTimeErr == nil {
+				info.IsTrial = licenseclass.TrialFromInstallExpiry(installWall, wallClock)
+			}
+		}
 	}
 
 	serial, serialErr := ReadLicenseSerial(product.GUID)

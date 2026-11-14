@@ -11,5 +11,5 @@ export function adminInitial(session) {
 }
 
 export function adminRoleLabel(role) {
-  return role === 'superadmin' ? 'суперадминистратор' : 'администратор'
+  return role === 'superadmin' ? 'Суперадмин' : 'Администратор'
 }

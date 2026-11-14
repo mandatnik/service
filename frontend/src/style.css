@@ -63,6 +63,7 @@ a { color: var(--accent-dark); }
 .nav-item.active small { color: #d7fffb; }
 .sidebar-footer { border-top: 1px solid rgba(255,255,255,.1); padding-top: 16px; display: grid; gap: 14px; }
 .user-chip { display: flex; align-items: center; gap: 10px; padding: 0 6px; }
+.user-chip > div { display: flex; flex-direction: column; gap: 1px; line-height: 1.15; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #24416c; color: #fff; font-weight: 700; }
 .user-chip strong { display: block; color: #fff; font-size: 13px; }
 .user-chip small { color: #8fa5c3; font-size: 11px; }
@@ -211,7 +212,7 @@ button.metric-card:hover { border-color: #aac7d2; transform: translateY(-1px); }
 .selection-cell { width:42px; min-width:42px; text-align:center; }
 input[type="checkbox"] { width:16px; height:16px; min-width:16px; accent-color:var(--primary, #2563eb); cursor:pointer; }
 .machine-groups { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
-.machines-table .machine-uuid { display:block; margin-top:4px; }
+.machines-table .machine-uuid { display:inline-block; max-width:100%; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom; }
 .machines-table .archive-badge { margin-left:6px; }
 .machines-table .license-terms { margin-top:4px; }
 .machines-table .csp-server-note { color: var(--danger); }

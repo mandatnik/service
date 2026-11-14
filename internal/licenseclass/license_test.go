@@ -34,3 +34,30 @@ func TestLicenseState(t *testing.T) {
 		t.Errorf("term kind without expiry = %q", got)
 	}
 }
+
+func TestTrialFromInstallExpiry(t *testing.T) {
+	install := time.Date(2026, 11, 13, 13, 42, 12, 0, time.UTC)
+	cases := []struct {
+		name   string
+		expiry time.Time
+		want   string
+	}{
+		{"three calendar months plus a day", install.AddDate(0, 3, 1), "yes"},
+		{"ninety days", install.Add(90 * 24 * time.Hour), "yes"},
+		{"one year", install.AddDate(1, 0, 0), "no"},
+		{"two years", install.AddDate(2, 0, 0), "no"},
+		{"six months is ambiguous", install.AddDate(0, 6, 0), "unknown"},
+		{"zero expiry", time.Time{}, "unknown"},
+		{"expiry before install", install.Add(-24 * time.Hour), "unknown"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := TrialFromInstallExpiry(install, tc.expiry); got != tc.want {
+				t.Fatalf("TrialFromInstallExpiry() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+	if got := TrialFromInstallExpiry(time.Time{}, install); got != "unknown" {
+		t.Fatalf("zero install = %q, want unknown", got)
+	}
+}

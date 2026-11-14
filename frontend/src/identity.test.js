@@ -22,7 +22,7 @@ test('adminInitial uses the first letter of the display name', () => {
 })
 
 test('adminRoleLabel exposes both administrator roles', () => {
-  assert.equal(adminRoleLabel('superadmin'), 'суперадминистратор')
-  assert.equal(adminRoleLabel('admin'), 'администратор')
-  assert.equal(adminRoleLabel(undefined), 'администратор')
+  assert.equal(adminRoleLabel('superadmin'), 'Суперадмин')
+  assert.equal(adminRoleLabel('admin'), 'Администратор')
+  assert.equal(adminRoleLabel(undefined), 'Администратор')
 })
