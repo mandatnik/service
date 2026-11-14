@@ -292,6 +292,47 @@ paths:
       parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         '200': { description: Сверка запрошена }
+  /api/admin/v1/api-keys:
+    get:
+      summary: Список ключей интеграционного API без секретов
+      responses:
+        '200':
+          description: Ключи с префиксом, allowlist и статусом
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyList' }
+    post:
+      summary: Создать ключ; токен возвращается один раз
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiKeyCreateInput' }
+      responses:
+        '201':
+          description: Ключ и одноразовый токен
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiKeyCreated' }
+        '400': { $ref: '#/components/responses/Invalid' }
+  /api/admin/v1/api-keys/{id}:
+    put:
+      summary: Изменить название и/или IP/CIDR allowlist
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ApiKeyUpdateInput' }
+      responses:
+        '200': { description: Ключ обновлён }
+        '404': { description: Ключ не найден или отозван }
+    delete:
+      summary: Отозвать ключ; последующие запросы получают 401
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Ключ отозван }
+        '404': { description: Ключ не найден }
 components:
   responses:
     Conflict:
@@ -740,6 +781,53 @@ components:
         machine_ids: { type: array, maxItems: 5000, items: { type: string, format: uuid } }
         group_ids: { type: array, items: { type: string, format: uuid } }
         idempotency_key: { type: string, maxLength: 128 }
+    ApiKey:
+      type: object
+      required: [key_id, name, token_prefix, allowed_ips, created_at, created_by, status]
+      properties:
+        key_id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        token_prefix: { type: string, example: mndk_6343b447 }
+        allowed_ips:
+          type: array
+          items: { type: string }
+          description: Пустой список означает, что ключ отключён (403).
+        created_at: { type: string, format: date-time }
+        created_by: { type: string }
+        last_used_at: { type: string, format: date-time, nullable: true }
+        last_used_ip: { type: string, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+        revoked_by: { type: string, nullable: true }
+        status: { type: string, enum: [active, revoked] }
+    ApiKeyList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/ApiKey' } }
+    ApiKeyCreateInput:
+      type: object
+      required: [name, allowed_ips]
+      properties:
+        name: { type: string, maxLength: 200 }
+        allowed_ips:
+          type: array
+          minItems: 1
+          items: { type: string }
+    ApiKeyUpdateInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        allowed_ips: { type: array, items: { type: string } }
+    ApiKeyCreated:
+      allOf:
+        - $ref: '#/components/schemas/ApiKey'
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              pattern: '^mndk_[0-9a-f]{64}$'
+              description: Показывается один раз; в БД хранится SHA-256.
     ErrorResponse:
       type: object
       required: [error]
