@@ -120,7 +120,7 @@ onUnmounted(() => {
   <Login v-else-if="!session" :notice="sessionNotice" @logged-in="loggedIn" />
   <div v-else class="app-shell">
     <aside id="main-navigation" class="sidebar" :class="{ 'is-open': menuOpen }">
-      <div class="sidebar-brand"><BrandLogo /><div><div class="brand-name">Мандатник</div><div class="sidebar-subtitle">Инвентаризация КриптоПро</div></div></div>
+      <div class="sidebar-brand"><BrandLogo /><div><div class="brand-name">Мандатник</div><div class="sidebar-subtitle">Инвентаризация сертификатов</div></div></div>
       <div class="nav-caption">Рабочее пространство</div>
       <nav class="nav" aria-label="Основная навигация">
         <button v-for="item in nav" :key="item.id" class="nav-item" :class="{ active: view === item.id || (item.id === 'machines' && view === 'machine') || (item.id === 'certificates' && view === 'certificate') }" :aria-current="(view === item.id || (item.id === 'machines' && view === 'machine') || (item.id === 'certificates' && view === 'certificate')) ? 'page' : undefined" @click="navigate(item.id)">

@@ -224,9 +224,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 input[type="checkbox"] { accent-color: var(--accent); }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 100; background: var(--panel); padding: 12px 20px; }
 .skip-link:focus { top: 12px; }
-.app-shell { grid-template-columns: 248px minmax(0, 1fr); }
-.sidebar { background: var(--panel); color: var(--ink); padding: 28px 16px 18px; border-right: 1px solid var(--line); overflow-y: auto; }
-.sidebar-brand { gap: 10px; padding: 0 4px 26px; border: 0; }
+.app-shell { grid-template-columns: 242px minmax(0, 1fr); }
+.sidebar { background: var(--panel); color: var(--ink); padding: 20px 10px 18px; border-right: 1px solid var(--line); overflow-y: auto; }
+.sidebar-brand { flex-direction: column; gap: 8px; padding: 0 8px 24px; border: 0; text-align: center; }
+.sidebar-brand .brand-logo { width: 96px; height: 96px; border-radius: 0; }
+.sidebar-brand .brand-name { font-size: 18px; }
+.sidebar-brand .sidebar-subtitle { font-size: 12px; margin-top: 3px; }
 .brand-logo { display: inline-flex; width: 48px; height: 48px; flex: none; overflow: hidden; border-radius: 8px; }
 .brand-logo img { width: 100%; height: 100%; object-fit: contain; }
 .logo-dark { display: none; }
@@ -287,7 +290,10 @@ button.metric-card:hover { border-color: var(--accent); transform: none; backgro
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { position: static; height: auto; padding: 14px 18px; border-right: 0; border-bottom: 1px solid var(--line); }
-  .sidebar-brand { padding: 0; }
+  .sidebar-brand { flex-direction: row; gap: 10px; padding: 0; text-align: left; }
+  .sidebar-brand .brand-logo { width: 48px; height: 48px; }
+  .sidebar-brand .brand-name { font-size: 14px; }
+  .sidebar-brand .sidebar-subtitle { font-size: 10px; }
   .nav-caption, .sidebar .nav, .sidebar-footer { display: none; }
   .sidebar.is-open .nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px 0; }
   .sidebar.is-open .sidebar-footer { display: flex; align-items: center; justify-content: space-between; }
