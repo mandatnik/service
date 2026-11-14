@@ -1,0 +1,299 @@
+{
+    "captured_at":  "2026-11-14T02:11:27.2125462Z",
+    "host":  "WORKSTATION-1",
+    "diagnostic_file":  "C:\\ProgramData\\Telehack2026\\Agent\\diagnostics\\collect-20261114T020921.266Z.json",
+    "identity":  {
+                     "user":  "NT AUTHORITY\\SYSTEM",
+                     "sid":  "S-1-5-18",
+                     "session_id":  0,
+                     "os_version":  "Windows 10 Enterprise 19045.7807",
+                     "hostname":  "WORKSTATION-1"
+                 },
+    "service":  {
+                    "name":  "TelehackAgent",
+                    "status":  "Running"
+                },
+    "profiles":  [
+                     {
+                         "sid":  "S-1-5-21-1727000066-743076230-1560906353-1001",
+                         "name":  "WORKSTATION-1\\MagickMan",
+                         "profile_path":  "C:\\Users\\MagickMan",
+                         "loaded":  false,
+                         "store_present":  true,
+                         "complete":  true,
+                         "error":  null
+                     },
+                     {
+                         "sid":  "S-1-5-21-2458881001-951638917-3945708937-1104",
+                         "name":  "HACK\\magickman",
+                         "profile_path":  "C:\\Users\\magickman.HACK",
+                         "loaded":  false,
+                         "store_present":  true,
+                         "complete":  true,
+                         "error":  null
+                     },
+                     {
+                         "sid":  "S-1-5-21-2458881001-951638917-3945708937-1105",
+                         "name":  "HACK\\mimbol",
+                         "profile_path":  "C:\\Users\\mimbol",
+                         "loaded":  true,
+                         "store_present":  true,
+                         "complete":  true,
+                         "error":  null
+                     },
+                     {
+                         "sid":  "S-1-5-21-2458881001-951638917-3945708937-1106",
+                         "name":  "HACK\\user1",
+                         "profile_path":  "C:\\Users\\user1",
+                         "loaded":  false,
+                         "store_present":  true,
+                         "complete":  true,
+                         "error":  null
+                     },
+                     {
+                         "sid":  "S-1-5-21-2458881001-951638917-3945708937-1113",
+                         "name":  "HACK\\agent",
+                         "profile_path":  "C:\\Users\\agent",
+                         "loaded":  true,
+                         "store_present":  true,
+                         "complete":  true,
+                         "error":  null
+                     }
+                 ],
+    "sources":  [
+                    {
+                        "source_type":  "user_store",
+                        "source_key":  "S-1-5-21-1727000066-743076230-1560906353-1001",
+                        "complete":  true,
+                        "error":  null,
+                        "certificate_count":  0,
+                        "file_count":  0,
+                        "fixture_certificates":  [
+
+                                                 ],
+                        "non_fixture_certificate_count":  0
+                    },
+                    {
+                        "source_type":  "user_store",
+                        "source_key":  "S-1-5-21-2458881001-951638917-3945708937-1104",
+                        "complete":  true,
+                        "error":  null,
+                        "certificate_count":  0,
+                        "file_count":  0,
+                        "fixture_certificates":  [
+
+                                                 ],
+                        "non_fixture_certificate_count":  0
+                    },
+                    {
+                        "source_type":  "user_store",
+                        "source_key":  "S-1-5-21-2458881001-951638917-3945708937-1105",
+                        "complete":  true,
+                        "error":  null,
+                        "certificate_count":  1,
+                        "file_count":  0,
+                        "fixture_certificates":  [
+
+                                                 ],
+                        "non_fixture_certificate_count":  1
+                    },
+                    {
+                        "source_type":  "user_store",
+                        "source_key":  "S-1-5-21-2458881001-951638917-3945708937-1106",
+                        "complete":  true,
+                        "error":  null,
+                        "certificate_count":  3,
+                        "file_count":  0,
+                        "fixture_certificates":  [
+                                                     {
+                                                         "sha256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d",
+                                                         "serial_hex":  "2",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестов Иван Иванович, E=fixture-01@example.test, INN=000000000001, SNILS=00000000001",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6",
+                                                         "serial_hex":  "3",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестова Анна Петровна, E=fixture-02@example.test, INN=000000000002, SNILS=00000000002",
+                                                         "not_before":  "2024-11-14T07:00:00Z",
+                                                         "not_after":  "2026-10-15T07:00:00Z",
+                                                         "expected_sha256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9",
+                                                         "serial_hex":  "4",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Образцов Петр Сергеевич, E=fixture-03@example.test, INN=000000000003, SNILS=00000000003",
+                                                         "not_before":  "2026-12-14T07:00:00Z",
+                                                         "not_after":  "2027-12-14T07:00:00Z",
+                                                         "expected_sha256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9",
+                                                         "matches_manifest":  true
+                                                     }
+                                                 ],
+                        "non_fixture_certificate_count":  0
+                    },
+                    {
+                        "source_type":  "user_store",
+                        "source_key":  "S-1-5-21-2458881001-951638917-3945708937-1113",
+                        "complete":  true,
+                        "error":  null,
+                        "certificate_count":  5,
+                        "file_count":  0,
+                        "fixture_certificates":  [
+                                                     {
+                                                         "sha256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d",
+                                                         "serial_hex":  "2",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестов Иван Иванович, E=fixture-01@example.test, INN=000000000001, SNILS=00000000001",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1",
+                                                         "serial_hex":  "5",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Примерова Елена Андреевна, E=fixture-04@example.test, INN=000000000004, SNILS=00000000004",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2026-11-21T07:00:00Z",
+                                                         "expected_sha256":  "6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6",
+                                                         "serial_hex":  "3",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестова Анна Петровна, E=fixture-02@example.test, INN=000000000002, SNILS=00000000002",
+                                                         "not_before":  "2024-11-14T07:00:00Z",
+                                                         "not_after":  "2026-10-15T07:00:00Z",
+                                                         "expected_sha256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83",
+                                                         "serial_hex":  "10",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестов Павел Андреевич, E=fixture-15@example.test, INN=000000000015, O=ООО «Тестовая организация 15», OU=Тестовый отдел электронного документооборота, INNLE=0000000015, KPP=000000000, OGRN=0000000000015",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9",
+                                                         "serial_hex":  "4",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Образцов Петр Сергеевич, E=fixture-03@example.test, INN=000000000003, SNILS=00000000003",
+                                                         "not_before":  "2026-12-14T07:00:00Z",
+                                                         "not_after":  "2027-12-14T07:00:00Z",
+                                                         "expected_sha256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9",
+                                                         "matches_manifest":  true
+                                                     }
+                                                 ],
+                        "non_fixture_certificate_count":  0
+                    },
+                    {
+                        "source_type":  "folder",
+                        "source_key":  "C:\\ProgramData\\Telehack2026\\test-certs",
+                        "complete":  true,
+                        "error":  null,
+                        "certificate_count":  8,
+                        "file_count":  9,
+                        "fixture_certificates":  [
+                                                     {
+                                                         "sha256":  "5d2deccffd076c01818df6c9144897da90eabf5d278697ce051aac54f04c0080",
+                                                         "serial_hex":  "12",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Образцов Николай Петрович, E=fixture-17@example.test, INN=000000000017, O=ООО «Тестовая организация 17», OU=Тестовый отдел электронного документооборота, INNLE=0000000017, KPP=000000000, OGRN=0000000000017",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "5d2deccffd076c01818df6c9144897da90eabf5d278697ce051aac54f04c0080",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d",
+                                                         "serial_hex":  "2",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестов Иван Иванович, E=fixture-01@example.test, INN=000000000001, SNILS=00000000001",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1",
+                                                         "serial_hex":  "5",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Примерова Елена Андреевна, E=fixture-04@example.test, INN=000000000004, SNILS=00000000004",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2026-11-21T07:00:00Z",
+                                                         "expected_sha256":  "6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6",
+                                                         "serial_hex":  "3",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестова Анна Петровна, E=fixture-02@example.test, INN=000000000002, SNILS=00000000002",
+                                                         "not_before":  "2024-11-14T07:00:00Z",
+                                                         "not_after":  "2026-10-15T07:00:00Z",
+                                                         "expected_sha256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "96b830dff36475ab9c9d8bcc281b9f13ca4d8746a33766b63d533fe19a88dcaf",
+                                                         "serial_hex":  "9",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Образцова Ольга Николаевна, E=fixture-08@example.test, INN=000000000008, SNILS=00000000008",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "96b830dff36475ab9c9d8bcc281b9f13ca4d8746a33766b63d533fe19a88dcaf",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83",
+                                                         "serial_hex":  "10",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестов Павел Андреевич, E=fixture-15@example.test, INN=000000000015, O=ООО «Тестовая организация 15», OU=Тестовый отдел электронного документооборота, INNLE=0000000015, KPP=000000000, OGRN=0000000000015",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "a3a1624b9caa518b1ebebf003fcfb6d125bb1d3ce5728957e9aa2cd6a430b2c8",
+                                                         "serial_hex":  "a",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Тестов Сергей Викторович, E=fixture-09@example.test, INN=000000000009, O=ИП Тестов Сергей Викторович, OGRNIP=000000000000009",
+                                                         "not_before":  "2026-10-15T07:00:00Z",
+                                                         "not_after":  "2027-11-14T07:00:00Z",
+                                                         "expected_sha256":  "a3a1624b9caa518b1ebebf003fcfb6d125bb1d3ce5728957e9aa2cd6a430b2c8",
+                                                         "matches_manifest":  true
+                                                     },
+                                                     {
+                                                         "sha256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9",
+                                                         "serial_hex":  "4",
+                                                         "subject":  "C=RU, ST=Свердловская область, L=Екатеринбург, CN=Образцов Петр Сергеевич, E=fixture-03@example.test, INN=000000000003, SNILS=00000000003",
+                                                         "not_before":  "2026-12-14T07:00:00Z",
+                                                         "not_after":  "2027-12-14T07:00:00Z",
+                                                         "expected_sha256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9",
+                                                         "matches_manifest":  true
+                                                     }
+                                                 ],
+                        "non_fixture_certificate_count":  0
+                    }
+                ],
+    "csp":  {
+                "product_version":  "5.0.13003",
+                "core_version":  "5.0.10013",
+                "present":  true,
+                "complete":  true,
+                "error":  null,
+                "license":  {
+                                "kind":  "client",
+                                "kind_raw":  "0",
+                                "kind_source":  "CPCSPLicense.GetType",
+                                "state":  "active",
+                                "valid_to_raw":  "2027-02-14T18:59:59",
+                                "valid_to_utc":  "2027-02-14T13:59:59Z",
+                                "time_basis":  "system_local_assumed",
+                                "term_kind":  "time_limited",
+                                "is_trial":  "unknown"
+                            }
+            },
+    "leftover_telehack_mounts":  [
+
+                                 ]
+}

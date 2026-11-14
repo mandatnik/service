@@ -26,6 +26,15 @@ import (
 // the extension's presence only; it is not a license validity check.
 var OIDEmbeddedCryptoProLicense = asn1.ObjectIdentifier{1, 2, 643, 2, 2, 49, 2}
 
+// Common Russian subject attribute OIDs. Names are read by OID, not by the
+// localized labels displayed by CryptoAPI or .NET.
+var (
+	OIDINN    = asn1.ObjectIdentifier{1, 2, 643, 3, 131, 1, 1}
+	OIDSNILS  = asn1.ObjectIdentifier{1, 2, 643, 100, 3}
+	OIDOGRN   = asn1.ObjectIdentifier{1, 2, 643, 100, 1}
+	OIDOGRNIP = asn1.ObjectIdentifier{1, 2, 643, 100, 5}
+)
+
 // Certificate contains the inventory fields extracted from a DER certificate.
 type Certificate struct {
 	Raw                []byte
@@ -198,6 +207,9 @@ func ParseFile(data []byte) ([]*Certificate, error) {
 			}
 			cert, err := Parse(block.Bytes)
 			if err != nil {
+				if len(out) > 0 {
+					return out, err
+				}
 				return nil, err
 			}
 			out = append(out, cert)

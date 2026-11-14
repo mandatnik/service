@@ -25,3 +25,8 @@ rutoken/
 !internal/**/testdata/**/*.pem
 evidence/local/
 .deploy/
+
+# accidental root build outputs
+/agent
+/backend
+/acceptance
