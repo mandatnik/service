@@ -568,6 +568,24 @@ VALUES (@p1,@p3,@p4,@p2,@p5,@p6,@p7,@p8,@p9);`,
 	return err
 }
 
+// licensesCollectionApplicable distinguishes a new agent's intentional empty
+// list from a failed license collection. A nil list means an old agent and
+// must not touch existing rows. COM/GetType/GetExpireDate failures must keep
+// the last known state; a serial read error is a completed collection with no
+// serial, so the stale row is removed and the machine becomes unknown.
+func licensesCollectionApplicable(csp *protocol.CSPResult) bool {
+	if csp.Licenses == nil {
+		return false
+	}
+	if csp.License.State == "error" {
+		return false
+	}
+	if csp.License.Error != "" && !strings.HasPrefix(csp.License.Error, "serial:") {
+		return false
+	}
+	return true
+}
+
 func (s *Store) applyCSPTx(ctx context.Context, tx *sql.Tx, identity *Identity, report *protocol.Report, now time.Time) *protocol.APIError {
 	if !report.CSP.Scanned {
 		return nil
@@ -641,7 +659,7 @@ VALUES (@p1,1,1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p
 	if err != nil {
 		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "store CSP state"}
 	}
-	if report.CSP.Licenses != nil {
+	if licensesCollectionApplicable(&report.CSP) {
 		if apiErr := s.applyLicensesTx(ctx, tx, identity, report, now); apiErr != nil {
 			return apiErr
 		}

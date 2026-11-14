@@ -72,6 +72,7 @@ type IntegrationMachineFilter struct {
 const integrationLicenseStatusExpr = `CASE
     WHEN EXISTS (SELECT 1 FROM dbo.reported_licenses l WHERE l.machine_id=m.machine_id AND l.product='csp' AND l.license_state='active') THEN 'active'
     WHEN EXISTS (SELECT 1 FROM dbo.reported_licenses l WHERE l.machine_id=m.machine_id AND l.product='csp' AND l.license_state='expired') THEN 'expired'
+    WHEN EXISTS (SELECT 1 FROM dbo.reported_licenses l WHERE l.machine_id=m.machine_id AND l.product='csp' AND l.license_state='error') THEN 'error'
     WHEN c.license_state='error' THEN 'error'
     WHEN c.scanned=1 AND c.present=0 THEN 'not_installed'
     ELSE 'unknown'
