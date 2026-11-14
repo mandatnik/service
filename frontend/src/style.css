@@ -496,3 +496,13 @@ button.metric-card:hover { border-color: var(--accent); transform: none; backgro
 .refresh-control { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .refresh-control select { padding: 7px 10px; font-size: 12px; }
 @media (max-width: 620px) { .refresh-control { align-items: flex-end; flex-direction: column; gap: 3px; } .refresh-control > span { font-size: 10px; } .topbar-controls { gap: 10px; } }
+
+/* Keep authors accessible before sign-in without crowding the form. */
+.login-form-panel { position: relative; }
+.login-footer { position: absolute; bottom: 0; right: 0; max-width: 100%; }
+.login-footer .app-footer { padding: 16px 24px; justify-content: flex-end; flex-wrap: wrap; gap: 6px 16px; text-align: right; }
+@media (max-width: 760px) {
+  .login-form-panel { flex-direction: column; gap: 28px; }
+  .login-footer { position: static; width: 100%; }
+  .login-footer .app-footer { padding: 0; justify-content: center; text-align: center; font-size: 10px; }
+}

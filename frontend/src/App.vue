@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, setCSRF } from './api'
+import { parseRoute, routePath } from './navigation'
 import { adminDisplayName, adminInitial, adminRoleLabel } from './identity'
 import AppFooter from './components/AppFooter.vue'
 import BrandLogo from './components/BrandLogo.vue'
@@ -87,10 +88,7 @@ function armExpiry(result) {
 function loggedIn(result) {
   session.value = result
   sessionNotice.value = ''
-  view.value = 'overview'
-  machineId.value = ''
-  certificateSha.value = ''
-  groupFocusId.value = ''
+  readRoute()
   armExpiry(result)
 }
 async function logout() {
@@ -98,19 +96,27 @@ async function logout() {
   if (expiryTimer) clearTimeout(expiryTimer)
   session.value = null
   sessionNotice.value = 'Вы вышли из админки.'
-  view.value = 'overview'
-  groupFocusId.value = ''
+  navigate('overview')
 }
-function navigate(next) {
+function readRoute() {
+  const route = parseRoute(window.location.hash.startsWith('#/') ? window.location.hash.slice(1) : window.location.pathname)
+  view.value = route.view
+  machineId.value = route.view === 'machine' ? route.id : ''
+  certificateSha.value = route.view === 'certificate' ? route.id : ''
+  groupFocusId.value = route.view === 'groups' ? route.id : ''
   menuOpen.value = false
-  view.value = next
-  machineId.value = ''
-  certificateSha.value = ''
-  groupFocusId.value = ''
+  const canonical = routePath(route.view, route.id)
+  if (window.location.pathname !== canonical || window.location.hash.startsWith('#/')) window.history.replaceState(null, '', canonical)
 }
-function openMachine(id) { machineId.value = id; view.value = 'machine' }
-function openCertificate(sha) { certificateSha.value = sha; view.value = 'certificate' }
-function openGroup(id) { groupFocusId.value = id; machineId.value = ''; certificateSha.value = ''; view.value = 'groups' }
+function navigate(next, id = '') {
+  const path = routePath(next, id)
+  if (window.location.pathname !== path || window.location.hash.startsWith('#/')) window.history.pushState(null, '', path)
+  readRoute()
+}
+function openMachine(id) { navigate('machine', id) }
+function openCertificate(sha) { navigate('certificate', sha) }
+function openGroup(id) { navigate('groups', id) }
+function focusContent() { document.getElementById('main-content')?.focus() }
 function unauthorized() {
   if (session.value) {
     if (expiryTimer) clearTimeout(expiryTimer)
@@ -119,17 +125,20 @@ function unauthorized() {
   }
 }
 onMounted(() => {
+  readRoute()
+  window.addEventListener('popstate', readRoute)
   window.addEventListener('telehack:unauthorized', unauthorized)
   checkSession()
 })
 onUnmounted(() => {
+  window.removeEventListener('popstate', readRoute)
   window.removeEventListener('telehack:unauthorized', unauthorized)
   if (expiryTimer) clearTimeout(expiryTimer)
 })
 </script>
 
 <template>
-  <a v-if="session" class="skip-link" href="#main-content">К содержимому</a>
+  <a v-if="session" class="skip-link" href="#main-content" @click.prevent="focusContent">К содержимому</a>
   <div v-if="checking" class="boot-screen"><div class="spinner"></div><p>Проверка сеанса…</p></div>
   <div v-else-if="bootError" class="boot-screen">
     <div class="boot-error"><strong>Backend недоступен</strong><p>{{ bootError }}</p><button class="btn btn-primary" @click="checkSession">Повторить</button></div>
@@ -157,14 +166,14 @@ onUnmounted(() => {
       <div class="content-body">
         <OverviewView v-if="view === 'overview'" @navigate="navigate" />
         <MachinesView v-else-if="view === 'machines'" @open-machine="openMachine" @open-group="openGroup" />
-        <MachineDetail v-else-if="view === 'machine'" :machine-id="machineId" @back="navigate('machines')" @open-machine="openMachine" />
+        <MachineDetail v-else-if="view === 'machine'" :key="machineId" :machine-id="machineId" @back="navigate('machines')" @open-machine="openMachine" />
         <CertificatesView v-else-if="view === 'certificates'" @open-certificate="openCertificate" />
-        <CertificateDetail v-else-if="view === 'certificate'" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />
+        <CertificateDetail v-else-if="view === 'certificate'" :key="certificateSha" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />
         <LicensingView v-else-if="view === 'licensing'" />
         <TasksView v-else-if="view === 'tasks'" />
         <HostnamesView v-else-if="view === 'hostnames'" @open-machine="openMachine" />
         <EventsView v-else-if="view === 'events'" />
-        <GroupsView v-else-if="view === 'groups'" :focus-group-id="groupFocusId" @clear-focus="groupFocusId = ''" />
+        <GroupsView v-else-if="view === 'groups'" :focus-group-id="groupFocusId" @clear-focus="navigate('groups')" />
         <PoliciesView v-else-if="view === 'policies'" />
         <ApiKeysView v-else-if="view === 'api-keys'" />
         <SettingsView v-else-if="view === 'settings'" />

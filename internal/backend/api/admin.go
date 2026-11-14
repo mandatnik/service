@@ -141,8 +141,11 @@ func (s *Server) serveAdminStatic(w http.ResponseWriter, r *http.Request) {
 	switch name {
 	case "index.html", "app.js", "app.css", "favicon.ico":
 	default:
-		http.NotFound(w, r)
-		return
+		if !isAdminPagePath(r.URL.Path) {
+			http.NotFound(w, r)
+			return
+		}
+		name = "index.html"
 	}
 	data, err := webReadFile(assets, name)
 	if err != nil {
@@ -722,4 +725,17 @@ func hexNibble(ch byte) (byte, bool) {
 // contextWithTimeout keeps admin handlers bounded even if a client stalls.
 func contextWithTimeout(r *http.Request, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc) {
 	return context.WithTimeout(r.Context(), timeout)
+}
+
+// isAdminPagePath limits SPA fallback to known pages, never API or asset paths.
+func isAdminPagePath(path string) bool {
+	parts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(path, "/"), "/"), "/")
+	switch parts[0] {
+	case "arm", "machines", "certificates", "groups":
+		return len(parts) == 1 || (len(parts) == 2 && parts[1] != "" && !strings.Contains(parts[1], "."))
+	case "overview", "policies", "licensing", "tasks", "hostnames", "events", "api-keys", "settings":
+		return len(parts) == 1
+	default:
+		return false
+	}
 }

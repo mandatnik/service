@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+defineProps({ showCaption: { type: Boolean, default: true } })
 const authorsDialog = ref(null)
 function closeOnBackdrop(event) {
   if (event.target !== authorsDialog.value) return
@@ -10,7 +11,7 @@ function closeOnBackdrop(event) {
 
 <template>
   <footer class="app-footer">
-    <span>Мандатник · Панель администратора</span>
+    <span v-if="showCaption">Мандатник · Панель администратора</span>
     <span class="footer-copyright">© <button type="button" class="footer-author" aria-haspopup="dialog" @click="authorsDialog.showModal()">Малыгин А. Е.</button> и <button type="button" class="footer-author" aria-haspopup="dialog" @click="authorsDialog.showModal()">Цукров М. Е.</button></span>
   </footer>
   <dialog ref="authorsDialog" class="authors-dialog" aria-labelledby="authors-heading" @click="closeOnBackdrop">

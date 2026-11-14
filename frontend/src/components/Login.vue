@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import BrandLogo from './BrandLogo.vue'
+import AppFooter from './AppFooter.vue'
 import ThemePicker from './ThemePicker.vue'
 import { api, setCSRF } from '../api'
 defineProps({ notice: { type: String, default: '' } })
@@ -51,6 +52,7 @@ async function submit() {
       <button class="btn btn-primary btn-wide" :disabled="busy">{{ busy ? 'Проверка…' : 'Войти' }}</button>
       <p class="login-help muted">Нет доступа? Обратитесь к администратору системы.</p>
     </form>
+    <div class="login-footer"><AppFooter :show-caption="false" /></div>
     </section>
     </main>
   </div>
