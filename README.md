@@ -45,7 +45,8 @@ HTTPS-listener `8446`, префикс `/api/integration/v1`, Bearer-ключи
 (машины, группы, политики, сертификаты, лицензии, события) плюс идемпотентный
 запуск scan. Ключи создаются в админке, токен показывается один раз. Контракт:
 [api/integration-openapi.yaml](api/integration-openapi.yaml); эксплуатация:
-[docs/admin.md](docs/admin.md), [docs/configuration.md](docs/configuration.md).
+[docs/admin.md](docs/admin.md), [docs/configuration.md](docs/configuration.md);
+приёмка на стенде: [docs/acceptance/INTEGRATION-API-0.5.0.md](docs/acceptance/INTEGRATION-API-0.5.0.md).
 
 ## Сборка
 

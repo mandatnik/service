@@ -111,7 +111,10 @@ func setAdminSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+	// The embedded index.html contains a tiny theme bootstrap before Vue
+	// mounts. Allow exactly that script by hash; all other inline scripts stay
+	// blocked.
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'sha256-XFxDL19M6USwsTa57cBRf5jDzMzK0Q5PpyJllAdRZdg='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 }
 
 func (s *Server) adminHealth(w http.ResponseWriter, r *http.Request) {
