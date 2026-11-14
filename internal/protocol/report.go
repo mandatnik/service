@@ -105,15 +105,16 @@ type ObservedFile struct {
 // licensing state. A missing CSP is a successful result (Present=false), not
 // a partial report.
 type CSPResult struct {
-	Scanned        bool         `json:"scanned"`
-	Complete       bool         `json:"complete"`
-	Present        bool         `json:"present"`
-	ProductVersion string       `json:"product_version,omitempty"`
-	CoreVersion    string       `json:"core_version,omitempty"`
-	Environment    string       `json:"environment,omitempty"`
-	Products       []CSPProduct `json:"products,omitempty"`
-	License        LicenseInfo  `json:"license"`
-	Error          string       `json:"error,omitempty"`
+	Scanned        bool          `json:"scanned"`
+	Complete       bool          `json:"complete"`
+	Present        bool          `json:"present"`
+	ProductVersion string        `json:"product_version,omitempty"`
+	CoreVersion    string        `json:"core_version,omitempty"`
+	Environment    string        `json:"environment,omitempty"`
+	Products       []CSPProduct  `json:"products,omitempty"`
+	License        LicenseInfo   `json:"license"`
+	Licenses       []LicenseInfo `json:"licenses,omitempty"`
+	Error          string        `json:"error,omitempty"`
 }
 
 // CSPProduct is one installed CryptoPro product entry from the uninstall
@@ -128,17 +129,23 @@ type CSPProduct struct {
 // LicenseInfo keeps independent facts: kind, raw API code/source, date and
 // time basis, state and term/trial classification. Unknown is explicit.
 type LicenseInfo struct {
-	Kind       string `json:"kind"`
-	KindRaw    string `json:"kind_raw,omitempty"`
-	KindSource string `json:"kind_source,omitempty"`
-	State      string `json:"state"`
-	ValidToRaw string `json:"valid_to_raw,omitempty"`
-	ValidToUTC string `json:"valid_to_utc,omitempty"`
-	TimeBasis  string `json:"time_basis,omitempty"`
-	TermKind   string `json:"term_kind,omitempty"`
-	IsTrial    string `json:"is_trial,omitempty"`
-	Source     string `json:"source,omitempty"`
-	Error      string `json:"error,omitempty"`
+	LicenseID    string `json:"license_id,omitempty"`
+	SerialMasked string `json:"serial_masked,omitempty"`
+	Product      string `json:"product,omitempty"`
+	ProductCode  int    `json:"product_code"`
+	ProductName  string `json:"product_name,omitempty"`
+	Complete     bool   `json:"complete,omitempty"`
+	Kind         string `json:"kind"`
+	KindRaw      string `json:"kind_raw,omitempty"`
+	KindSource   string `json:"kind_source,omitempty"`
+	State        string `json:"state"`
+	ValidToRaw   string `json:"valid_to_raw,omitempty"`
+	ValidToUTC   string `json:"valid_to_utc,omitempty"`
+	TimeBasis    string `json:"time_basis,omitempty"`
+	TermKind     string `json:"term_kind,omitempty"`
+	IsTrial      string `json:"is_trial,omitempty"`
+	Source       string `json:"source,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 // ComputeStatus derives the report status from its completeness flags.
@@ -406,6 +413,14 @@ func validateCSP(csp *CSPResult) error {
 	if len(csp.Error) > MaxErrorBytes {
 		return fmt.Errorf("CSP error is too long")
 	}
+	if len(csp.Licenses) > MaxLicensesPerReport {
+		return fmt.Errorf("too many license records")
+	}
+	for index, license := range csp.Licenses {
+		if err := validateLicenseRecord(license); err != nil {
+			return fmt.Errorf("licenses[%d]: %w", index, err)
+		}
+	}
 	switch csp.License.Kind {
 	case "", "client", "server", "unknown":
 	default:
@@ -433,6 +448,72 @@ func validateCSP(csp *CSPResult) error {
 		return fmt.Errorf("license date is too long")
 	}
 	if len(csp.License.Source) > 128 || len(csp.License.Error) > MaxErrorBytes {
+		return fmt.Errorf("license source/error is too long")
+	}
+	return nil
+}
+
+func validateLicenseRecord(license LicenseInfo) error {
+	if err := ValidateLicenseID(license.LicenseID); err != nil {
+		return fmt.Errorf("license_id: %w", err)
+	}
+	if len(license.SerialMasked) > 64 {
+		return fmt.Errorf("serial_masked is too long")
+	}
+	if err := ValidateMaskedSerial(license.SerialMasked, license.LicenseID); err != nil {
+		return fmt.Errorf("serial_masked: %w", err)
+	}
+	switch license.Product {
+	case "csp":
+		if license.ProductCode != 0 {
+			return fmt.Errorf("csp product_code must be 0")
+		}
+	case "ocsp":
+		if license.ProductCode != 1 {
+			return fmt.Errorf("ocsp product_code must be 1")
+		}
+	case "tsp":
+		if license.ProductCode != 2 {
+			return fmt.Errorf("tsp product_code must be 2")
+		}
+	default:
+		return fmt.Errorf("unsupported product %q", license.Product)
+	}
+	if len(license.ProductName) > 128 {
+		return fmt.Errorf("product_name is too long")
+	}
+	switch license.Kind {
+	case "", "client", "server", "unknown":
+	default:
+		return fmt.Errorf("invalid license kind %q", license.Kind)
+	}
+	switch license.State {
+	case "", "active", "expired", "not_installed", "unknown", "error":
+	default:
+		return fmt.Errorf("invalid license state %q", license.State)
+	}
+	switch license.TermKind {
+	case "", "trial", "time_limited", "perpetual", "unknown":
+	default:
+		return fmt.Errorf("invalid license term_kind %q", license.TermKind)
+	}
+	switch license.IsTrial {
+	case "", "true", "false", "unknown":
+	default:
+		return fmt.Errorf("invalid is_trial %q", license.IsTrial)
+	}
+	if len(license.KindRaw) > 64 || len(license.KindSource) > 128 {
+		return fmt.Errorf("license raw/source is too long")
+	}
+	if len(license.ValidToRaw) > 128 || len(license.ValidToUTC) > 64 {
+		return fmt.Errorf("license date is too long")
+	}
+	if license.ValidToUTC != "" {
+		if _, err := ValidateTimestamp(license.ValidToUTC); err != nil {
+			return fmt.Errorf("valid_to_utc: %w", err)
+		}
+	}
+	if len(license.Source) > 128 || len(license.Error) > MaxErrorBytes {
 		return fmt.Errorf("license source/error is too long")
 	}
 	return nil

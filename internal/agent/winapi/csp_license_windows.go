@@ -6,18 +6,28 @@ import (
 	"fmt"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-ole/go-ole"
+	"golang.org/x/sys/windows/registry"
 	"telehack2026/internal/licenseclass"
 	"telehack2026/internal/protocol"
 )
 
-// CollectLicense reads CPCSPLicense for the first installed product. It uses
-// only the base COM component; CAdES is not a dependency. Raw type code and
-// source are preserved even when classification is unknown.
+// CollectLicense is kept for the activation-task observation path. It returns
+// the best candidate even when the serial-derived inventory ID is unavailable.
 func CollectLicense(products []CSPProduct) (protocol.LicenseInfo, error) {
-	info := protocol.LicenseInfo{
+	_, fallback, err := CollectLicenses(products)
+	return fallback, err
+}
+
+// CollectLicenses reads CPCSPLicense for every installed CSP product and
+// returns records with a non-empty serial-derived license_id. The second
+// result is the best candidate for the legacy single LicenseInfo field, even
+// when its serial could not be read.
+func CollectLicenses(products []CSPProduct) ([]protocol.LicenseInfo, protocol.LicenseInfo, error) {
+	fallback := protocol.LicenseInfo{
 		Kind:       "unknown",
 		State:      "unknown",
 		TermKind:   "unknown",
@@ -26,66 +36,78 @@ func CollectLicense(products []CSPProduct) (protocol.LicenseInfo, error) {
 		Source:     "CPCSPLicense",
 	}
 	if len(products) == 0 {
-		info.State = "not_installed"
-		return info, nil
+		fallback.State = "not_installed"
+		return nil, fallback, nil
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	if err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED); err != nil {
 		if oleErr, ok := err.(*ole.OleError); !ok || oleErr.Code() != 1 { // S_FALSE is success
-			info.State = "error"
-			info.Error = "CoInitializeEx: " + err.Error()
-			return info, err
+			fallback.State = "error"
+			fallback.Error = "CoInitializeEx: " + err.Error()
+			return nil, fallback, err
 		}
 	}
 	defer ole.CoUninitialize()
 
 	clsid, err := ole.CLSIDFromProgID("CPCSPLicense.CPCSPLicense")
 	if err != nil {
-		info.State = "error"
-		info.Error = "CPCSPLicense CLSID: " + err.Error()
-		return info, err
+		fallback.State = "error"
+		fallback.Error = "CPCSPLicense CLSID: " + err.Error()
+		return nil, fallback, err
 	}
 	unknown, err := ole.CreateInstance(clsid, ole.IID_IDispatch)
 	if err != nil {
-		info.State = "error"
-		info.Error = "create CPCSPLicense: " + err.Error()
-		return info, err
+		fallback.State = "error"
+		fallback.Error = "create CPCSPLicense: " + err.Error()
+		return nil, fallback, err
 	}
 	defer unknown.Release()
 	dispatch, err := unknown.QueryInterface(ole.IID_IDispatch)
 	if err != nil {
-		info.State = "error"
-		info.Error = "CPCSPLicense IDispatch: " + err.Error()
-		return info, err
+		fallback.State = "error"
+		fallback.Error = "CPCSPLicense IDispatch: " + err.Error()
+		return nil, fallback, err
 	}
 	defer dispatch.Release()
 
 	sort.Slice(products, func(i, j int) bool { return products[i].Branch > products[j].Branch })
+	var records []protocol.LicenseInfo
 	var lastErr error
 	for _, product := range products {
 		candidate, err := queryLicense(dispatch, product)
-		if err == nil {
-			return candidate, nil
+		if fallback.Kind == "unknown" && candidate.Kind != "unknown" {
+			fallback = candidate
 		}
-		lastErr = err
-		info = candidate
+		if err != nil {
+			lastErr = err
+			candidate.Error = err.Error()
+			continue
+		}
+		if candidate.LicenseID != "" {
+			records = append(records, candidate)
+		}
 	}
-	if lastErr != nil {
-		info.Error = lastErr.Error()
-		return info, lastErr
+	if lastErr != nil && len(records) == 0 {
+		fallback.Error = lastErr.Error()
 	}
-	return info, nil
+	return records, fallback, lastErr
 }
 
 func queryLicense(dispatch *ole.IDispatch, product CSPProduct) (protocol.LicenseInfo, error) {
 	info := protocol.LicenseInfo{
-		Kind:       "unknown",
-		State:      "unknown",
-		TermKind:   "unknown",
-		IsTrial:    "unknown",
-		KindSource: "CPCSPLicense.GetType",
-		Source:     "CPCSPLicense",
+		Kind:        "unknown",
+		State:       "unknown",
+		TermKind:    "unknown",
+		IsTrial:     "unknown",
+		KindSource:  "CPCSPLicense.GetType",
+		Source:      "CPCSPLicense",
+		Product:     "csp",
+		ProductCode: 0,
+		ProductName: product.DisplayName,
+	}
+	if info.ProductName == "" {
+		info.ProductName = "КриптоПро CSP"
 	}
 	kindVariant, err := dispatch.CallMethod("GetType", product.GUID)
 	if err != nil {
@@ -129,7 +151,98 @@ func queryLicense(dispatch *ole.IDispatch, product CSPProduct) (protocol.License
 	info.TimeBasis = "system_local_assumed"
 	info.TermKind = licenseclass.TermKind(true)
 	info.State = licenseclass.StateFromWallClock(localWall, time.Now())
+
+	serial, serialErr := ReadLicenseSerial(product.GUID)
+	if serialErr != nil {
+		info.Complete = false
+		info.Error = "serial: " + serialErr.Error()
+		return info, nil
+	}
+	licenseID, err := protocol.LicenseIDFromSerial(serial)
+	if err != nil {
+		info.Complete = false
+		info.Error = "serial: " + err.Error()
+		return info, nil
+	}
+	masked, err := protocol.MaskLicenseSerial(serial)
+	if err != nil {
+		info.Complete = false
+		info.Error = "serial: " + err.Error()
+		return info, nil
+	}
+	info.LicenseID = licenseID
+	info.SerialMasked = masked
+	info.Complete = true
 	return info, nil
+}
+
+// ReadLicenseSerial reads the MSI ProductID for a CryptoPro CSP product. The
+// value is the license serial without separators. The full serial never leaves
+// the workstation: the agent stores only its hash and masked form.
+func ReadLicenseSerial(productGUID string) (string, error) {
+	compressed, err := msiCompressedGUID(productGUID)
+	if err != nil {
+		return "", err
+	}
+	relative := `SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\` +
+		compressed + `\InstallProperties`
+	views := []uint32{registry.WOW64_64KEY, registry.WOW64_32KEY, 0}
+	var lastErr error
+	for _, view := range views {
+		key, err := registry.OpenKey(registry.LOCAL_MACHINE, relative, registry.READ|view)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		value, _, err := key.GetStringValue("ProductID")
+		_ = key.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			lastErr = fmt.Errorf("ProductID is empty")
+			continue
+		}
+		return value, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("ProductID not found")
+	}
+	return "", fmt.Errorf("read ProductID for %s: %w", productGUID, lastErr)
+}
+
+// msiCompressedGUID converts an MSI ProductCode GUID to the registry product
+// key form used below UserData\S-1-5-18\Products.
+func msiCompressedGUID(guid string) (string, error) {
+	trimmed := strings.TrimSpace(strings.Trim(guid, "{}"))
+	parts := strings.Split(trimmed, "-")
+	if len(parts) != 5 || len(parts[0]) != 8 || len(parts[1]) != 4 || len(parts[2]) != 4 || len(parts[3]) != 4 || len(parts[4]) != 12 {
+		return "", fmt.Errorf("invalid product GUID %q", guid)
+	}
+	compressed := reverseString(parts[0]) + reverseString(parts[1]) + reverseString(parts[2]) +
+		swapPairs(parts[3]) + swapPairs(parts[4])
+	return strings.ToUpper(compressed), nil
+}
+
+func reverseString(value string) string {
+	runes := []rune(value)
+	for left, right := 0, len(runes)-1; left < right; left, right = left+1, right-1 {
+		runes[left], runes[right] = runes[right], runes[left]
+	}
+	return string(runes)
+}
+
+func swapPairs(value string) string {
+	if len(value)%2 != 0 {
+		return value
+	}
+	out := []byte(value)
+	for index := 0; index < len(out); index += 2 {
+		out[index], out[index+1] = out[index+1], out[index]
+	}
+	return string(out)
 }
 
 func variantI32(variant *ole.VARIANT) (int32, error) {
@@ -219,14 +332,19 @@ func CollectCSP() protocol.CSPResult {
 	}
 	if !result.Present {
 		result.License.State = "not_installed"
+		result.Licenses = []protocol.LicenseInfo{}
 		return result
 	}
 	if versionErr != nil {
 		result.Complete = false
 		result.Error = appendCSPError(result.Error, "version probe: "+versionErr.Error())
 	}
-	license, licenseErr := CollectLicense(products)
-	result.License = license
+	licenses, fallback, licenseErr := CollectLicenses(products)
+	result.License = fallback
+	if licenses == nil {
+		licenses = []protocol.LicenseInfo{}
+	}
+	result.Licenses = licenses
 	if licenseErr != nil {
 		result.Complete = false
 		result.Error = appendCSPError(result.Error, "license: "+licenseErr.Error())

@@ -90,6 +90,13 @@ const (
 	CodeMachineBusy         = "machine_busy"
 	CodeReportRequired      = "report_required"
 	CodeSerialProofRequired = "serial_proof_required"
+	CodeUnauthorized        = "unauthorized"
+	CodeIPNotAllowed        = "ip_not_allowed"
+	CodeInvalidRequest      = "invalid_request"
+	CodeInvalidFilter       = "invalid_filter"
+	CodeDuplicateName       = "duplicate_name"
+	CodeInvalidRules        = "invalid_rules"
+	CodeRateLimited         = "rate_limited"
 )
 
 // Agreed operational constants. The legacy 10 minute poll interval remains
@@ -113,6 +120,7 @@ const (
 	MaxCertificatesPerReport         = 5000
 	MaxSourcesPerReport              = 256
 	MaxProfilesPerReport             = 256
+	MaxLicensesPerReport             = 32
 	MaxFilesPerFolder                = 10000
 	MaxDERBytes                      = 1024 * 1024
 	MaxPublicKeyPEMBytes             = 4096
