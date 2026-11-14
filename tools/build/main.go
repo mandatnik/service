@@ -97,7 +97,7 @@ See CONTRIBUTING.md for Linux/Windows packages, configuration and CI/CD.
 		if err := validateConfig(o.config); err != nil {
 			return err
 		}
-		if err := run(map[string]string{"TELEHACK_POLICY_TEST_CONFIG": absolute(o.config)}, "go", "test", "-count=1", "./internal/backend/store", "-run", "TestPoliciesSQLServer", "-v"); err != nil {
+		if err := run(map[string]string{"TELEHACK_POLICY_TEST_CONFIG": absolute(o.config)}, "go", "test", "-count=1", "./internal/backend/store", "-run", "Test(Policies|Tasks)SQLServer", "-v"); err != nil {
 			return err
 		}
 		if args[0] == "integration" {

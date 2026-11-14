@@ -25,13 +25,13 @@ onMounted(load)
 <template>
   <section>
     <div class="page-heading"><div><p class="muted">Владельцы, сроки действия и места обнаружения сертификатов. Подробности — в карточке.</p></div><button class="btn" @click="load">Обновить</button></div>
-    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input v-model="query" placeholder="Владелец, организация, номер или издатель" /><select v-model="status" @change="apply"><option value="">Все</option><option value="valid">Действительные</option><option value="expired">Истёкшие</option><option value="future">Ещё не действуют</option></select><button class="btn">Найти</button></form></div>
+    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input aria-label="Поиск сертификатов" v-model="query" placeholder="Владелец, организация, номер или издатель" /><select aria-label="Фильтр по состоянию" v-model="status" @change="apply"><option value="">Все</option><option value="valid">Действительные</option><option value="expired">Истёкшие</option><option value="future">Ещё не действуют</option></select><button class="btn">Найти</button></form></div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
       <div v-if="loading" class="state">Загрузка…</div>
       <EmptyState v-else-if="!data.items.length" title="Сертификаты не найдены" text="Проверьте фильтры или дождитесь сбора с машин." />
       <table v-else class="data-table"><thead><tr><th>Владелец</th><th>Сертификат</th><th>Срок</th><th>Найден на машинах</th><th>Встроенная лицензия</th></tr></thead>
-        <tbody><tr v-for="c in data.items" :key="c.sha256" class="clickable" @click="emit('open-certificate', c.sha256)">
+        <tbody><tr v-for="c in data.items" :key="c.sha256" class="clickable" tabindex="0" @keydown.enter.self="emit('open-certificate', c.sha256)" @click="emit('open-certificate', c.sha256)">
           <td><CertificateOwner :certificate="c" /></td>
           <td><div class="certificate-serial">{{ c.serial_hex || c.serial_number || '—' }}</div><div class="small muted">{{ c.issuer_cn || 'Издатель не указан' }}</div></td>
           <td>{{ formatDate(c.not_before) }}<br /><span class="muted">— {{ formatDate(c.not_after) }}</span></td>

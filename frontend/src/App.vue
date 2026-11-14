@@ -1,6 +1,10 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, setCSRF } from './api'
+import AppFooter from './components/AppFooter.vue'
+import BrandLogo from './components/BrandLogo.vue'
+import ThemePicker from './components/ThemePicker.vue'
+import NavIcon from './components/NavIcon.vue'
 import Login from './components/Login.vue'
 import OverviewView from './components/OverviewView.vue'
 import MachinesView from './components/MachinesView.vue'
@@ -22,6 +26,7 @@ const checking = ref(true)
 const bootError = ref('')
 const sessionNotice = ref('')
 const view = ref('overview')
+const menuOpen = ref(false)
 const machineId = ref('')
 const certificateSha = ref('')
 let expiryTimer = null
@@ -34,8 +39,8 @@ const nav = [
   { id: 'certificates', label: 'Сертификаты', hint: 'Наблюдения' },
   { id: 'licensing', label: 'Лицензии', hint: 'КриптоПро CSP' },
   { id: 'license-pools', label: 'Пулы лицензий', hint: 'Ключи и резервы' },
-  { id: 'tasks', label: 'Задачи', hint: 'Scan и установка' },
-  { id: 'hostnames', label: 'Hostname', hint: 'Конфликты' },
+  { id: 'tasks', label: 'Задачи', hint: 'Сбор и установка' },
+  { id: 'hostnames', label: 'Имена машин', hint: 'Конфликты' },
   { id: 'events', label: 'События', hint: 'Диагностика' },
   { id: 'api-keys', label: 'API-ключи', hint: 'Интеграции' },
   { id: 'settings', label: 'Настройки', hint: 'Сбор' }
@@ -91,6 +96,7 @@ async function logout() {
   view.value = 'overview'
 }
 function navigate(next) {
+  menuOpen.value = false
   view.value = next
   machineId.value = ''
   certificateSha.value = ''
@@ -115,17 +121,19 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <a v-if="session" class="skip-link" href="#main-content">К содержимому</a>
   <div v-if="checking" class="boot-screen"><div class="spinner"></div><p>Проверка сеанса…</p></div>
   <div v-else-if="bootError" class="boot-screen">
     <div class="boot-error"><strong>Backend недоступен</strong><p>{{ bootError }}</p><button class="btn btn-primary" @click="checkSession">Повторить</button></div>
   </div>
   <Login v-else-if="!session" :notice="sessionNotice" @logged-in="loggedIn" />
   <div v-else class="app-shell">
-    <aside class="sidebar">
-      <div class="sidebar-brand"><div class="brand-mark">TH</div><div><div class="brand-name">Telehack 2026</div><div class="sidebar-subtitle">CryptoPro inventory</div></div></div>
-      <nav class="nav">
-        <button v-for="item in nav" :key="item.id" class="nav-item" :class="{ active: view === item.id || (item.id === 'machines' && view === 'machine') || (item.id === 'certificates' && view === 'certificate') }" @click="navigate(item.id)">
-          <span>{{ item.label }}</span><small>{{ item.hint }}</small>
+    <aside id="main-navigation" class="sidebar" :class="{ 'is-open': menuOpen }">
+      <div class="sidebar-brand"><BrandLogo /><div><div class="brand-name">Мандатник</div><div class="sidebar-subtitle">Инвентаризация сертификатов</div></div></div>
+      <div class="nav-caption">Рабочее пространство</div>
+      <nav class="nav" aria-label="Основная навигация">
+        <button v-for="item in nav" :key="item.id" class="nav-item" :class="{ active: view === item.id || (item.id === 'machines' && view === 'machine') || (item.id === 'certificates' && view === 'certificate') }" :aria-current="(view === item.id || (item.id === 'machines' && view === 'machine') || (item.id === 'certificates' && view === 'certificate')) ? 'page' : undefined" @click="navigate(item.id)">
+          <NavIcon :name="item.id" /><span>{{ item.label }}</span>
         </button>
       </nav>
       <div class="sidebar-footer">
@@ -133,8 +141,11 @@ onUnmounted(() => {
         <button class="btn btn-quiet btn-wide" @click="logout">Выйти</button>
       </div>
     </aside>
-    <main class="content">
-      <header class="topbar"><div><span class="eyebrow">Локальная админка</span><h1>{{ title }}</h1></div><div class="topbar-status"><span class="status-dot"></span> HTTPS · SQL Server</div></header>
+    <main id="main-content" class="content" tabindex="-1">
+      <header class="topbar">
+        <div class="topbar-title"><button class="btn menu-toggle" aria-controls="main-navigation" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen"><NavIcon name="menu" /> Меню</button><div><span class="eyebrow">Инвентаризация / {{ title }}</span><h1>{{ title }}</h1></div></div>
+        <ThemePicker />
+      </header>
       <div class="content-body">
         <OverviewView v-if="view === 'overview'" @navigate="navigate" />
         <MachinesView v-else-if="view === 'machines'" @open-machine="openMachine" />
@@ -151,7 +162,7 @@ onUnmounted(() => {
         <ApiKeysView v-else-if="view === 'api-keys'" />
         <SettingsView v-else-if="view === 'settings'" />
       </div>
-      <footer class="app-footer">Telehack 2026 · только авторизованный административный доступ</footer>
+      <AppFooter />
     </main>
   </div>
 </template>

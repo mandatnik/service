@@ -35,15 +35,29 @@ async function load() {
   } catch (e) { error.value = e.message } finally { busy.value = false }
 }
 
+let licenseRequest = 0
 async function loadLicenses() {
   if (!selectedId.value) return
-  const result = await api.poolLicenses(selectedId.value, { page: page.value, page_size: 50 })
-  licenses.value = result
-  const events = await api.licenseHistory(selectedId.value, { limit: 100 })
-  history.value = events.items || []
+  const request = ++licenseRequest
+  const id = selectedId.value
+  try {
+    const [result, events] = await Promise.all([
+      api.poolLicenses(id, { page: page.value, page_size: 50 }),
+      api.licenseHistory(id, { limit: 100 })
+    ])
+    if (request !== licenseRequest) return
+    licenses.value = result
+    history.value = events.items || []
+  } catch (e) { if (request === licenseRequest) error.value = e.message }
 }
 
-async function selectPool(id) { selectedId.value = id; page.value = 1; importResult.value = null; message.value = ''; await loadLicenses() }
+async function selectPool(id) {
+  if (importing.value) return
+  selectedId.value = id; page.value = 1; importResult.value = null; message.value = ''; error.value = ''
+  importText.value = ''; blocking.value = ''; blockReason.value = ''; renaming.value = ''
+  licenses.value = { items: [], total: 0, page: 1, page_size: 50 }; history.value = []
+  await loadLicenses()
+}
 
 async function createPool() {
   busy.value = true; error.value = ''; message.value = ''
@@ -105,7 +119,7 @@ onMounted(load)
   <section>
     <div class="page-heading">
       <div><p class="muted">Пулы описывают заявленные свойства ключей. После добавления ключей версия, тип и срок пула не меняются.</p></div>
-      <button class="btn" :disabled="busy" @click="load">Обновить</button>
+      <button class="btn" :disabled="busy || importing" @click="load">Обновить</button>
     </div>
     <div v-if="error" class="alert alert-error">{{ error }}</div>
     <div v-if="message" class="alert alert-info">{{ message }}</div>
@@ -118,7 +132,7 @@ onMounted(load)
         <label class="field"><span>Тип</span><select v-model="poolForm.license_kind"><option value="client">Клиентская</option><option value="server">Серверная</option></select></label>
         <label class="field"><span>Заявленный срок</span><select v-model="poolForm.term"><option value="one_year">1 год</option><option value="two_years">2 года</option><option value="perpetual">Бессрочно</option></select></label>
       </div>
-      <div class="heading-actions"><button class="btn btn-primary" :disabled="busy">Создать пул</button></div>
+      <div class="heading-actions"><button class="btn btn-primary" :disabled="busy || importing">Создать пул</button></div>
     </form>
 
     <div class="panel table-panel">
@@ -127,26 +141,26 @@ onMounted(load)
       <table v-else class="data-table">
         <thead><tr><th>Пул</th><th>CSP</th><th>Тип</th><th>Срок</th><th>Свободно</th><th>Состояния</th><th></th></tr></thead>
         <tbody>
-          <tr v-for="p in pools" :key="p.id" class="clickable" @click="selectPool(p.id)">
+          <tr v-for="p in pools" :key="p.id" class="clickable" tabindex="0" @keydown.enter.self="selectPool(p.id)" @click="selectPool(p.id)">
             <td><strong>{{ p.name }}</strong><div v-if="p.archived_at" class="badge badge-neutral">Архив</div></td>
             <td>{{ p.csp_major_version }}</td>
             <td>{{ licenseKindLabel(p.license_kind) }}</td>
             <td>{{ termLabel(p.term) }}</td>
             <td><span class="badge badge-ok">{{ p.counts.available }}</span></td>
             <td class="small">Всего {{ p.counts.total }} · резерв {{ p.counts.reserved }} · использовано {{ p.counts.used }}<span v-if="p.counts.outcome_unknown"> · неизвестно {{ p.counts.outcome_unknown }}</span><span v-if="p.counts.blocked"> · блок {{ p.counts.blocked }}</span></td>
-            <td><div class="heading-actions"><button class="btn" type="button" :disabled="busy" @click.stop="startRename(p)">Переименовать</button><button class="btn" type="button" :disabled="busy" @click.stop="archive(p, !p.archived_at)">{{ p.archived_at ? 'Вернуть' : 'Архивировать' }}</button></div></td>
+            <td><div class="heading-actions"><button class="btn" type="button" :disabled="busy || importing" @click.stop="startRename(p)">Переименовать</button><button class="btn" type="button" :disabled="busy || importing" @click.stop="archive(p, !p.archived_at)">{{ p.archived_at ? 'Вернуть' : 'Архивировать' }}</button></div></td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <form v-if="renaming && selected" class="panel settings-form" @submit.prevent="renamePool(selected)"><h3>Переименование пула</h3><label class="field"><span>Новое название</span><input v-model="renameName" maxlength="200" required /></label><div class="heading-actions"><button class="btn btn-primary" :disabled="busy">Сохранить</button><button class="btn" type="button" @click="renaming = ''">Отмена</button></div></form>
+    <form v-if="renaming && selected" class="panel settings-form" @submit.prevent="renamePool(pools.find(p => p.id === renaming))"><h3>Переименование пула</h3><label class="field"><span>Новое название</span><input v-model="renameName" maxlength="200" required /></label><div class="heading-actions"><button class="btn btn-primary" :disabled="busy || importing">Сохранить</button><button class="btn" type="button" @click="renaming = ''">Отмена</button></div></form>
 
     <template v-if="selected">
       <div class="panel settings-form">
         <h3>Импорт номеров в «{{ selected.name }}»</h3>
         <p class="muted small">По одному номеру на строку. Импорт атомарен: при любой ошибке не добавляется ни один номер. Полные номера не возвращаются сервером, в таблице видны только маски.</p>
-        <textarea v-model="importText" rows="6" class="import-area" placeholder="00000-00000-00000-00000-00000&#10;…" aria-label="Номера лицензий для импорта"></textarea>
+        <textarea :disabled="importing" v-model="importText" rows="6" class="import-area" placeholder="00000-00000-00000-00000-00000&#10;…" aria-label="Номера лицензий для импорта"></textarea>
         <div class="heading-actions"><button class="btn btn-primary" type="button" :disabled="importing || selected.archived_at" @click="importSerials">{{ importing ? 'Проверка…' : 'Проверить и импортировать' }}</button></div>
         <div v-if="importResult?.lines?.length" class="import-results">
           <div v-for="line in importResult.lines" :key="line.line" class="small" :class="line.status === 'accepted' ? 'ok-text' : 'error-text'">
@@ -175,7 +189,7 @@ onMounted(load)
         <div v-if="blocking" class="panel settings-form">
           <h3>Блокировка ключа</h3>
           <label class="field"><span>Причина</span><input v-model="blockReason" maxlength="512" required /></label>
-          <div class="heading-actions"><button class="btn btn-danger" type="button" :disabled="busy" @click="block(licenses.items.find(i => i.id === blocking))">Заблокировать</button><button class="btn" type="button" @click="blocking = ''">Отмена</button></div>
+          <div class="heading-actions"><button class="btn btn-danger" type="button" :disabled="busy || importing" @click="block(licenses.items.find(i => i.id === blocking))">Заблокировать</button><button class="btn" type="button" @click="blocking = ''">Отмена</button></div>
         </div>
         <Pager v-if="licenses.total > licenses.page_size" :page="licenses.page" :page-size="licenses.page_size" :total="licenses.total" @change="changePage" />
       </div>

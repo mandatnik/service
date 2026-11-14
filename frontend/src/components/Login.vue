@@ -1,5 +1,7 @@
 <script setup>
 import { ref } from 'vue'
+import BrandLogo from './BrandLogo.vue'
+import ThemePicker from './ThemePicker.vue'
 import { api, setCSRF } from '../api'
 const props = defineProps({ notice: { type: String, default: '' } })
 const emit = defineEmits(['logged-in'])
@@ -23,18 +25,19 @@ async function submit() {
 </script>
 <template>
   <div class="login-screen">
+    <div class="login-theme"><ThemePicker /></div>
     <div class="login-brand">
-      <div class="brand-mark">TH</div>
+      <BrandLogo />
       <div>
-        <div class="brand-name">Telehack 2026</div>
+        <div class="brand-name">Мандатник</div>
         <div class="muted">Инвентаризация сертификатов</div>
       </div>
     </div>
     <form class="login-card" @submit.prevent="submit">
       <h1>Вход администратора</h1>
-      <p class="muted">Локальная учётная запись. Соединение защищено HTTPS.</p>
+      <p class="muted">Войдите, чтобы управлять машинами, сертификатами и лицензиями.</p>
       <div v-if="notice" class="alert alert-info">{{ notice }}</div>
-      <div v-if="error" class="alert alert-error">{{ error }}</div>
+      <div v-if="error" class="alert alert-error" role="alert">{{ error }}</div>
       <label class="field">
         <span>Логин</span>
         <input v-model="username" autocomplete="username" required autofocus />
@@ -44,7 +47,7 @@ async function submit() {
         <input v-model="password" type="password" autocomplete="current-password" required />
       </label>
       <button class="btn btn-primary btn-wide" :disabled="busy">{{ busy ? 'Проверка…' : 'Войти' }}</button>
-      <p class="login-help muted">Учётные записи создаются администратором напрямую в базе данных.</p>
+      <p class="login-help muted">Нет доступа? Обратитесь к администратору системы.</p>
     </form>
   </div>
 </template>

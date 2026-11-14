@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { api } from '../api'
 import { formatTime, licenseKindLabel, stateLabel } from '../format'
 
@@ -10,6 +10,23 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'created'])
 
+const dialog = ref(null)
+let initializing = false
+let previewRequest = 0
+watch(() => props.visible, async visible => {
+  if (visible) {
+    await nextTick()
+    if (props.visible && !dialog.value.open) dialog.value.showModal()
+  } else {
+    previewRequest++
+    if (dialog.value?.open) dialog.value.close()
+  }
+}, { flush: 'post' })
+function closeOnBackdrop(event) {
+  if (event.target !== dialog.value) return
+  const rect = dialog.value.getBoundingClientRect()
+  if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) emit('close')
+}
 const pools = ref([])
 const poolId = ref('')
 const preview = ref(null)
@@ -50,22 +67,27 @@ async function loadPools() {
 async function loadPreview() {
   if (!poolId.value) return
   if (!props.machineIds.length && !props.groupIds.length) { error.value = 'Не выбрано ни одной машины.'; return }
+  const request = ++previewRequest
   busy.value = true; error.value = ''; message.value = ''; preview.value = null
   try {
-    preview.value = await api.activationPreview({ pool_id: poolId.value, machine_ids: props.machineIds, group_ids: props.groupIds })
+    const response = await api.activationPreview({ pool_id: poolId.value, machine_ids: props.machineIds, group_ids: props.groupIds })
+    if (request !== previewRequest || !props.visible) return
+    preview.value = response
     const defaults = new Set(preview.value.preview?.default_selected || [])
     selected.value = defaults
-  } catch (e) { error.value = e.message } finally { busy.value = false }
+  } catch (e) { if (request === previewRequest) error.value = e.message } finally { if (request === previewRequest) busy.value = false }
 }
 
 watch(() => props.visible, async visible => {
   if (!visible) return
   preview.value = null; selected.value = new Set(); error.value = ''; message.value = ''
+  initializing = true
   await loadPools()
-  await loadPreview()
+  initializing = false
+  if (props.visible) await loadPreview()
 }, { immediate: false })
 
-watch(poolId, () => { if (props.visible) loadPreview() })
+watch(poolId, () => { if (props.visible && !initializing) loadPreview() })
 
 function toggle(id, enabled) {
   if (!enabled) return
@@ -124,8 +146,8 @@ function reasonText(m) {
 </script>
 
 <template>
-  <div v-if="visible" class="modal-backdrop" @click.self="emit('close')">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="activation-title">
+  <dialog ref="dialog" class="modal activation-dialog" aria-labelledby="activation-title" @cancel.prevent="emit('close')" @click="closeOnBackdrop">
+    <div class="modal-content">
       <div class="modal-head">
         <div><span class="eyebrow">Удалённая активация</span><h2 id="activation-title">Активировать лицензию</h2><p class="muted">Один пул и один снимок получателей. Несовместимые машины исключены.</p></div>
         <button class="btn" type="button" @click="emit('close')">Закрыть</button>
@@ -135,8 +157,8 @@ function reasonText(m) {
       <div v-if="!pools.length" class="alert alert-info">Нет доступных пулов лицензий. Создайте пул в разделе «Пулы лицензий».</div>
       <div v-else class="toolbar">
         <label class="field"><span>Пул</span>
-          <select v-model="poolId" aria-label="Пул лицензий">
-            <option v-for="p in pools" :key="p.id" :value="p.id">{{ p.name }} · CSP {{ p.csp_major_version }} · {{ licenseKindLabel(p.license_kind) }} · {{ p.term }}</option>
+          <select :disabled="busy" v-model="poolId" aria-label="Пул лицензий">
+            <option v-for="p in pools" :key="p.id" :value="p.id">{{ p.name }} · CSP {{ p.csp_major_version }} · {{ licenseKindLabel(p.license_kind) }} · {{ ({ one_year: '1 год', two_years: '2 года', perpetual: 'Бессрочно' })[p.term] || p.term }}</option>
           </select>
         </label>
         <button class="btn" type="button" :disabled="busy" @click="loadPreview">Пересчитать предпросмотр</button>
@@ -155,7 +177,7 @@ function reasonText(m) {
           <p class="muted small">Без действующей лицензии отметка включена. Подтверждённый триал отмечен, но по умолчанию выключен.</p>
           <div class="modal-list">
             <label v-for="m in activation" :key="m.machine_id" class="modal-row" :class="{ disabled: !m.selectable }">
-              <input type="checkbox" :checked="isSelected(m.machine_id)" :disabled="!m.selectable" @change="toggle(m.machine_id, m.selectable)" />
+              <input type="checkbox" :checked="isSelected(m.machine_id)" :disabled="busy || !m.selectable" @change="toggle(m.machine_id, m.selectable)" />
               <span><strong>{{ m.display_name }}</strong><div class="small muted">{{ m.hostname }}</div></span>
               <span><span class="badge" :class="m.subtype === 'activation_trial' ? 'badge-warning' : 'badge-neutral'">{{ m.subtype === 'activation_trial' ? 'Триал' : 'Нет лицензии' }}</span></span>
               <span class="small">{{ reasonText(m) }}<div class="muted">CSP {{ m.product_version || '—' }} · сертификат {{ m.suitable_certificate ? 'подходит' : 'нет' }}</div></span>
@@ -165,11 +187,11 @@ function reasonText(m) {
         </section>
 
         <section class="modal-section">
-          <h3><label><input type="checkbox" :checked="optionalAll" :indeterminate="optionalIndeterminate" @change="toggleOptional($event.target.checked)" /> 2. Можно не активировать</label><span class="badge-count">{{ optional.length }}</span></h3>
+          <h3><label><input type="checkbox" :disabled="busy" :checked="optionalAll" :indeterminate="optionalIndeterminate" @change="toggleOptional($event.target.checked)" /> 2. Можно не активировать</label><span class="badge-count">{{ optional.length }}</span></h3>
           <p class="muted small">Администратор может включить машину вручную, если считает активацию необходимой.</p>
           <div class="modal-list">
             <label v-for="m in optional" :key="m.machine_id" class="modal-row" :class="{ disabled: !m.selectable }">
-              <input type="checkbox" :checked="isSelected(m.machine_id)" :disabled="!m.selectable" @change="toggle(m.machine_id, m.selectable)" />
+              <input type="checkbox" :checked="isSelected(m.machine_id)" :disabled="busy || !m.selectable" @change="toggle(m.machine_id, m.selectable)" />
               <span><strong>{{ m.display_name }}</strong><div class="small muted">{{ m.hostname }}</div></span>
               <span><span class="badge badge-neutral">Без лицензии</span></span>
               <span class="small">{{ reasonText(m) }}</span>
@@ -225,5 +247,5 @@ function reasonText(m) {
         </div>
       </template>
     </div>
-  </div>
+  </dialog>
 </template>

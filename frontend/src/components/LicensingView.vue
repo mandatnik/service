@@ -22,7 +22,7 @@ onMounted(load)
 <template>
   <section>
     <div class="page-heading"><div><p class="muted">Лицензии КриптоПро на рабочих машинах. Технические сведения доступны по нажатию на строку.</p></div><button class="btn" @click="load">Обновить</button></div>
-    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input v-model="query" placeholder="Машина или версия" /><select v-model="kind" @change="apply"><option value="">Все типы</option><option value="client">Клиентская</option><option value="server">Серверная</option><option value="unknown">Неизвестно</option></select><button class="btn">Найти</button></form></div>
+    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input aria-label="Поиск лицензий" v-model="query" placeholder="Машина или версия" /><select aria-label="Тип лицензии" v-model="kind" @change="apply"><option value="">Все типы</option><option value="client">Клиентская</option><option value="server">Серверная</option><option value="unknown">Неизвестно</option></select><button class="btn">Найти</button></form></div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
       <div v-if="loading" class="state">Загрузка…</div>

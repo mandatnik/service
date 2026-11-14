@@ -5,6 +5,7 @@ import { formatTime } from '../format'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
 import Pager from './Pager.vue'
+import ActivationModal from './ActivationModal.vue'
 
 const kind = ref('')
 const state = ref('')
@@ -102,7 +103,7 @@ onMounted(() => { load(); loadCatalog() })
   <section>
     <div class="page-heading"><div><p class="muted">Единая задача содержит отдельные выполнения на машинах. Счётчики и состояния вычисляются по выполнениям.</p></div><button class="btn" :disabled="loading" @click="load">Обновить</button></div>
     <form class="panel settings-form" @submit.prevent="createScanTask"><h3>Новый scan</h3><p class="muted small">Запуск из раздела задач; выбор машин фиксируется в снимке получателей.</p><label class="field"><span>Машины</span><select v-model="scanMachines" multiple size="4" aria-label="Машины для scan"><option v-for="m in machineCatalog" :key="m.id" :value="m.id">{{ m.name }}</option></select></label><div class="heading-actions"><button class="btn btn-primary" :disabled="scanBusy || !scanMachines.length">Создать scan</button><button class="btn" type="button" :disabled="!scanMachines.length" @click="activationVisible = true">Активировать лицензию</button></div></form>
-    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><select v-model="kind" @change="apply"><option value="">Все виды</option><option value="scan">scan</option><option value="install_license">Установка лицензии</option></select><select v-model="state" @change="apply"><option value="">Все состояния</option><option value="queued">Ожидает</option><option value="running">Выполняется</option><option value="requires_attention">Нужно внимание</option><option value="completed">Завершена</option><option value="partially_failed">Частичный результат</option><option value="failed">Ошибка</option><option value="cancelled">Отменена</option><option value="expired">Истекла</option></select><button class="btn">Найти</button></form></div>
+    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><select aria-label="Вид задачи" v-model="kind" @change="apply"><option value="">Все виды</option><option value="scan">scan</option><option value="install_license">Установка лицензии</option></select><select aria-label="Состояние задачи" v-model="state" @change="apply"><option value="">Все состояния</option><option value="queued">Ожидает</option><option value="running">Выполняется</option><option value="requires_attention">Нужно внимание</option><option value="completed">Завершена</option><option value="partially_failed">Частичный результат</option><option value="failed">Ошибка</option><option value="cancelled">Отменена</option><option value="expired">Истекла</option></select><button class="btn">Найти</button></form></div>
     <div v-if="error" class="alert alert-error">{{ error }}</div>
     <div v-if="message" class="alert alert-info">{{ message }}</div>
     <div class="panel table-panel">
@@ -111,7 +112,7 @@ onMounted(() => { load(); loadCatalog() })
       <table v-else class="data-table">
         <thead><tr><th>Задача</th><th>Вид</th><th>Состояние</th><th>Прогресс</th><th>Автор</th><th>Срок</th></tr></thead>
         <tbody>
-          <tr v-for="task in data.items" :key="task.id" class="clickable" @click="openTask(task.id)">
+          <tr v-for="task in data.items" :key="task.id" class="clickable" tabindex="0" @keydown.enter.self="openTask(task.id)" @click="openTask(task.id)">
             <td><code class="small">{{ task.id }}</code><div v-if="task.legacy_job_id" class="small muted">legacy job {{ task.legacy_job_id }}</div></td>
             <td>{{ kindLabel(task.kind) }}</td>
             <td><span class="badge" :class="['completed'].includes(task.state) ? 'badge-ok' : ['requires_attention','partially_failed','failed'].includes(task.state) ? 'badge-error' : 'badge-neutral'">{{ taskState(task.state) }}</span><div v-if="task.unknown_items" class="small error-text">неизвестно: {{ task.unknown_items }}</div></td>
