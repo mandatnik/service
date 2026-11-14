@@ -427,7 +427,7 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		item.Groups = []MachineGroupRef{}
 		item.Offline = item.LastSeenAt == nil || now.Sub(*item.LastSeenAt) > 20*time.Minute
 		item.DisplayName = machineDisplayName(item.DisplayName, item.UUID, item.MachineID)
-		item.Status = deriveMachineStatus(item.Offline, item.CSPPresent, item.LicenseState, item.IsTrial, item.RegistryCerts, item.LicensedCerts)
+		item.Status = deriveMachineStatus(item.CSPPresent, item.LicenseState, item.IsTrial, item.RegistryCerts, item.LicensedCerts)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {

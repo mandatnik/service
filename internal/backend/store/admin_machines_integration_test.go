@@ -199,4 +199,23 @@ VALUES(@p1,@p2,N'FALLBACK-TEST',N'fallback-test',N'test',REPLICATE('c',64),N'act
 	if got := fallbackPage.Items[0].Status; got != MachineStatusCSPMissing {
 		t.Fatalf("fallback status = %q, want %q", got, MachineStatusCSPMissing)
 	}
+
+	// Going offline must not hide the licensing status: the online column and
+	// the status column are independent.
+	if _, err := pool.ExecContext(ctx, `UPDATE dbo.registrations SET last_seen_at=DATEADD(minute,-30,SYSUTCDATETIME()) WHERE machine_id=@p1`, fallbackMachine); err != nil {
+		t.Fatal(err)
+	}
+	offlinePage, err := s.ListMachines(ctx, AdminMachineFilter{MachineID: fallbackMachine, Page: 1, PageSize: 25})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(offlinePage.Items) != 1 {
+		t.Fatalf("offline items = %d, want 1", len(offlinePage.Items))
+	}
+	if !offlinePage.Items[0].Offline {
+		t.Fatal("offline flag = false, want true")
+	}
+	if got := offlinePage.Items[0].Status; got != MachineStatusCSPMissing {
+		t.Fatalf("offline status = %q, want %q", got, MachineStatusCSPMissing)
+	}
 }

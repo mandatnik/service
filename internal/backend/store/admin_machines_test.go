@@ -30,7 +30,6 @@ func TestMachineDisplayName(t *testing.T) {
 func TestDeriveMachineStatus(t *testing.T) {
 	cases := []struct {
 		name          string
-		offline       bool
 		cspPresent    bool
 		licenseState  string
 		trial         string
@@ -39,68 +38,62 @@ func TestDeriveMachineStatus(t *testing.T) {
 		want          string
 	}{
 		{
-			name:    "7.0 offline wins over every other problem",
-			offline: true, cspPresent: false, registryCerts: 5,
-			want: MachineStatusOffline,
-		},
-		{
-			name:    "7.1 missing CSP wins over certificate coverage",
-			offline: false, cspPresent: false, licenseState: "active", trial: "no",
-			registryCerts: 2, licensedCerts: 0,
+			name:       "7.1 missing CSP is reported regardless of certificate coverage",
+			cspPresent: false, licenseState: "active", trial: "no", registryCerts: 5,
 			want: MachineStatusCSPMissing,
 		},
 		{
-			name:    "7.2 active trial and uncovered certificates",
-			offline: false, cspPresent: true, licenseState: "active", trial: "yes",
+			name:       "7.2 active trial and uncovered certificates",
+			cspPresent: true, licenseState: "active", trial: "yes",
 			registryCerts: 3, licensedCerts: 1,
 			want: MachineStatusTrial,
 		},
 		{
-			name:    "7.3 expired license and uncovered certificates",
-			offline: false, cspPresent: true, licenseState: "expired", trial: "no",
+			name:       "7.3 expired license and uncovered certificates",
+			cspPresent: true, licenseState: "expired", trial: "no",
 			registryCerts: 3, licensedCerts: 1,
 			want: MachineStatusLicenseRequired,
 		},
 		{
-			name:    "7.3 no license and uncovered certificates",
-			offline: false, cspPresent: true, licenseState: "not_installed", trial: "unknown",
+			name:       "7.3 no license and uncovered certificates",
+			cspPresent: true, licenseState: "not_installed", trial: "unknown",
 			registryCerts: 1, licensedCerts: 0,
 			want: MachineStatusLicenseRequired,
 		},
 		{
-			name:    "7.4 all certificates have embedded licenses",
-			offline: false, cspPresent: true, licenseState: "expired", trial: "no",
+			name:       "7.4 all certificates have embedded licenses",
+			cspPresent: true, licenseState: "expired", trial: "no",
 			registryCerts: 2, licensedCerts: 2,
 			want: MachineStatusOK,
 		},
 		{
-			name:    "7.4 zero certificates need no license",
-			offline: false, cspPresent: true, licenseState: "expired", trial: "no",
+			name:       "7.4 zero certificates need no license",
+			cspPresent: true, licenseState: "expired", trial: "no",
 			registryCerts: 0, licensedCerts: 0,
 			want: MachineStatusOK,
 		},
 		{
-			name:    "7.4 active non-trial license covers uncovered certificates",
-			offline: false, cspPresent: true, licenseState: "active", trial: "no",
+			name:       "7.4 active non-trial license covers uncovered certificates",
+			cspPresent: true, licenseState: "active", trial: "no",
 			registryCerts: 4, licensedCerts: 1,
 			want: MachineStatusOK,
 		},
 		{
-			name:    "unknown trial flag on an active license is treated as non-trial",
-			offline: false, cspPresent: true, licenseState: "active", trial: "unknown",
+			name:       "unknown trial flag on an active license is treated as non-trial",
+			cspPresent: true, licenseState: "active", trial: "unknown",
 			registryCerts: 4, licensedCerts: 1,
 			want: MachineStatusOK,
 		},
 		{
-			name:    "trial flag on an expired license is not a trial version",
-			offline: false, cspPresent: true, licenseState: "expired", trial: "yes",
+			name:       "trial flag on an expired license is not a trial version",
+			cspPresent: true, licenseState: "expired", trial: "yes",
 			registryCerts: 2, licensedCerts: 0,
 			want: MachineStatusLicenseRequired,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := deriveMachineStatus(tc.offline, tc.cspPresent, tc.licenseState, tc.trial, tc.registryCerts, tc.licensedCerts)
+			got := deriveMachineStatus(tc.cspPresent, tc.licenseState, tc.trial, tc.registryCerts, tc.licensedCerts)
 			if got != tc.want {
 				t.Fatalf("deriveMachineStatus() = %q, want %q", got, tc.want)
 			}

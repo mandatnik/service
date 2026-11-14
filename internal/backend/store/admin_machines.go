@@ -5,7 +5,6 @@ import "strings"
 // Machine status values returned by the admin machine list. The UI maps them
 // to labels and tones without duplicating the precedence rules below.
 const (
-	MachineStatusOffline         = "offline"
 	MachineStatusCSPMissing      = "csp_missing"
 	MachineStatusTrial           = "trial"
 	MachineStatusLicenseRequired = "license_required"
@@ -30,12 +29,11 @@ func licenseIsActiveTrial(state, trial string) bool {
 	return strings.EqualFold(state, "active") && strings.EqualFold(trial, "yes")
 }
 
-// deriveMachineStatus applies the precedence documented for the machine list:
-// connection first, then CSP presence, then certificate/license coverage.
-func deriveMachineStatus(offline, cspPresent bool, licenseState, trial string, registryCerts, licensedCerts int) string {
-	if offline {
-		return MachineStatusOffline
-	}
+// deriveMachineStatus applies the documented precedence for certificate and
+// license coverage. Connection state is intentionally not part of it: the
+// online/offline indicator lives in a separate column and must not hide the
+// machine's licensing status.
+func deriveMachineStatus(cspPresent bool, licenseState, trial string, registryCerts, licensedCerts int) string {
 	if !cspPresent {
 		return MachineStatusCSPMissing
 	}

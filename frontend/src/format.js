@@ -101,14 +101,15 @@ export function onlineView(machine, now = Date.now()) {
 
 export function cspView(machine) {
   if (!machine?.csp_present) {
-    return { label: 'Не найден', subtext: 'КриптоПро CSP не обнаружен', tone: 'danger' }
+    return { label: 'Не найден', subtext: 'КриптоПро CSP не обнаружен', tone: 'danger', server: false }
   }
   const version = machine.product_version || machine.core_version || ''
   const subtext = [cspKindLabel(machine.license_kind), version].filter(Boolean).join(' · ')
   return {
     label: 'КриптоПро CSP',
     subtext: subtext || 'Версия не собрана',
-    tone: machine.license_kind === 'server' ? 'danger' : 'ok'
+    tone: machine.license_kind === 'server' ? 'danger' : 'ok',
+    server: machine.license_kind === 'server'
   }
 }
 
@@ -173,7 +174,6 @@ export function groupBadges(groups, limit = 2) {
 
 export function machineStatusView(status) {
   const labels = {
-    offline: { label: 'Не в сети', tone: 'neutral' },
     csp_missing: { label: 'CSP не установлен', tone: 'danger' },
     trial: { label: 'Пробная версия', tone: 'warning' },
     license_required: { label: 'Требуется лицензия', tone: 'danger' },

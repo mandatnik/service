@@ -56,17 +56,20 @@ test('cspView highlights missing and server-side CryptoPro', () => {
   assert.deepEqual(cspView({ csp_present: false }), {
     label: 'Не найден',
     subtext: 'КриптоПро CSP не обнаружен',
-    tone: 'danger'
+    tone: 'danger',
+    server: false
   })
   assert.deepEqual(cspView({ csp_present: true, license_kind: 'client', product_version: '5.0.13003' }), {
     label: 'КриптоПро CSP',
     subtext: 'Клиентский · 5.0.13003',
-    tone: 'ok'
+    tone: 'ok',
+    server: false
   })
   assert.deepEqual(cspView({ csp_present: true, license_kind: 'server', product_version: '4.0.9963' }), {
     label: 'КриптоПро CSP',
     subtext: 'Серверный · 4.0.9963',
-    tone: 'danger'
+    tone: 'danger',
+    server: true
   })
 })
 
@@ -120,7 +123,6 @@ test('groupBadges limits visible groups and reports the hidden count', () => {
 })
 
 test('machineStatusView maps every status to the required label and colour', () => {
-  assert.deepEqual(machineStatusView('offline'), { label: 'Не в сети', tone: 'neutral' })
   assert.deepEqual(machineStatusView('csp_missing'), { label: 'CSP не установлен', tone: 'danger' })
   assert.deepEqual(machineStatusView('trial'), { label: 'Пробная версия', tone: 'warning' })
   assert.deepEqual(machineStatusView('license_required'), { label: 'Требуется лицензия', tone: 'danger' })

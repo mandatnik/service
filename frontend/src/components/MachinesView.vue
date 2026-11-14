@@ -104,10 +104,10 @@ onMounted(load)
               <span class="badge" :class="badgeClass(row.view.online.tone)">{{ row.view.online.label }}</span>
               <div class="small muted">{{ row.view.online.subtext }}</div>
             </td>
-            <td :class="{ 'cell-danger': row.view.csp.tone === 'danger' }">
+            <td>
               <span v-if="!row.machine.csp_present" class="badge badge-error">Не найден</span>
               <strong v-else>{{ row.view.csp.label }}</strong>
-              <div class="small muted">{{ row.view.csp.subtext }}</div>
+              <div class="small" :class="row.view.csp.server ? 'csp-server-note' : 'muted'">{{ row.view.csp.subtext }}</div>
             </td>
             <td>
               <div class="machine-groups">

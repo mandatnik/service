@@ -214,9 +214,7 @@ input[type="checkbox"] { width:16px; height:16px; min-width:16px; accent-color:v
 .machines-table .machine-uuid { display:block; margin-top:4px; }
 .machines-table .archive-badge { margin-left:6px; }
 .machines-table .license-terms { margin-top:4px; }
-.machines-table .cell-danger { background: var(--danger-bg); box-shadow: inset 3px 0 var(--danger); }
-.machines-table .cell-danger .small, .machines-table .cell-danger .muted { color: var(--danger); }
-.data-table tbody tr:hover td.cell-danger { background: var(--danger-bg); }
+.machines-table .csp-server-note { color: var(--danger); }
 .group-badge { border:0; cursor:pointer; font-family:inherit; font-size:11px; line-height:1.4; }
 .group-badge:hover { background: var(--info-bg); color: var(--info); }
 .group-overflow { cursor:help; }
