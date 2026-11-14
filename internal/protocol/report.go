@@ -105,16 +105,19 @@ type ObservedFile struct {
 // licensing state. A missing CSP is a successful result (Present=false), not
 // a partial report.
 type CSPResult struct {
-	Scanned        bool          `json:"scanned"`
-	Complete       bool          `json:"complete"`
-	Present        bool          `json:"present"`
-	ProductVersion string        `json:"product_version,omitempty"`
-	CoreVersion    string        `json:"core_version,omitempty"`
-	Environment    string        `json:"environment,omitempty"`
-	Products       []CSPProduct  `json:"products,omitempty"`
-	License        LicenseInfo   `json:"license"`
-	Licenses       []LicenseInfo `json:"licenses,omitempty"`
-	Error          string        `json:"error,omitempty"`
+	Scanned        bool         `json:"scanned"`
+	Complete       bool         `json:"complete"`
+	Present        bool         `json:"present"`
+	ProductVersion string       `json:"product_version,omitempty"`
+	CoreVersion    string       `json:"core_version,omitempty"`
+	Environment    string       `json:"environment,omitempty"`
+	Products       []CSPProduct `json:"products,omitempty"`
+	License        LicenseInfo  `json:"license"`
+	// Licenses has no omitempty: a new agent that found no serial reports an
+	// explicit empty array so the server can clear stale rows. An old agent
+	// omits the field entirely, which means "leave existing rows untouched".
+	Licenses []LicenseInfo `json:"licenses"`
+	Error    string        `json:"error,omitempty"`
 }
 
 // CSPProduct is one installed CryptoPro product entry from the uninstall

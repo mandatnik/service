@@ -7,8 +7,8 @@
 
 - `cmd/agent` — Windows-служба LocalSystem, собирает сертификаты из личных
   хранилищ всех локальных профилей и из настроенных папок `.cer`.
-- `cmd/backend` — один portable Go-процесс: агентский и административный
-  HTTPS-listeners, миграции, SQL Server 2019.
+- `cmd/backend` — один portable Go-процесс: агентский, административный и
+  интеграционный HTTPS-listeners, миграции, SQL Server 2019.
 - `cmd/acceptance` — воспроизводимый контрактный/приёмочный клиент.
 - `internal/protocol` — версионированный протокол, JCS, подписи, DTO,
   валидация отчётов и конфигурации.
@@ -38,6 +38,14 @@ EXE. MSI/GPO/upgrade/repair/uninstall описаны в `deploy/msi` и
 [планирование](docs/plans/remote-activation-and-tasks.md),
 [протокол](docs/protocol.md), [конфигурация](docs/configuration.md),
 [админка](docs/admin.md), [приёмка](docs/acceptance/REMOTE-ACTIVATION-0.5.0.md).
+
+Интеграционный REST API для внешних систем добавлен поверх 0.5.0: отдельный
+HTTPS-listener `8446`, префикс `/api/integration/v1`, Bearer-ключи
+`mndk_<64 hex>` с IP/CIDR allowlist и только чтение текущей инвентаризации
+(машины, группы, политики, сертификаты, лицензии, события) плюс идемпотентный
+запуск scan. Ключи создаются в админке, токен показывается один раз. Контракт:
+[api/integration-openapi.yaml](api/integration-openapi.yaml); эксплуатация:
+[docs/admin.md](docs/admin.md), [docs/configuration.md](docs/configuration.md).
 
 ## Сборка
 

@@ -142,15 +142,15 @@ func queryLicense(dispatch *ole.IDispatch, product CSPProduct) (protocol.License
 		} else {
 			info.State = "active"
 		}
-		return info, nil
+	} else {
+		rawText := wallClock.Format("2006-01-02T15:04:05")
+		localWall := time.Date(wallClock.Year(), wallClock.Month(), wallClock.Day(), wallClock.Hour(), wallClock.Minute(), wallClock.Second(), 0, time.Local)
+		info.ValidToRaw = rawText
+		info.ValidToUTC = localWall.UTC().Format(time.RFC3339)
+		info.TimeBasis = "system_local_assumed"
+		info.TermKind = licenseclass.TermKind(true)
+		info.State = licenseclass.StateFromWallClock(localWall, time.Now())
 	}
-	rawText := wallClock.Format("2006-01-02T15:04:05")
-	localWall := time.Date(wallClock.Year(), wallClock.Month(), wallClock.Day(), wallClock.Hour(), wallClock.Minute(), wallClock.Second(), 0, time.Local)
-	info.ValidToRaw = rawText
-	info.ValidToUTC = localWall.UTC().Format(time.RFC3339)
-	info.TimeBasis = "system_local_assumed"
-	info.TermKind = licenseclass.TermKind(true)
-	info.State = licenseclass.StateFromWallClock(localWall, time.Now())
 
 	serial, serialErr := ReadLicenseSerial(product.GUID)
 	if serialErr != nil {
@@ -214,24 +214,33 @@ func ReadLicenseSerial(productGUID string) (string, error) {
 }
 
 // msiCompressedGUID converts an MSI ProductCode GUID to the registry product
-// key form used below UserData\S-1-5-18\Products.
+// key form used below UserData\S-1-5-18\Products. The first three groups are
+// stored with the byte order reversed and each byte's nibbles swapped; the
+// last two groups only swap adjacent bytes. This is the documented packed-GUID
+// representation, verified against both CryptoPro product codes.
 func msiCompressedGUID(guid string) (string, error) {
 	trimmed := strings.TrimSpace(strings.Trim(guid, "{}"))
 	parts := strings.Split(trimmed, "-")
 	if len(parts) != 5 || len(parts[0]) != 8 || len(parts[1]) != 4 || len(parts[2]) != 4 || len(parts[3]) != 4 || len(parts[4]) != 12 {
 		return "", fmt.Errorf("invalid product GUID %q", guid)
 	}
-	compressed := reverseString(parts[0]) + reverseString(parts[1]) + reverseString(parts[2]) +
+	compressed := packGUIDPrefix(parts[0]) + packGUIDPrefix(parts[1]) + packGUIDPrefix(parts[2]) +
 		swapPairs(parts[3]) + swapPairs(parts[4])
 	return strings.ToUpper(compressed), nil
 }
 
-func reverseString(value string) string {
-	runes := []rune(value)
-	for left, right := 0, len(runes)-1; left < right; left, right = left+1, right-1 {
-		runes[left], runes[right] = runes[right], runes[left]
+// packGUIDPrefix reverses the byte order and swaps nibbles inside each byte.
+func packGUIDPrefix(value string) string {
+	if len(value)%2 != 0 {
+		return value
 	}
-	return string(runes)
+	out := make([]byte, len(value))
+	for index := 0; index < len(value); index += 2 {
+		source := len(value) - 2 - index
+		out[index] = value[source+1]
+		out[index+1] = value[source]
+	}
+	return string(out)
 }
 
 func swapPairs(value string) string {

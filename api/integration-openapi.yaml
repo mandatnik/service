@@ -1,0 +1,1403 @@
+openapi: 3.0.3
+info:
+  title: Мандатник — Integration API
+  version: "1.0.0"
+  description: |
+    REST/JSON API для интеграции с сервисом учёта сертификатов и лицензий
+    КриптоПро «Мандатник».
+
+    ## Транспорт и авторизация
+    - HTTPS, отдельный listener, по умолчанию `0.0.0.0:8446`.
+    - `Authorization: Bearer mndk_<64 hex-символа>` на каждом запросе.
+    - API-ключ создаётся в административном интерфейсе сервиса, показывается
+      один раз; в БД хранится только SHA-256 ключа.
+    - Каждый ключ имеет полный доступ, но может быть ограничен списком
+      IP/CIDR. Проверяется IP сокета (`RemoteAddr`), без `X-Forwarded-For`.
+    - Пустой `allowed_ips` у ключа означает запрет всех запросов (403).
+      При создании ключа требуется хотя бы один IP/CIDR; очистка списка
+      при редактировании отключает ключ.
+
+    ## Конвенции
+    - Время — RFC 3339 в UTC, допускается до 9 знаков дробной части секунды.
+    - Пагинация offset: `page` с 1, `page_size` 1…500, по умолчанию 50.
+    - Ошибки: `{"error": {"code": "...", "message": "..."}}`.
+    - Все изменяющие операции идемпотентны там, где это указано.
+    - Действия через integration API записываются в события с actor =
+      имя/идентификатор API-ключа.
+
+    ## license_id
+    Лицензия описывает один продукт (CSP, OCSP, TSP) на одной машине.
+    `license_id` вычисляется сервером по формуле:
+
+    ```
+    normalized = upper(serial без дефисов и пробелов)
+    masked = normalized[:-5] + "*****"
+    license_id = lowercase_hex(SHA256(UTF-8(masked)))
+    ```
+
+    Если serial отсутствует или короче 5 символов, запись лицензии не
+    создаётся; в карточке машины `license_status = unknown`.
+
+    ## Совместимость
+    - `has_license` машины заменён на `license_status`.
+    - `license_id` — новая сущность лицензии; `GET /licensing/{license_id}`.
+    - `POST /scan-jobs` возвращает 202 при полном успехе и 207 при частичном.
+    - Для совместимости с C# SDK ответы содержат alias-поля `type`, `status`,
+      `expires_at`, `csp_product_version`, `csp_core_version`, `kind`,
+      `state`; они помечены `deprecated` и не должны использоваться новым кодом.
+servers:
+  - url: https://mandatnik.example:8446
+    description: Пример; фактический адрес выдаётся администратором сервиса.
+tags:
+  - name: machines
+    description: Рабочие станции
+  - name: groups
+    description: Группы машин
+  - name: policies
+    description: Политики папок с сертификатами .cer
+  - name: certificates
+    description: Сертификаты
+  - name: licensing
+    description: Лицензии КриптоПро
+  - name: events
+    description: Журнал событий
+  - name: jobs
+    description: Задания принудительного сбора
+security:
+  - bearerAuth: []
+paths:
+  /api/integration/v1/machines:
+    get:
+      tags: [machines]
+      summary: Список рабочих станций
+      operationId: listMachines
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: online
+          in: query
+          description: true — только машины, выходившие на связь не позднее порога.
+          schema: { type: boolean }
+        - name: online_threshold_minutes
+          in: query
+          description: Порог онлайн-статуса в минутах. По умолчанию 30.
+          schema: { type: integer, minimum: 1, default: 30 }
+        - name: license_status
+          in: query
+          description: Статус лицензии CSP на машине.
+          schema: { $ref: '#/components/schemas/MachineLicenseStatus' }
+        - name: hostname
+          in: query
+          description: Подстрока hostname без учёта регистра.
+          schema: { type: string, maxLength: 253 }
+        - name: group_id
+          in: query
+          description: Только машины, входящие в группу.
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Страница машин
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MachinePage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/machines/{machine_id}:
+    get:
+      tags: [machines]
+      summary: Карточка машины
+      operationId: getMachine
+      parameters:
+        - $ref: '#/components/parameters/MachineIdPath'
+      responses:
+        '200':
+          description: Машина, регистрации, пользователи, источники, CSP, отчёты, события, задания, группы
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MachineDetails' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/groups:
+    get:
+      tags: [groups]
+      summary: Список групп
+      operationId: listGroups
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница групп
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GroupPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [groups]
+      summary: Создать группу
+      operationId: createGroup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupUpsert' }
+      responses:
+        '201':
+          description: Группа создана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GroupIdResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/groups/{group_id}:
+    get:
+      tags: [groups]
+      summary: Группа и её машины
+      operationId: getGroup
+      parameters:
+        - $ref: '#/components/parameters/GroupIdPath'
+      responses:
+        '200':
+          description: Группа с составом
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GroupDetails' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [groups]
+      summary: Полностью заменить название и состав группы
+      operationId: updateGroup
+      parameters:
+        - $ref: '#/components/parameters/GroupIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupUpsert' }
+      responses:
+        '200':
+          description: Группа обновлена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [groups]
+      summary: Удалить группу
+      description: Машины не удаляются; членство и назначения политик группе снимаются.
+      operationId: deleteGroup
+      parameters:
+        - $ref: '#/components/parameters/GroupIdPath'
+      responses:
+        '200':
+          description: Группа удалена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/groups/{group_id}/members:
+    post:
+      tags: [groups]
+      summary: Идемпотентно добавить машины в группу
+      operationId: addGroupMembers
+      parameters:
+        - $ref: '#/components/parameters/GroupIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MachineIdsRequest' }
+      responses:
+        '200':
+          description: Машины добавлены
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [groups]
+      summary: Удалить машины из группы
+      operationId: removeGroupMembers
+      parameters:
+        - $ref: '#/components/parameters/GroupIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MachineIdsRequest' }
+      responses:
+        '200':
+          description: Машины удалены из группы
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/folder-policies:
+    get:
+      tags: [policies]
+      summary: Список политик папок
+      operationId: listFolderPolicies
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Страница политик
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FolderPolicyPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [policies]
+      summary: Создать политику папок
+      operationId: createFolderPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FolderPolicyUpsert' }
+      responses:
+        '201':
+          description: Политика создана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PolicyIdResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/folder-policies/{policy_id}:
+    get:
+      tags: [policies]
+      summary: Политика папок
+      operationId: getFolderPolicy
+      parameters:
+        - $ref: '#/components/parameters/PolicyIdPath'
+      responses:
+        '200':
+          description: Политика с назначениями
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FolderPolicy' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    put:
+      tags: [policies]
+      summary: Полностью заменить политику
+      operationId: updateFolderPolicy
+      parameters:
+        - $ref: '#/components/parameters/PolicyIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FolderPolicyUpsert' }
+      responses:
+        '200':
+          description: Политика обновлена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [policies]
+      summary: Удалить политику и назначения
+      operationId: deleteFolderPolicy
+      parameters:
+        - $ref: '#/components/parameters/PolicyIdPath'
+      responses:
+        '200':
+          description: Политика удалена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/folder-policies/{policy_id}/machines:
+    post:
+      tags: [policies]
+      summary: Добавить назначения политики машинам
+      operationId: addPolicyMachines
+      parameters:
+        - $ref: '#/components/parameters/PolicyIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MachineIdsRequest' }
+      responses:
+        '200':
+          description: Назначения добавлены
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [policies]
+      summary: Снять назначения политики с машин
+      operationId: removePolicyMachines
+      parameters:
+        - $ref: '#/components/parameters/PolicyIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MachineIdsRequest' }
+      responses:
+        '200':
+          description: Назначения сняты
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/folder-policies/{policy_id}/groups:
+    post:
+      tags: [policies]
+      summary: Добавить назначения политики группам
+      operationId: addPolicyGroups
+      parameters:
+        - $ref: '#/components/parameters/PolicyIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupIdsRequest' }
+      responses:
+        '200':
+          description: Назначения добавлены
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [policies]
+      summary: Снять назначения политики с групп
+      operationId: removePolicyGroups
+      parameters:
+        - $ref: '#/components/parameters/PolicyIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupIdsRequest' }
+      responses:
+        '200':
+          description: Назначения сняты
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OkResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/certificates:
+    get:
+      tags: [certificates]
+      summary: Список сертификатов
+      operationId: listCertificates
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: machine_id
+          in: query
+          description: Только сертификаты, обнаруженные на машине.
+          schema: { type: string, format: uuid }
+        - name: subject
+          in: query
+          description: Подстрока subject DN или CN владельца.
+          schema: { type: string, maxLength: 512 }
+        - name: serial
+          in: query
+          description: Точный серийный номер сертификата.
+          schema: { type: string, maxLength: 256 }
+        - name: validity
+          in: query
+          description: Срок действия.
+          schema: { $ref: '#/components/schemas/CertificateValidity' }
+      responses:
+        '200':
+          description: Страница сертификатов
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CertificatePage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/certificates/{sha256}:
+    get:
+      tags: [certificates]
+      summary: Карточка сертификата по SHA-256 DER
+      operationId: getCertificate
+      parameters:
+        - $ref: '#/components/parameters/Sha256Path'
+      responses:
+        '200':
+          description: Сертификат и все наблюдения
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CertificateDetails' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/licensing:
+    get:
+      tags: [licensing]
+      summary: Список лицензий КриптоПро
+      operationId: listLicenses
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: machine_id
+          in: query
+          description: Лицензии указанной машины.
+          schema: { type: string, format: uuid }
+        - name: product
+          in: query
+          description: Код продукта. Известные значения csp, ocsp, tsp.
+          schema: { type: string, enum: [csp, ocsp, tsp] }
+        - name: product_code
+          in: query
+          description: "Числовой код CAdESCOM_PRODUCT: CSP=0, OCSP=1, TSP=2."
+          schema: { type: integer, enum: [0, 1, 2] }
+        - name: license_kind
+          in: query
+          description: Тип лицензии.
+          schema: { $ref: '#/components/schemas/LicenseKind' }
+        - name: type
+          in: query
+          deprecated: true
+          description: Alias для license_kind.
+          schema: { $ref: '#/components/schemas/LicenseKind' }
+        - name: is_trial
+          in: query
+          description: Пробная лицензия.
+          schema: { type: boolean }
+        - name: license_state
+          in: query
+          description: Состояние лицензии.
+          schema: { $ref: '#/components/schemas/LicenseState' }
+        - name: status
+          in: query
+          deprecated: true
+          description: Alias для license_state.
+          schema: { $ref: '#/components/schemas/LicenseState' }
+        - name: csp_version
+          in: query
+          description: Подстрока версии CSP.
+          schema: { type: string, maxLength: 128 }
+      responses:
+        '200':
+          description: Страница лицензий
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LicensePage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/licensing/{license_id}:
+    get:
+      tags: [licensing]
+      summary: Лицензия по license_id
+      operationId: getLicense
+      parameters:
+        - $ref: '#/components/parameters/LicenseIdPath'
+      responses:
+        '200':
+          description: Лицензия
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/License' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/events:
+    get:
+      tags: [events]
+      summary: Журнал событий
+      operationId: listEvents
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: severity
+          in: query
+          schema: { $ref: '#/components/schemas/EventSeverity' }
+        - name: type
+          in: query
+          description: Код типа события (в БД — kind).
+          schema: { type: string, maxLength: 64 }
+        - name: kind
+          in: query
+          deprecated: true
+          description: Alias для type.
+          schema: { type: string, maxLength: 64 }
+        - name: machine_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: since
+          in: query
+          description: Нижняя граница created_at включительно.
+          schema: { type: string, format: date-time }
+        - name: until
+          in: query
+          description: Верхняя граница created_at включительно.
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Страница событий
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/scan-jobs:
+    get:
+      tags: [jobs]
+      summary: Список заданий
+      operationId: listScanJobs
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: machine_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/JobStatus' }
+        - name: state
+          in: query
+          deprecated: true
+          description: Alias для status.
+          schema: { $ref: '#/components/schemas/JobStatus' }
+      responses:
+        '200':
+          description: Страница заданий
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [jobs]
+      summary: Создать задания принудительного сбора
+      description: |
+        Указывается `machine_ids` и/или `group_id`; списки объединяются,
+        дубликаты машин убираются. Если у машины уже есть задание в состоянии
+        `pending` или `delivered`, новое не создаётся, машина попадает в
+        `skipped`. Неизвестный `machine_id` — 400 без создания заданий;
+        неизвестный `group_id` — 404. Ответ 202 при полном успехе, 207 при
+        частичном.
+      operationId: createScanJobs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScanRequest' }
+      responses:
+        '202':
+          description: Все задания созданы
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanJobsResponse' }
+        '207':
+          description: Часть машин пропущена, для остальных задания созданы
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScanJobsResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/integration/v1/scan-jobs/{job_id}:
+    get:
+      tags: [jobs]
+      summary: Задание по job_id
+      operationId: getScanJob
+      parameters:
+        - $ref: '#/components/parameters/JobIdPath'
+      responses:
+        '200':
+          description: Задание
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: mndk_<64 hex>
+      description: API-ключ, созданный в административном интерфейсе «Мандатника».
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: Номер страницы, начиная с 1.
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      description: Размер страницы; максимум 500.
+      schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+    MachineIdPath:
+      name: machine_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    GroupIdPath:
+      name: group_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PolicyIdPath:
+      name: policy_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    JobIdPath:
+      name: job_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Sha256Path:
+      name: sha256
+      in: path
+      required: true
+      description: SHA-256 полного DER сертификата, 64 hex.
+      schema: { type: string, pattern: '^[0-9a-fA-F]{64}$' }
+    LicenseIdPath:
+      name: license_id
+      in: path
+      required: true
+      description: SHA-256 замаскированного серийного номера, 64 lowercase hex.
+      schema: { type: string, pattern: '^[0-9a-f]{64}$' }
+  responses:
+    BadRequest:
+      description: Неверный JSON, фильтр или параметры запроса
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: API-ключ отсутствует, неизвестен, отозван или неверен
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Forbidden:
+      description: IP источника не входит в allowed_ips ключа
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    NotFound:
+      description: Сущность не найдена
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Conflict:
+      description: Конфликт имени, состояния или регистрации
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    UnprocessableEntity:
+      description: Семантическая ошибка, например неверные правила политики
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    InternalError:
+      description: Внутренняя ошибка или недоступность БД; повтор допустим
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Стабильный машинный код.
+          example: not_found
+        message:
+          type: string
+          description: Человекочитаемое сообщение.
+          example: machine not found
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: '#/components/schemas/Error' }
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean, example: true }
+    MachineLicenseStatus:
+      type: string
+      description: |
+        Агрегированный статус лицензии CSP на машине. Приоритет:
+        active, expired, error, not_installed, unknown.
+      enum: [active, expired, not_installed, error, unknown]
+    CertificateValidity:
+      type: string
+      enum: [valid, expired, future]
+    LicenseKind:
+      type: string
+      enum: [client, server, unknown]
+    LicenseState:
+      type: string
+      enum: [active, expired, not_installed, unknown, error]
+    EventSeverity:
+      type: string
+      enum: [info, warning, error]
+    JobStatus:
+      type: string
+      enum: [pending, delivered, completed, failed, report_evicted, canceled]
+    Machine:
+      type: object
+      required: [machine_id, display_name, license_status]
+      properties:
+        machine_id: { type: string, format: uuid }
+        display_name: { type: string, maxLength: 253 }
+        hostname: { type: string, maxLength: 253, nullable: true }
+        uuid:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID активной регистрации агента.
+        registration_state:
+          type: string
+          nullable: true
+          enum: [active, renamed, revoked, null]
+        first_seen: { type: string, format: date-time, nullable: true }
+        last_seen: { type: string, format: date-time, nullable: true }
+        online: { type: boolean, nullable: true }
+        offline: { type: boolean, nullable: true }
+        os_version: { type: string, maxLength: 128, nullable: true }
+        agent_version: { type: string, maxLength: 128, nullable: true }
+        architecture: { type: string, maxLength: 32, nullable: true }
+        license_status:
+          $ref: '#/components/schemas/MachineLicenseStatus'
+        csp_version:
+          type: string
+          nullable: true
+          deprecated: true
+          description: Alias для product_version.
+        product_version: { type: string, maxLength: 128, nullable: true }
+        core_version: { type: string, maxLength: 128, nullable: true }
+        license_kind:
+          allOf: [{ $ref: '#/components/schemas/LicenseKind' }]
+          nullable: true
+        license_state:
+          allOf: [{ $ref: '#/components/schemas/LicenseState' }]
+          nullable: true
+        term_kind:
+          type: string
+          nullable: true
+          enum: [trial, time_limited, perpetual, unknown, null]
+        is_trial: { type: boolean, nullable: true }
+        users: { type: integer, minimum: 0, nullable: true }
+        active_certificates: { type: integer, minimum: 0, nullable: true }
+        group_ids:
+          type: array
+          items: { type: string, format: uuid }
+        source_ip: { type: string, nullable: true }
+        dns_status:
+          type: string
+          nullable: true
+          enum: [verified, mismatch, error, unknown, null]
+        hostname_conflict: { type: boolean, nullable: true }
+        last_report_id: { type: string, format: uuid, nullable: true }
+        last_report_status:
+          type: string
+          nullable: true
+          enum: [complete, partial, null]
+        last_report_at: { type: string, format: date-time, nullable: true }
+        applied_sources: { type: integer, minimum: 0, nullable: true }
+      description: |
+        `has_license` удалён; используйте `license_status`. Поле
+        `license_state` — состояние конкретной CSP-лицензии, а
+        `license_status` — агрегированный статус для фильтра.
+    Registration:
+      type: object
+      required: [registration_id, uuid, hostname, state]
+      properties:
+        registration_id: { type: integer, format: int64 }
+        uuid: { type: string, format: uuid }
+        hostname: { type: string, maxLength: 253 }
+        state: { type: string, enum: [active, renamed, revoked] }
+        key_fingerprint: { type: string, nullable: true }
+        created_at: { type: string, format: date-time, nullable: true }
+        last_seen_at: { type: string, format: date-time, nullable: true }
+        source_ip: { type: string, nullable: true }
+        dns_status:
+          type: string
+          nullable: true
+          enum: [verified, mismatch, error, unknown, null]
+        previous_registration_id: { type: integer, format: int64, nullable: true }
+        replaced_by_registration_id: { type: integer, format: int64, nullable: true }
+        revoked_at: { type: string, format: date-time, nullable: true }
+    MachineUser:
+      type: object
+      required: [machine_user_id, sid, name]
+      properties:
+        machine_user_id: { type: integer, format: int64 }
+        sid: { type: string, maxLength: 184 }
+        name: { type: string, maxLength: 256 }
+        profile_path: { type: string, maxLength: 1024, nullable: true }
+        loaded: { type: boolean }
+        present: { type: boolean }
+        first_seen_at: { type: string, format: date-time, nullable: true }
+        last_seen_at: { type: string, format: date-time, nullable: true }
+    SourceState:
+      type: object
+      required: [source_type, source_key]
+      properties:
+        source_type: { type: string, maxLength: 16 }
+        source_key: { type: string, maxLength: 1024 }
+        last_scan_seq: { type: integer, format: int64, minimum: 0 }
+        last_complete: { type: boolean }
+        last_collected_at: { type: string, format: date-time, nullable: true }
+        last_report_id: { type: string, format: uuid, nullable: true }
+        stale: { type: boolean }
+    CspState:
+      type: object
+      properties:
+        scanned: { type: boolean }
+        complete: { type: boolean }
+        present: { type: boolean }
+        product_version: { type: string, maxLength: 128, nullable: true }
+        core_version: { type: string, maxLength: 128, nullable: true }
+        license_kind:
+          allOf: [{ $ref: '#/components/schemas/LicenseKind' }]
+          nullable: true
+        license_kind_raw: { type: string, maxLength: 64, nullable: true }
+        license_kind_source: { type: string, maxLength: 128, nullable: true }
+        license_state:
+          allOf: [{ $ref: '#/components/schemas/LicenseState' }]
+          nullable: true
+        valid_to_utc: { type: string, format: date-time, nullable: true }
+        valid_to_raw: { type: string, maxLength: 128, nullable: true }
+        time_basis: { type: string, maxLength: 32, nullable: true }
+        term_kind:
+          type: string
+          nullable: true
+          enum: [trial, time_limited, perpetual, unknown, null]
+        is_trial: { type: boolean, nullable: true }
+        is_trial_raw:
+          type: string
+          nullable: true
+          description: Исходное значение true/false/unknown.
+        source: { type: string, maxLength: 128, nullable: true }
+        error: { type: string, maxLength: 2048, nullable: true }
+        products_json: { type: string, nullable: true }
+        last_scan_seq: { type: integer, format: int64, nullable: true }
+        collected_at: { type: string, format: date-time, nullable: true }
+        last_attempt_error: { type: string, maxLength: 2048, nullable: true }
+    ReportInfo:
+      type: object
+      required: [report_id]
+      properties:
+        report_id: { type: string, format: uuid }
+        scan_seq: { type: integer, format: int64, minimum: 0 }
+        status: { type: string, enum: [complete, partial] }
+        applied: { type: boolean }
+        applied_sources: { type: integer, minimum: 0 }
+        collected_at: { type: string, format: date-time, nullable: true }
+        received_at: { type: string, format: date-time, nullable: true }
+    HostnameCompetitor:
+      type: object
+      properties:
+        registration_id: { type: integer, format: int64 }
+        uuid: { type: string, format: uuid, nullable: true }
+        hostname: { type: string, maxLength: 253, nullable: true }
+        machine_id: { type: string, format: uuid, nullable: true }
+        display_name: { type: string, maxLength: 253, nullable: true }
+    HostnameInfo:
+      type: object
+      required: [hostname_norm]
+      properties:
+        hostname_norm: { type: string, maxLength: 253 }
+        display_name: { type: string, maxLength: 253, nullable: true }
+        owner_registration_id: { type: integer, format: int64, nullable: true }
+        owner_machine_id: { type: string, format: uuid, nullable: true }
+        owner_display_name: { type: string, maxLength: 253, nullable: true }
+        competing:
+          type: array
+          items: { $ref: '#/components/schemas/HostnameCompetitor' }
+    MachineDetails:
+      type: object
+      required: [machine]
+      properties:
+        machine: { $ref: '#/components/schemas/Machine' }
+        registrations:
+          type: array
+          items: { $ref: '#/components/schemas/Registration' }
+        users:
+          type: array
+          items: { $ref: '#/components/schemas/MachineUser' }
+        sources:
+          type: array
+          items: { $ref: '#/components/schemas/SourceState' }
+        csp:
+          allOf: [{ $ref: '#/components/schemas/CspState' }]
+          nullable: true
+        reports:
+          type: array
+          items: { $ref: '#/components/schemas/ReportInfo' }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/AuditEvent' }
+        jobs:
+          type: array
+          items: { $ref: '#/components/schemas/Job' }
+        group_ids:
+          type: array
+          items: { type: string, format: uuid }
+        hostnames:
+          type: array
+          items: { $ref: '#/components/schemas/HostnameInfo' }
+    MachinePage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Machine' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 500 }
+        total: { type: integer, minimum: 0 }
+    Group:
+      type: object
+      required: [group_id, name]
+      properties:
+        group_id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        machine_count: { type: integer, minimum: 0, nullable: true }
+        machine_ids:
+          type: array
+          items: { type: string, format: uuid }
+        machines:
+          type: array
+          nullable: true
+          items: { $ref: '#/components/schemas/Machine' }
+    GroupDetails:
+      type: object
+      required: [group, machines]
+      properties:
+        group: { $ref: '#/components/schemas/Group' }
+        machines:
+          type: array
+          items: { $ref: '#/components/schemas/Machine' }
+    GroupPage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Group' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 500 }
+        total: { type: integer, minimum: 0 }
+    GroupUpsert:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Уникальное название группы.
+        machine_ids:
+          type: array
+          items: { type: string, format: uuid }
+          description: Полный состав группы; при PUT заменяет прежний.
+    MachineIdsRequest:
+      type: object
+      required: [machine_ids]
+      properties:
+        machine_ids:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+    GroupIdsRequest:
+      type: object
+      required: [group_ids]
+      properties:
+        group_ids:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+    GroupIdResponse:
+      type: object
+      required: [group_id]
+      properties:
+        group_id: { type: string, format: uuid }
+    FolderPolicy:
+      type: object
+      required: [policy_id, name, rules]
+      properties:
+        policy_id: { type: string, format: uuid }
+        name: { type: string, maxLength: 200 }
+        rules:
+          type: string
+          description: |
+            Многострочный текст шаблонов, похожий на .gitignore, с
+            положительными включениями и исключениями через `!`.
+            Абсолютные пути, `/` и `\` нормализуются.
+        machine_ids:
+          type: array
+          items: { type: string, format: uuid }
+        group_ids:
+          type: array
+          items: { type: string, format: uuid }
+    FolderPolicyUpsert:
+      type: object
+      required: [name, rules]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Уникальное название политики.
+        rules:
+          type: string
+          minLength: 1
+        machine_ids:
+          type: array
+          items: { type: string, format: uuid }
+        group_ids:
+          type: array
+          items: { type: string, format: uuid }
+    FolderPolicyPage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/FolderPolicy' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 500 }
+        total: { type: integer, minimum: 0 }
+    PolicyIdResponse:
+      type: object
+      required: [policy_id]
+      properties:
+        policy_id: { type: string, format: uuid }
+    Certificate:
+      type: object
+      required: [sha256]
+      properties:
+        sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: SHA-256 полного DER, технический идентификатор.
+        serial_hex: { type: string, maxLength: 256, nullable: true }
+        serial_number: { type: string, maxLength: 256, nullable: true }
+        subject: { type: string, nullable: true }
+        issuer: { type: string, nullable: true }
+        owner_cn: { type: string, maxLength: 512, nullable: true }
+        organization: { type: string, nullable: true }
+        department: { type: string, nullable: true }
+        issuer_cn: { type: string, nullable: true }
+        inn: { type: string, maxLength: 64, nullable: true }
+        snils: { type: string, maxLength: 64, nullable: true }
+        not_before: { type: string, format: date-time, nullable: true }
+        not_after: { type: string, format: date-time, nullable: true }
+        embedded_license:
+          type: string
+          nullable: true
+          enum: [present, absent, unknown, null]
+        machines: { type: integer, minimum: 0, nullable: true }
+        observations: { type: integer, minimum: 0, nullable: true }
+        active: { type: boolean }
+        created_at: { type: string, format: date-time, nullable: true }
+        updated_at: { type: string, format: date-time, nullable: true }
+    CertificateObservation:
+      type: object
+      required: [observation_id, machine_id, source_type, source_key]
+      properties:
+        observation_id: { type: integer, format: int64 }
+        machine_id: { type: string, format: uuid }
+        machine_name: { type: string, maxLength: 253, nullable: true }
+        user_sid: { type: string, maxLength: 184, nullable: true }
+        user_name: { type: string, maxLength: 256, nullable: true }
+        source_type: { type: string, maxLength: 16 }
+        source_key: { type: string, maxLength: 1024 }
+        file_path: { type: string, maxLength: 1024, nullable: true }
+        active: { type: boolean }
+        first_seen_at: { type: string, format: date-time, nullable: true }
+        last_seen_at: { type: string, format: date-time, nullable: true }
+        removed_at: { type: string, format: date-time, nullable: true }
+        last_report_id: { type: string, format: uuid, nullable: true }
+    CertificateDetails:
+      type: object
+      required: [certificate, observations]
+      properties:
+        certificate: { $ref: '#/components/schemas/Certificate' }
+        observations:
+          type: array
+          items: { $ref: '#/components/schemas/CertificateObservation' }
+    CertificatePage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Certificate' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 500 }
+        total: { type: integer, minimum: 0 }
+    License:
+      type: object
+      required: [license_id, machine_id, serial_masked, product, product_code, license_state]
+      properties:
+        license_id:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: |
+            lowercase_hex(SHA256(UTF-8(masked_serial))), где masked_serial —
+            upper(serial без дефисов/пробелов), последние 5 символов заменены
+            на `*****`.
+        machine_id: { type: string, format: uuid }
+        hostname: { type: string, maxLength: 253, nullable: true }
+        display_name: { type: string, maxLength: 253, nullable: true }
+        serial_masked:
+          type: string
+          maxLength: 64
+          description: Замаскированный серийный номер; полный serial не раскрывается.
+          example: 50509X00000130DFD8EV*****
+        product:
+          type: string
+          description: Стабильный код продукта; известные значения csp, ocsp, tsp.
+          example: csp
+        product_code:
+          type: integer
+          description: CAdESCOM_PRODUCT CSP=0, OCSP=1, TSP=2.
+          enum: [0, 1, 2]
+        product_name: { type: string, nullable: true, example: КриптоПро CSP }
+        csp_version: { type: string, maxLength: 128, nullable: true }
+        product_version: { type: string, maxLength: 128, nullable: true }
+        core_version: { type: string, maxLength: 128, nullable: true }
+        license_kind:
+          allOf: [{ $ref: '#/components/schemas/LicenseKind' }]
+          nullable: true
+        type:
+          allOf: [{ $ref: '#/components/schemas/LicenseKind' }]
+          nullable: true
+          deprecated: true
+          description: Alias для license_kind.
+        license_state:
+          $ref: '#/components/schemas/LicenseState'
+        status:
+          allOf: [{ $ref: '#/components/schemas/LicenseState' }]
+          deprecated: true
+          description: Alias для license_state.
+        valid_to_utc: { type: string, format: date-time, nullable: true }
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          deprecated: true
+          description: Alias для valid_to_utc.
+        valid_to_raw: { type: string, maxLength: 128, nullable: true }
+        term_kind:
+          type: string
+          nullable: true
+          enum: [trial, time_limited, perpetual, unknown, null]
+        is_trial: { type: boolean, nullable: true }
+        source: { type: string, maxLength: 128, nullable: true }
+        complete: { type: boolean, nullable: true }
+        error: { type: string, maxLength: 2048, nullable: true }
+        last_attempt_error: { type: string, maxLength: 2048, nullable: true }
+        collected_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time, nullable: true }
+        updated_at: { type: string, format: date-time, nullable: true }
+        csp_product_version:
+          type: string
+          nullable: true
+          deprecated: true
+          description: Alias для csp_version/product_version.
+        csp_core_version:
+          type: string
+          nullable: true
+          deprecated: true
+          description: Alias для core_version.
+      description: |
+        Одна лицензия на один продукт на одной машине. Серийный номер
+        считается уникальным; при обнаружении того же serial на другой машине
+        сервер фиксирует конфликт и не объединяет записи автоматически.
+        Встроенная лицензия сертификата здесь отсутствует — это поле
+        `embedded_license` сертификата.
+    LicensePage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/License' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 500 }
+        total: { type: integer, minimum: 0 }
+    AuditEvent:
+      type: object
+      required: [event_id, type, severity, message, created_at]
+      properties:
+        event_id: { type: integer, format: int64 }
+        type:
+          type: string
+          maxLength: 64
+          description: Код типа события (в БД — kind).
+        kind:
+          type: string
+          maxLength: 64
+          deprecated: true
+          description: Alias для type.
+        severity: { $ref: '#/components/schemas/EventSeverity' }
+        message: { type: string, maxLength: 1024 }
+        machine_id: { type: string, format: uuid, nullable: true }
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Разобранный details_json.
+        details_json:
+          type: string
+          nullable: true
+          description: Исходная строка JSON из БД.
+        created_at: { type: string, format: date-time }
+    EventPage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AuditEvent' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 500 }
+        total: { type: integer, minimum: 0 }
+    Job:
+      type: object
+      required: [job_id, kind, status, created_at]
+      properties:
+        job_id: { type: string, format: uuid }
+        machine_id: { type: string, format: uuid, nullable: true }
+        kind: { type: string, example: scan }
+        status: { $ref: '#/components/schemas/JobStatus' }
+        state:
+          allOf: [{ $ref: '#/components/schemas/JobStatus' }]
+          deprecated: true
+          description: Alias для status.
+        created_at: { type: string, format: date-time }
+        delivered_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+        report_id: { type: string, format: uuid, nullable: true }
+        message: { type: string, maxLength: 1024, nullable: true }
+    SkippedScan:
+      type: object
+      required: [machine_id]
+      properties:
+        machine_id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid, nullable: true }
+        status: { $ref: '#/components/schemas/JobStatus' }
+        state:
+          allOf: [{ $ref: '#/components/schemas/JobStatus' }]
+          deprecated: true
+          description: Alias для status.
+    ScanRequest:
+      type: object
+      description: Нужно указать machine_ids и/или group_id. Списки объединяются.
+      properties:
+        machine_ids:
+          type: array
+          items: { type: string, format: uuid }
+        group_id: { type: string, format: uuid, nullable: true }
+    ScanJobsResponse:
+      type: object
+      required: [jobs]
+      properties:
+        jobs:
+          type: array
+          items: { $ref: '#/components/schemas/Job' }
+        skipped:
+          type: array
+          items: { $ref: '#/components/schemas/SkippedScan' }
+    JobPage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Job' }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 500 }
+        total: { type: integer, minimum: 0 }

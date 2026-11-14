@@ -124,6 +124,7 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
 {
   "agent_listen": "0.0.0.0:8443",
   "admin_listen": "0.0.0.0:8444",
+  "integration_listen": "0.0.0.0:8446",
   "tls_cert_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.crt",
   "tls_key_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.key",
   "log_file": "C:\\ProgramData\\Telehack2026\\Backend\\logs\\backend.txt",
@@ -148,12 +149,17 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
 
 - `admin_session_hours` — срок жизни сессии администратора, 1–72 часа
   (по умолчанию 12). Cookie сессии HttpOnly/Secure/SameSite=Strict.
+- `integration_listen` — отдельный HTTPS-listener интеграционного REST API
+  (по умолчанию `0.0.0.0:8446`). Пустое значение заменяется значением по
+  умолчанию; порт обязан отличаться от `agent_listen` и `admin_listen`.
+  API использует Bearer-ключи `mndk_<64 hex>`, создаваемые в админке.
 - Пароль БД не хранится в файле: только имя переменной окружения.
 - `trust_server_certificate=true` допустим только как явная диагностическая
   настройка; в примере и на стенде — `false`.
 - `ca_file` — PEM-корень, которым проверяется TLS SQL Server.
 - `db.server_name` — имя для проверки SAN сертификата SQL Server.
-- Порт агентского и административного API обязаны различаться.
+- Порты агентского, административного и интеграционного API обязаны
+  различаться.
 - TLS-сертификат бэкенда — файл и ключ; минимальная версия TLS 1.2.
 
 ### 2.1. Keyring лицензий и резервное восстановление
@@ -220,6 +226,7 @@ Bootstrap создаёт БД, если её нет, логин `telehack_app` �
 | --- | --- | --- |
 | Бэкенд, агентский API | 8443/tcp | входящий на сервере, исходящий у агента |
 | Бэкенд, админка | 8444/tcp | входящий на сервере |
+| Бэкенд, интеграционный API | 8446/tcp | входящий на сервере для доверенных систем |
 | SQL Server | 1433/tcp | бэкенд → SQL Server |
 | Агент | — | входящих портов нет |
 
