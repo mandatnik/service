@@ -43,8 +43,8 @@ onMounted(load)
     </div>
     <div class="toolbar">
       <form class="search-form" @submit.prevent="apply">
-        <input v-model="query" placeholder="Имя, hostname или UUID" />
-        <select v-model="status" @change="apply">
+        <input aria-label="Поиск машин" v-model="query" placeholder="Имя, hostname или UUID" />
+        <select aria-label="Фильтр по состоянию" v-model="status" @change="apply">
           <option value="">Все состояния</option>
           <option value="active">Доступные</option>
           <option value="offline">Нет связи</option>
@@ -63,7 +63,7 @@ onMounted(load)
       <table v-else class="data-table">
         <thead><tr><th class="selection-cell"><input type="checkbox" :checked="allSelected" :indeterminate="!allSelected && data.items.some(m => selected.includes(m.machine_id))" aria-label="Выбрать все машины на странице" @change="selectPage($event.target.checked)" /></th><th>Машина</th><th>Hostname / UUID</th><th>Связь</th><th>CSP</th><th>Лицензия</th><th>Сбор</th><th>Данные</th></tr></thead>
         <tbody>
-          <tr v-for="m in data.items" :key="m.machine_id" class="clickable" @click="emit('open-machine', m.machine_id)">
+          <tr v-for="m in data.items" :key="m.machine_id" class="clickable" tabindex="0" @keydown.enter.self="emit('open-machine', m.machine_id)" @click="emit('open-machine', m.machine_id)">
             <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="m.machine_id" :aria-label="`Выбрать ${m.display_name}`" /></td>
             <td><strong>{{ m.display_name }}</strong><div class="machine-groups"><span v-for="group in groupsFor(m.machine_id)" :key="group.id" class="badge badge-neutral">{{ group.name }}</span></div><div v-if="m.hostname_conflict" class="badge badge-warning">hostname конфликт</div></td>
             <td><div>{{ m.hostname || '—' }}</div><code class="small">{{ m.uuid || 'нет регистрации' }}</code></td>

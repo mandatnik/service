@@ -21,7 +21,7 @@ onMounted(load)
 <template>
   <section>
     <div class="page-heading"><div><p class="muted">Ошибки сбора, DNS-предупреждения, конфликты и административные действия.</p></div><button class="btn" @click="load">Обновить</button></div>
-    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input v-model="query" placeholder="Тип или текст" /><select v-model="severity" @change="apply"><option value="">Все уровни</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option></select><button class="btn">Найти</button></form></div>
+    <div class="toolbar"><form class="search-form" @submit.prevent="apply"><input aria-label="Поиск событий" v-model="query" placeholder="Тип или текст" /><select aria-label="Уровень события" v-model="severity" @change="apply"><option value="">Все уровни</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option></select><button class="btn">Найти</button></form></div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else class="panel table-panel">
       <div v-if="loading" class="state">Загрузка…</div>

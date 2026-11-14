@@ -20,7 +20,7 @@ onUnmounted(() => clearInterval(timer))
   <section>
     <div class="page-heading">
       <div><p class="muted">Сводка по машинам, сертификатам и каналам связи.</p></div>
-      <button class="btn" @click="load">Обновить</button>
+      <button class="btn" :disabled="loading" @click="load">{{ loading ? 'Обновление…' : 'Обновить' }}</button>
     </div>
     <ErrorState v-if="error" :message="error" @retry="load" />
     <div v-else-if="loading && !data" class="state">Загрузка…</div>
@@ -33,7 +33,7 @@ onUnmounted(() => clearInterval(timer))
       </div>
       <div class="panel two-column">
         <div>
-          <h3>Состояние backend</h3>
+          <h3>Состояние системы</h3>
           <dl class="facts">
             <dt>SQL Server</dt><dd><span class="badge" :class="data.db_ok ? 'badge-ok' : 'badge-error'">{{ data.db_ok ? 'доступен' : 'недоступен' }}</span></dd>
             <dt>Последний отчёт</dt><dd>{{ formatTime(data.last_report_at) }}</dd>
