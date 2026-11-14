@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, setCSRF } from './api'
+import AppFooter from './components/AppFooter.vue'
 import BrandLogo from './components/BrandLogo.vue'
 import ThemePicker from './components/ThemePicker.vue'
 import NavIcon from './components/NavIcon.vue'
@@ -150,7 +151,7 @@ onUnmounted(() => {
         <PoliciesView v-else-if="view === 'policies'" />
         <SettingsView v-else-if="view === 'settings'" />
       </div>
-      <footer class="app-footer">Мандатник · Панель администратора</footer>
+      <AppFooter />
     </main>
   </div>
 </template>
