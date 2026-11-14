@@ -39,18 +39,24 @@ func TestDeriveMachineStatus(t *testing.T) {
 	}{
 		{
 			name:       "7.1 missing CSP is reported regardless of certificate coverage",
-			cspPresent: false, licenseState: "active", trial: "no", registryCerts: 5,
+			cspPresent: false, licenseState: "active", trial: "false", registryCerts: 5,
 			want: MachineStatusCSPMissing,
 		},
 		{
 			name:       "7.2 active trial and uncovered certificates",
-			cspPresent: true, licenseState: "active", trial: "yes",
+			cspPresent: true, licenseState: "active", trial: "true",
 			registryCerts: 3, licensedCerts: 1,
 			want: MachineStatusTrial,
 		},
 		{
+			name:       "7.2 legacy yes trial flag is accepted",
+			cspPresent: true, licenseState: "active", trial: "yes",
+			registryCerts: 1, licensedCerts: 0,
+			want: MachineStatusTrial,
+		},
+		{
 			name:       "7.3 expired license and uncovered certificates",
-			cspPresent: true, licenseState: "expired", trial: "no",
+			cspPresent: true, licenseState: "expired", trial: "false",
 			registryCerts: 3, licensedCerts: 1,
 			want: MachineStatusLicenseRequired,
 		},
@@ -62,19 +68,19 @@ func TestDeriveMachineStatus(t *testing.T) {
 		},
 		{
 			name:       "7.4 all certificates have embedded licenses",
-			cspPresent: true, licenseState: "expired", trial: "no",
+			cspPresent: true, licenseState: "expired", trial: "false",
 			registryCerts: 2, licensedCerts: 2,
 			want: MachineStatusOK,
 		},
 		{
 			name:       "7.4 zero certificates need no license",
-			cspPresent: true, licenseState: "expired", trial: "no",
+			cspPresent: true, licenseState: "expired", trial: "false",
 			registryCerts: 0, licensedCerts: 0,
 			want: MachineStatusOK,
 		},
 		{
 			name:       "7.4 active non-trial license covers uncovered certificates",
-			cspPresent: true, licenseState: "active", trial: "no",
+			cspPresent: true, licenseState: "active", trial: "false",
 			registryCerts: 4, licensedCerts: 1,
 			want: MachineStatusOK,
 		},
@@ -86,7 +92,7 @@ func TestDeriveMachineStatus(t *testing.T) {
 		},
 		{
 			name:       "trial flag on an expired license is not a trial version",
-			cspPresent: true, licenseState: "expired", trial: "yes",
+			cspPresent: true, licenseState: "expired", trial: "true",
 			registryCerts: 2, licensedCerts: 0,
 			want: MachineStatusLicenseRequired,
 		},

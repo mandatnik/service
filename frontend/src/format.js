@@ -117,6 +117,11 @@ function licenseDate(machine) {
   return machine?.license_valid_to || ''
 }
 
+function trialFlag(value) {
+  const normalized = String(value || '').toLowerCase()
+  return normalized === 'true' || normalized === 'yes'
+}
+
 function daysRemaining(value, now) {
   const time = new Date(value).getTime()
   if (Number.isNaN(time)) return null
@@ -128,7 +133,7 @@ export function licenseView(machine, now = Date.now()) {
   const validTo = licenseDate(machine)
   const date = validTo ? formatDate(validTo) : ''
   if (state === 'active') {
-    if (String(machine?.is_trial) === 'yes') {
+    if (trialFlag(machine?.is_trial)) {
       return { label: 'Пробная', tone: 'warning', lines: activeLicenseLines(machine, validTo, date, now) }
     }
     return { label: 'Активная', tone: 'ok', lines: activeLicenseLines(machine, validTo, date, now) }

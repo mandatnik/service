@@ -21,12 +21,16 @@ func machineDisplayName(displayName, uuid, machineID string) string {
 	return machineID
 }
 
+func trialFlag(value string) bool {
+	return strings.EqualFold(value, "true") || strings.EqualFold(value, "yes")
+}
+
 func licenseIsActiveNonTrial(state, trial string) bool {
-	return strings.EqualFold(state, "active") && !strings.EqualFold(trial, "yes")
+	return strings.EqualFold(state, "active") && !trialFlag(trial)
 }
 
 func licenseIsActiveTrial(state, trial string) bool {
-	return strings.EqualFold(state, "active") && strings.EqualFold(trial, "yes")
+	return strings.EqualFold(state, "active") && trialFlag(trial)
 }
 
 // deriveMachineStatus applies the documented precedence for certificate and

@@ -137,7 +137,7 @@ func queryLicense(dispatch *ole.IDispatch, product CSPProduct) (protocol.License
 		// convert it to a 1899 UTC timestamp and do not mark it expired.
 		info.TimeBasis = "ole_automation_zero"
 		info.TermKind = "perpetual"
-		info.IsTrial = "no"
+		info.IsTrial = "false"
 		if info.Kind == "unknown" {
 			info.State = "unknown"
 		} else {

@@ -42,10 +42,10 @@ func TestTrialFromInstallExpiry(t *testing.T) {
 		expiry time.Time
 		want   string
 	}{
-		{"three calendar months plus a day", install.AddDate(0, 3, 1), "yes"},
-		{"ninety days", install.Add(90 * 24 * time.Hour), "yes"},
-		{"one year", install.AddDate(1, 0, 0), "no"},
-		{"two years", install.AddDate(2, 0, 0), "no"},
+		{"three calendar months plus a day", install.AddDate(0, 3, 1), "true"},
+		{"ninety days", install.Add(90 * 24 * time.Hour), "true"},
+		{"one year", install.AddDate(1, 0, 0), "false"},
+		{"two years", install.AddDate(2, 0, 0), "false"},
 		{"six months is ambiguous", install.AddDate(0, 6, 0), "unknown"},
 		{"zero expiry", time.Time{}, "unknown"},
 		{"expiry before install", install.Add(-24 * time.Hour), "unknown"},

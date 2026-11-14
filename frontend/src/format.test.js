@@ -81,12 +81,13 @@ test('licenseView renders active, trial, expired and perpetual states', () => {
   })
   const trial = licenseView({
     license_state: 'active',
-    is_trial: 'yes',
+    is_trial: 'true',
     term_kind: 'time_limited',
     license_valid_to: isoDaysAhead(30)
   }, NOW)
   assert.equal(trial.label, 'Пробная')
   assert.equal(trial.tone, 'warning')
+  assert.equal(licenseView({ license_state: 'active', is_trial: 'yes', term_kind: 'perpetual' }, NOW).label, 'Пробная')
   assert.deepEqual(trial.lines, [`до ${formatDate(isoDaysAhead(30))}`, 'Осталось 30 дней'])
   const expiredDate = isoMinutesAgo(60 * 24 * 30)
   assert.deepEqual(licenseView({ license_state: 'expired', license_valid_to: expiredDate }, NOW), {

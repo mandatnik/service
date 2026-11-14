@@ -14,9 +14,9 @@ func TrialFromInstallExpiry(install, expiry time.Time) string {
 	days := expiry.Sub(install).Hours() / 24
 	switch {
 	case days >= 80 && days <= 100:
-		return "yes"
+		return "true"
 	case days >= 300:
-		return "no"
+		return "false"
 	default:
 		return "unknown"
 	}

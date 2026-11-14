@@ -107,7 +107,7 @@ VALUES(@p1,@p2,@p3,1,SYSUTCDATETIME(),SYSUTCDATETIME(),N'complete',0,0,REPLICATE
 	}
 	if _, err := pool.ExecContext(ctx, `
 INSERT INTO dbo.csp_states(machine_id,scanned,complete,present,product_version,core_version,license_kind,license_kind_raw,license_kind_source,license_state,valid_to_raw,valid_to_utc,time_basis,term_kind,is_trial,source,products_json,last_scan_seq,collected_at,updated_at,last_attempt_at)
-VALUES(@p1,1,1,1,N'5.0.13003',N'5.0',N'client',N'0',N'CPCSPLicense.GetType',N'active',N'2027-02-14T18:59:59',DATEADD(day,30,SYSUTCDATETIME()),N'system_local_assumed',N'time_limited',N'no',N'CPCSPLicense',N'[]',1,SYSUTCDATETIME(),SYSUTCDATETIME(),SYSUTCDATETIME())`,
+VALUES(@p1,1,1,1,N'5.0.13003',N'5.0',N'client',N'0',N'CPCSPLicense.GetType',N'active',N'2027-02-14T18:59:59',DATEADD(day,30,SYSUTCDATETIME()),N'system_local_assumed',N'time_limited',N'false',N'CPCSPLicense',N'[]',1,SYSUTCDATETIME(),SYSUTCDATETIME(),SYSUTCDATETIME())`,
 		machineID); err != nil {
 		t.Fatal(err)
 	}
