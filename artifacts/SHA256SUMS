@@ -1,4 +1,4 @@
-9f204f68fe267c3e51d38982c6f08a61f7308cd198ff6c5a768ef8efe8117fac  bin/telehack-backend-0.3.0-final.exe
-17485b35b0eb0f44024465d823e259c15eceaed65dc14e9914368d5fefd25979  bin/telehack-agent-0.3.0-final.exe
-43a70392b1303cfce898348b5b8e0e7d3c8b400d187db7a9eddec21a445b82e4  artifacts/TelehackAgent-0.3.0.msi
-66904100bcdada7d639b7c3889a6f1ff929fce16de8664b313dfeda17ac65480  bin/telehack-acceptance-p10-final.exe
+9f204f68fe267c3e51d38982c6f08a61f7308cd198ff6c5a768ef8efe8117fac  telehack-backend-p10.exe
+17485b35b0eb0f44024465d823e259c15eceaed65dc14e9914368d5fefd25979  telehack-agent-p10.exe
+43a70392b1303cfce898348b5b8e0e7d3c8b400d187db7a9eddec21a445b82e4  TelehackAgent-0.3.0.msi
+66904100bcdada7d639b7c3889a6f1ff929fce16de8664b313dfeda17ac65480  telehack-acceptance-p10.exe

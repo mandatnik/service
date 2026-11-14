@@ -104,3 +104,23 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o /tmp/telehack-back
 
 `go.sum` и `frontend/package-lock.json` должны соответствовать исходникам.
 Сборка без `dist` невозможна намеренно: админка является частью backend.
+
+## 7. Свежий clone P10
+
+Проверено на `/tmp/telehack2026-fresh-p10` из Gitea:
+
+- `go mod verify` — all modules verified;
+- `go test ./...` — PASS;
+- `npm ci && npm run build` — три файла, совпадающие с закоммиченным `dist`;
+- Windows backend/agent пересобраны; fresh backend `health` вернул `ok`;
+  fresh agent `version` — `0.3.0 (commit 41e8968)`;
+- MSI пересобран из fresh clone (`deploy/msi/build-msi.ps1`).
+
+Байтовый SHA-256 Go EXE зависит от VCS stamping (`vcs.revision`,
+`vcs.modified`): published-артефакты собраны из рабочего дерева вокруг
+коммита `41e8968`, fresh clone имеет другой VCS stamp. Для побайтово
+воспроизводимой будущей сборки используйте `-buildvcs=false` и фиксируйте
+`Commit`/`BuildDate`. MSI также содержит кабинетные timestamp-поля; хеш
+свежей сборки MSI поэтому не обязан совпадать с опубликованным. Код и
+поведение при этом те же; приемочные артефакты и их хеши перечислены в
+`artifacts/SHA256SUMS` и `docs/acceptance/P09.md`.
