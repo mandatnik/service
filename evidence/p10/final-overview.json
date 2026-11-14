@@ -1,0 +1,14 @@
+{
+  "machines": 12,
+  "active_registrations": 2,
+  "users": 55,
+  "certificates": 10,
+  "active_observations": 7,
+  "pending_jobs": 0,
+  "events_24h": 177,
+  "reports_24h": 36,
+  "last_report_at": "2026-11-14T05:55:46.786Z",
+  "config_version": 22,
+  "config_hash": "511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2",
+  "db_ok": true
+}
