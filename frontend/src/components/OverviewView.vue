@@ -29,7 +29,7 @@ onUnmounted(() => clearInterval(timer))
         <button class="metric-card" @click="emit('navigate', 'machines')"><span>Машины</span><strong>{{ data.machines }}</strong><small>{{ data.active_registrations }} активных регистраций</small></button>
         <button class="metric-card" @click="emit('navigate', 'machines')"><span>Пользователи</span><strong>{{ data.users }}</strong><small>присутствующие профили</small></button>
         <button class="metric-card" @click="emit('navigate', 'certificates')"><span>Сертификаты</span><strong>{{ data.certificates }}</strong><small>{{ data.active_observations }} активных наблюдений</small></button>
-        <button class="metric-card" @click="emit('navigate', 'licensing')"><span>Задания</span><strong>{{ data.pending_jobs }}</strong><small>ожидают доставки или выполнения</small></button>
+        <button class="metric-card" @click="emit('navigate', 'tasks')"><span>Задания</span><strong>{{ data.pending_jobs }}</strong><small>ожидают доставки или выполнения</small></button>
       </div>
       <div class="panel two-column">
         <div>

@@ -32,6 +32,7 @@ func OpenLogger(dir string) (*Logger, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open log: %w", err)
 	}
+	_ = securePath(path)
 	info, err := file.Stat()
 	if err != nil {
 		file.Close()
@@ -92,6 +93,7 @@ func (l *Logger) rotateLocked() error {
 	if err != nil {
 		return fmt.Errorf("create new current log: %w", err)
 	}
+	_ = securePath(l.currentPath())
 	l.file = file
 	l.size = 0
 	return nil

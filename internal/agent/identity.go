@@ -19,16 +19,18 @@ const identityMagic = "THK1"
 // Identity is the agent's transport identity. The private key is never
 // written outside the DPAPI-protected bundle.
 type Identity struct {
-	UUID         string
-	Hostname     string
-	CreatedAt    time.Time
-	PublicKeyPEM string
-	Key          *ecdsa.PrivateKey
+	UUID           string
+	Hostname       string
+	InstallationID string
+	CreatedAt      time.Time
+	PublicKeyPEM   string
+	Key            *ecdsa.PrivateKey
 }
 
 type identityBundle struct {
 	UUID            string `json:"uuid"`
 	Hostname        string `json:"hostname"`
+	InstallationID  string `json:"installation_id,omitempty"`
 	CreatedAt       string `json:"created_at"`
 	PublicKeyPEM    string `json:"public_key_pem"`
 	PrivateKeyPKCS8 string `json:"private_key_pkcs8"`
@@ -78,6 +80,12 @@ func LoadOrCreateIdentity() (*Identity, *Identity, error) {
 		}
 		return active, nil, nil
 	}
+	if active.InstallationID == "" {
+		active.InstallationID = protocol.NewUUID()
+		if err := saveIdentity(activePath, active); err != nil {
+			return nil, nil, fmt.Errorf("upgrade identity installation id: %w", err)
+		}
+	}
 	if active.Hostname == hostname {
 		// A matching active hostname makes any leftover transition stale.
 		if _, err := os.Stat(pendingPath); err == nil {
@@ -88,6 +96,12 @@ func LoadOrCreateIdentity() (*Identity, *Identity, error) {
 	}
 	pending, err := readIdentityFile(pendingPath)
 	if err == nil {
+		if pending.InstallationID == "" {
+			pending.InstallationID = active.InstallationID
+			if saveErr := saveIdentity(pendingPath, pending); saveErr != nil {
+				return nil, nil, fmt.Errorf("upgrade pending installation id: %w", saveErr)
+			}
+		}
 		if pending.Hostname == hostname {
 			return active, pending, nil
 		}
@@ -117,11 +131,12 @@ func newIdentity(hostname string) (*Identity, error) {
 		return nil, err
 	}
 	return &Identity{
-		UUID:         protocol.NewUUID(),
-		Hostname:     hostname,
-		CreatedAt:    time.Now().UTC(),
-		PublicKeyPEM: publicPEM,
-		Key:          key,
+		UUID:           protocol.NewUUID(),
+		Hostname:       hostname,
+		InstallationID: protocol.NewUUID(),
+		CreatedAt:      time.Now().UTC(),
+		PublicKeyPEM:   publicPEM,
+		Key:            key,
 	}, nil
 }
 
@@ -173,7 +188,12 @@ func readIdentityFile(path string) (*Identity, error) {
 	if err != nil {
 		return nil, fmt.Errorf("identity created_at: %w", err)
 	}
-	return &Identity{UUID: strings.ToLower(bundle.UUID), Hostname: bundle.Hostname, CreatedAt: created.UTC(), PublicKeyPEM: bundle.PublicKeyPEM, Key: key}, nil
+	if bundle.InstallationID != "" {
+		if _, err := protocol.NormalizeUUID(bundle.InstallationID); err != nil {
+			return nil, fmt.Errorf("identity installation_id: %w", err)
+		}
+	}
+	return &Identity{UUID: strings.ToLower(bundle.UUID), Hostname: bundle.Hostname, InstallationID: bundle.InstallationID, CreatedAt: created.UTC(), PublicKeyPEM: bundle.PublicKeyPEM, Key: key}, nil
 }
 
 func saveIdentity(path string, identity *Identity) error {
@@ -187,6 +207,7 @@ func saveIdentity(path string, identity *Identity) error {
 	bundle := identityBundle{
 		UUID:            identity.UUID,
 		Hostname:        identity.Hostname,
+		InstallationID:  identity.InstallationID,
 		CreatedAt:       identity.CreatedAt.UTC().Format(time.RFC3339Nano),
 		PublicKeyPEM:    identity.PublicKeyPEM,
 		PrivateKeyPKCS8: base64.StdEncoding.EncodeToString(privateDER),

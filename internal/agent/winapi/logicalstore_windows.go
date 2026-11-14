@@ -39,7 +39,7 @@ type wtsSessionInfo struct {
 // store elements whose on-disk format is not public. available=false means no
 // matching interactive session token was found, so the caller should use the
 // physical store fallback.
-func readLogicalUserStore(profile Profile) (available bool, present bool, certificates [][]byte, err error) {
+func readLogicalUserStore(profile Profile) (available bool, present bool, certificates []CertificateRecord, err error) {
 	token, tokenErr := findSessionToken(profile.SID)
 	if tokenErr != nil {
 		return false, false, nil, nil
@@ -61,7 +61,7 @@ func readLogicalUserStore(profile Profile) (available bool, present bool, certif
 		return true, false, nil, openErr
 	}
 	defer procCertCloseStore.Call(store, 0)
-	certs, enumErr := enumerateCertificates(store)
+	certs, enumErr := enumerateCertificateRecords(store)
 	return true, true, certs, enumErr
 }
 

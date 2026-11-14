@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -43,10 +45,19 @@ WHERE registration_id=@p4`, now, ipBytes(sourceIP), dnsStatus, identity.Registra
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "update hostname activity"}
 	}
 
+	var capable bool
+	if err := tx.QueryRowContext(ctx, `
+SELECT CASE WHEN EXISTS(
+  SELECT 1 FROM dbo.agent_capabilities c
+  JOIN dbo.registrations r ON r.registration_id=c.registration_id
+  WHERE r.machine_id=@p1 AND r.state=N'active' AND c.tasks_v1=1) THEN 1 ELSE 0 END`, identity.MachineID).Scan(&capable); err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "load agent task capability"}
+	}
 	rows, err := tx.QueryContext(ctx, `
-SELECT job_id, kind, created_at FROM dbo.jobs WITH (UPDLOCK, ROWLOCK)
-WHERE machine_id=@p1 AND state IN (N'pending', N'delivered')
-ORDER BY created_at`, identity.MachineID)
+SELECT j.job_id, j.kind, j.created_at FROM dbo.jobs j WITH (UPDLOCK, ROWLOCK)
+WHERE j.machine_id=@p1 AND j.state IN (N'pending', N'delivered')
+  AND (@p2=0 OR j.task_item_id IS NULL)
+ORDER BY j.created_at`, identity.MachineID, capable)
 	if err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "load jobs"}
 	}
@@ -94,15 +105,53 @@ WHERE job_id=@p2 AND state IN (N'pending', N'delivered')`, now, job.JobID); err 
 	return result, nil
 }
 
-// AddJob creates a manual scan job. The administrator layer (P08) will call
-// this; P07 acceptance calls it through the acceptance tool.
+// AddJob creates a manual scan job and its unified task/item representation.
+// Old agents continue to receive the job through sync; capable agents receive
+// the linked task item through the encrypted task channel.
 func (s *Store) AddJob(ctx context.Context, machineID, createdBy string) (string, error) {
 	jobID := protocol.NewUUID()
-	_, err := s.DB.ExecContext(ctx, `
-INSERT INTO dbo.jobs (job_id, machine_id, kind, state, created_at, created_by)
-VALUES (@p1, @p2, N'scan', N'pending', @p3, @p4)`, jobID, machineID, s.now(), createdBy)
+	taskID := protocol.NewUUID()
+	itemID := protocol.NewUUID()
+	now := s.now()
+	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return "", fmt.Errorf("begin job transaction: %w", err)
+	}
+	defer tx.Rollback()
+	var registrationID int64
+	err = tx.QueryRowContext(ctx, `
+SELECT TOP 1 registration_id FROM dbo.registrations WITH (UPDLOCK,HOLDLOCK)
+WHERE machine_id=@p1 AND state=N'active' ORDER BY created_at DESC`, machineID).Scan(&registrationID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("machine has no active registration")
+	}
+	if err != nil {
+		return "", fmt.Errorf("load active registration: %w", err)
+	}
+	selection, _ := json.Marshal(map[string]any{"source": "admin_job", "machine_ids": []string{machineID}})
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO dbo.tasks(task_id,kind,created_by,created_at,expires_at,settings_snapshot,selection_snapshot,legacy_job_id)
+VALUES(@p1,N'scan',@p2,@p3,@p4,N'{}',@p5,@p6)`,
+		taskID, createdBy, now, now.Add(time.Duration(protocol.DefaultTaskTTLSeconds)*time.Second), string(selection), jobID); err != nil {
+		return "", fmt.Errorf("create task for job: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO dbo.task_items(item_id,task_id,machine_id,registration_id,kind,state,delivery_version,created_at,updated_at,legacy_job_id)
+VALUES(@p1,@p2,@p3,@p4,N'scan',N'queued',0,@p5,@p5,@p6)`,
+		itemID, taskID, machineID, registrationID, now, jobID); err != nil {
+		return "", fmt.Errorf("create task item for job: %w", err)
+	}
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO dbo.jobs (job_id, machine_id, kind, state, created_at, created_by, task_id, task_item_id)
+VALUES (@p1, @p2, N'scan', N'pending', @p3, @p4, @p5, @p6)`, jobID, machineID, now, createdBy, taskID, itemID)
 	if err != nil {
 		return "", fmt.Errorf("create job: %w", err)
+	}
+	if err := insertTaskEventTx(ctx, tx, itemID, 1, 0, "created", map[string]any{"kind": "scan", "source": "admin_job"}, now); err != nil {
+		return "", fmt.Errorf("record job event: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("commit job: %w", err)
 	}
 	return jobID, nil
 }

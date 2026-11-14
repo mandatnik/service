@@ -67,6 +67,16 @@ func main() {
 			fmt.Fprintln(os.Stderr, "migrate:", err)
 			os.Exit(1)
 		}
+	case "license-init":
+		if err := backend.InitLicenseKeys(configPath(os.Args[2:])); err != nil {
+			fmt.Fprintln(os.Stderr, "license-init:", err)
+			os.Exit(1)
+		}
+	case "license-keyring-rotate":
+		if err := backend.RotateLicenseKey(configPath(os.Args[2:])); err != nil {
+			fmt.Fprintln(os.Stderr, "license-keyring-rotate:", err)
+			os.Exit(1)
+		}
 	case "health":
 		cfg, err := config.Load(configPath(os.Args[2:]))
 		if err != nil {
@@ -97,6 +107,8 @@ Usage:
   telehack-backend.exe health [-config PATH]
   telehack-backend.exe admin-create -config PATH -username NAME
   telehack-backend.exe hash-password
+  telehack-backend.exe license-init [-config PATH]
+  telehack-backend.exe license-keyring-rotate [-config PATH]
   telehack-backend.exe run [-config PATH]
 
 Bootstrap uses TELEHACK_SA_PASSWORD. Runtime uses the DB password referenced

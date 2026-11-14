@@ -34,6 +34,12 @@ func AgentPublicIdentityPath() string {
 }
 func AgentStatePath() string { return filepath.Join(AgentDir(), "state.json") }
 func AgentJobsPath() string  { return filepath.Join(AgentDir(), "jobs.json") }
+func AgentTaskJournalPath() string {
+	return filepath.Join(AgentDir(), "task-journal.dpapi")
+}
+func AgentEncryptionPath() string {
+	return filepath.Join(AgentDir(), "encryption.dpapi")
+}
 func AgentPendingRenamePath() string {
 	return filepath.Join(AgentDir(), "pending_rename.dpapi")
 }

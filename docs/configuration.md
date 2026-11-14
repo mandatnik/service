@@ -24,10 +24,12 @@
 
 | Параметр | Значение |
 | --- | --- |
-| Период опроса конфигурации/заданий | 10 минут |
+| Период опроса конфигурации/заданий | 60 с по умолчанию; 10…3600, настройка сервера |
 | Первый сбор | сразу после регистрации |
 | Интервал сбора по умолчанию | 1 день |
 | Диапазон `scan_interval_days` | 1…365 |
+| Свежесть инвентаризации | 86400 с по умолчанию; 60…2592000 |
+| Срок задачи | 604800 с по умолчанию; 60…2592000 |
 | Очередь отчётов | 2 последних |
 | Логи | `current.txt` + `previous.txt`, по 10 MiB |
 | Папки `.cer` по умолчанию | нет |
@@ -38,6 +40,10 @@
 | Максимум отчёта | 8 MiB |
 | Тело HTTP-запроса | 16 MiB |
 | Тайм-аут HTTP-запроса | 30 с (5…120) |
+
+Старые агенты без `schedule_v2` продолжают использовать прежний 10-минутный
+цикл; новые получают интервал из конфигурации и обновляют таймер без
+рестарта службы.
 
 ### 1.3. Каталоги состояния
 
@@ -50,10 +56,22 @@ C:\ProgramData\Telehack2026\
     pending_rename.dpapi     # подготовленный подписанный переход
     state.json               # scan_seq, last_scan_*, config cache
     jobs.json                # состояние ручных заданий
+    encryption.dpapi         # DPAPI: RSA-3072 ring для параметров задач
+    task-journal.dpapi       # DPAPI: durable журнал попыток/результатов
     queue\report-*.json      # не более двух
     logs\current.txt
     logs\previous.txt
 ```
+
+`encryption.dpapi` привязан к `installation_id` внутри identity bundle. При
+переустановке с новой идентичностью старый ring архивируется и не наследуется.
+Для явной ротации остановите службу, выполните
+`telehack-agent.exe rotate-encryption-key` и запустите службу снова: сервер
+примет новый ключ только по подписанному запросу `capabilities`, старые ключи
+останутся в ring для незавершённых конвертов.
+`task-journal.dpapi` содержит исходное значение `ProductID`, необходимое для
+rollback; файл защищён DPAPI + ACL. При повреждении он архивируется, создаётся
+маркер `corrupt_at`, и установка лицензий блокируется до read-only сверки.
 
 DACL каталога и файлов: SYSTEM и Administrators, наследование отключено.
 `agent-config.json` — управляемый извне файл; при удалении агента он не
@@ -65,6 +83,9 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
 {
   "version": 1,
   "scan_interval_days": 1,
+  "poll_interval_seconds": 60,
+  "inventory_freshness_seconds": 86400,
+  "task_ttl_seconds": 604800,
   "cert_directories": [],
   "folder_policies": [{
     "id": "7f21dc53-18c4-40db-975a-e061772d37ed",
@@ -80,8 +101,13 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
 
 `config_hash` — SHA-256 от JCS этого объекта. Агент кэширует точный JSON и
 хеш; при совпадении сервер не присылает тело конфигурации, но задания
-присылает всегда. Изменение папок/интервала применяется к следующему сбору;
-ручное задание запускает сбор немедленно.
+присылает всегда. Изменение папок/интервала/расписания применяется к
+следующему сбору; ручное задание запускает сбор немедленно.
+
+Новые поля `poll_interval_seconds`, `inventory_freshness_seconds`,
+`task_ttl_seconds` отправляются только агенту с `schedule_v2`. Старому агенту
+сервер отдаёт прежнюю проекцию без этих полей и прежний хеш; его кэш
+остаётся совместимым.
 
 Папки определяются назначенными машине или её группам политиками. Без
 назначений `folder_policies` отсутствует/пуст, обход папок не выполняется.
@@ -101,6 +127,8 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
   "tls_cert_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.crt",
   "tls_key_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.key",
   "log_file": "C:\\ProgramData\\Telehack2026\\Backend\\logs\\backend.txt",
+  "license_keyring_file": "C:\\ProgramData\\Telehack2026\\Backend\\license-keyring.json",
+  "license_fingerprint_key_file": "C:\\ProgramData\\Telehack2026\\Backend\\license-fingerprint.key",
   "db": {
     "server": "192.168.189.138",
     "port": 1433,
@@ -127,6 +155,34 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
 - `db.server_name` — имя для проверки SAN сертификата SQL Server.
 - Порт агентского и административного API обязаны различаться.
 - TLS-сертификат бэкенда — файл и ключ; минимальная версия TLS 1.2.
+
+### 2.1. Keyring лицензий и резервное восстановление
+
+Номера лицензий хранятся в БД только как AES-256-GCM ciphertext, HMAC-отпечаток
+и маска. Ключ шифрования и отдельный HMAC-ключ дедупликации находятся вне БД:
+
+```text
+Backend\license-keyring.json       # AES-256 keyring, 0600/ACL backend+Administrators
+Backend\license-fingerprint.key    # отдельный HMAC-SHA-256 ключ
+```
+
+Инициализация и ротация:
+
+```bash
+telehack-backend.exe license-init -config backend.json
+telehack-backend.exe license-keyring-rotate -config backend.json
+```
+
+- `license-init` отказывается перезаписывать существующий keyring или HMAC-ключ.
+- `license-keyring-rotate` добавляет новый активный ключ и сохраняет старые для
+  чтения уже сохранённых строк. Удаление старого ключа допустимо только после
+  перешифрования и проверки всех строк. После ротации перезапустите backend,
+  чтобы он перечитал keyring.
+- Резервная копия БД без keyring/HMAC-ключа не позволяет восстановить номера.
+  Храните копию БД и оба файла раздельно, под разными ACL; не помещайте их в
+  `backend.json`, ENV, миграции, тестовые фикстуры или артефакты.
+- Если файлы отсутствуют или повреждены, операции с пулами/ключами возвращают
+  явную ошибку `license_key_unavailable`; fallback к plaintext отсутствует.
 
 ### 2.1. Bootstrap и миграции
 

@@ -58,21 +58,39 @@ type SourceResult struct {
 // ObservedCertificate is one public certificate found in a source. Private
 // keys and container names are never part of this structure.
 type ObservedCertificate struct {
-	SHA256             string `json:"sha256"`
-	DERBase64          string `json:"der_base64"`
-	SerialHex          string `json:"serial_hex"`
-	SerialNumber       string `json:"serial_number"`
-	Subject            string `json:"subject"`
-	Issuer             string `json:"issuer"`
-	NotBefore          string `json:"not_before"`
-	NotAfter           string `json:"not_after"`
-	OwnerCN            string `json:"owner_cn,omitempty"`
-	INN                string `json:"inn,omitempty"`
-	SNILS              string `json:"snils,omitempty"`
-	PublicKeyBits      int    `json:"public_key_bits,omitempty"`
-	SignatureAlgorithm string `json:"signature_algorithm,omitempty"`
-	EmbeddedLicense    string `json:"embedded_license,omitempty"`
-	ParseError         string `json:"parse_error,omitempty"`
+	SHA256             string            `json:"sha256"`
+	DERBase64          string            `json:"der_base64"`
+	SerialHex          string            `json:"serial_hex"`
+	SerialNumber       string            `json:"serial_number"`
+	Subject            string            `json:"subject"`
+	Issuer             string            `json:"issuer"`
+	NotBefore          string            `json:"not_before"`
+	NotAfter           string            `json:"not_after"`
+	OwnerCN            string            `json:"owner_cn,omitempty"`
+	INN                string            `json:"inn,omitempty"`
+	SNILS              string            `json:"snils,omitempty"`
+	PublicKeyBits      int               `json:"public_key_bits,omitempty"`
+	SignatureAlgorithm string            `json:"signature_algorithm,omitempty"`
+	EmbeddedLicense    string            `json:"embedded_license,omitempty"`
+	ParseError         string            `json:"parse_error,omitempty"`
+	ProviderBindings   []ProviderBinding `json:"provider_bindings,omitempty"`
+}
+
+// ProviderBinding is an observation-level fact read from a certificate context
+// before it is released. A public .cer from a folder has no binding and must
+// never be treated as a CryptoPro certificate.
+type ProviderBinding struct {
+	ProviderName       string `json:"provider_name,omitempty"`
+	ProviderAPI        string `json:"provider_api,omitempty"`
+	ProviderType       uint32 `json:"provider_type,omitempty"`
+	KeySpec            uint32 `json:"key_spec,omitempty"`
+	BindingState       string `json:"binding_state"`
+	ProviderOwner      string `json:"provider_owner"`
+	AttributionSource  string `json:"attribution_source,omitempty"`
+	AttributionVersion string `json:"attribution_version,omitempty"`
+	PrivateKeyState    string `json:"private_key_state"`
+	MetadataErrorCode  string `json:"metadata_error_code,omitempty"`
+	ObservedAt         string `json:"observed_at,omitempty"`
 }
 
 // ObservedFile records a parsed file and its SHA-256. Folder observations are
@@ -92,6 +110,7 @@ type CSPResult struct {
 	Present        bool         `json:"present"`
 	ProductVersion string       `json:"product_version,omitempty"`
 	CoreVersion    string       `json:"core_version,omitempty"`
+	Environment    string       `json:"environment,omitempty"`
 	Products       []CSPProduct `json:"products,omitempty"`
 	License        LicenseInfo  `json:"license"`
 	Error          string       `json:"error,omitempty"`
@@ -313,6 +332,41 @@ func validateObservedCertificate(cert *ObservedCertificate) error {
 	default:
 		return fmt.Errorf("invalid embedded_license %q", cert.EmbeddedLicense)
 	}
+	if len(cert.ProviderBindings) > 32 {
+		return fmt.Errorf("too many provider bindings")
+	}
+	for i := range cert.ProviderBindings {
+		binding := &cert.ProviderBindings[i]
+		switch binding.BindingState {
+		case "present", "absent", "unreadable":
+		default:
+			return fmt.Errorf("provider_bindings[%d]: invalid binding_state %q", i, binding.BindingState)
+		}
+		switch binding.ProviderOwner {
+		case "cryptopro", "other", "unknown":
+		default:
+			return fmt.Errorf("provider_bindings[%d]: invalid provider_owner %q", i, binding.ProviderOwner)
+		}
+		switch binding.PrivateKeyState {
+		case "", "not_checked", "available", "missing", "inaccessible":
+		default:
+			return fmt.Errorf("provider_bindings[%d]: invalid private_key_state", i)
+		}
+		switch binding.ProviderAPI {
+		case "", "capi", "cng":
+		default:
+			return fmt.Errorf("provider_bindings[%d]: invalid provider_api", i)
+		}
+		if len(binding.ProviderName) > 512 || len(binding.AttributionSource) > 128 ||
+			len(binding.AttributionVersion) > 64 || len(binding.MetadataErrorCode) > 128 {
+			return fmt.Errorf("provider_bindings[%d]: metadata is too long", i)
+		}
+		if binding.ObservedAt != "" {
+			if _, err := ValidateTimestamp(binding.ObservedAt); err != nil {
+				return fmt.Errorf("provider_bindings[%d].observed_at: %w", i, err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -343,6 +397,11 @@ func validateCSP(csp *CSPResult) error {
 	}
 	if len(csp.ProductVersion) > MaxVersionBytes || len(csp.CoreVersion) > MaxVersionBytes {
 		return fmt.Errorf("CSP version is too long")
+	}
+	switch csp.Environment {
+	case "", "workstation", "server", "unknown":
+	default:
+		return fmt.Errorf("invalid environment %q", csp.Environment)
 	}
 	if len(csp.Error) > MaxErrorBytes {
 		return fmt.Errorf("CSP error is too long")

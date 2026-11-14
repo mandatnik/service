@@ -33,6 +33,10 @@ DELETE FROM dbo.machine_user_certificates
 WHERE machine_user_id IN (SELECT machine_user_id FROM dbo.machine_users WHERE machine_id IN (%s))`); err != nil {
 		return err
 	}
+	if err := deleteWithMachines(`DELETE FROM dbo.certificate_observation_bindings
+WHERE observation_id IN (SELECT observation_id FROM dbo.certificate_observations WHERE machine_id IN (%s))`); err != nil {
+		return err
+	}
 	if err := deleteWithMachines(`DELETE FROM dbo.certificate_observations WHERE machine_id IN (%s)`); err != nil {
 		return err
 	}
@@ -40,6 +44,25 @@ WHERE machine_user_id IN (SELECT machine_user_id FROM dbo.machine_users WHERE ma
 		return err
 	}
 	if err := deleteWithMachines(`DELETE FROM dbo.csp_states WHERE machine_id IN (%s)`); err != nil {
+		return err
+	}
+	// Manual scan jobs now create task items as well. Remove only the
+	// synthetic machines' scan tasks before their registrations are deleted.
+	if err := deleteWithMachines(`
+DECLARE @tasks TABLE (task_id UNIQUEIDENTIFIER PRIMARY KEY);
+INSERT INTO @tasks SELECT DISTINCT task_id FROM dbo.task_items WHERE kind=N'scan' AND machine_id IN (%[1]s);
+DELETE FROM dbo.task_item_events WHERE item_id IN
+ (SELECT item_id FROM dbo.task_items WHERE kind=N'scan' AND machine_id IN (%[1]s));
+DELETE FROM dbo.task_items WHERE kind=N'scan' AND machine_id IN (%[1]s);
+DELETE FROM dbo.tasks WHERE task_id IN (SELECT task_id FROM @tasks)
+ AND NOT EXISTS (SELECT 1 FROM dbo.task_items i WHERE i.task_id=dbo.tasks.task_id);`); err != nil {
+		return err
+	}
+	if err := deleteWithMachines(`DELETE FROM dbo.agent_encryption_keys WHERE machine_id IN (%s)`); err != nil {
+		return err
+	}
+	if err := deleteWithMachines(`DELETE FROM dbo.agent_capabilities WHERE registration_id IN
+ (SELECT registration_id FROM dbo.registrations WHERE machine_id IN (%s))`); err != nil {
 		return err
 	}
 	if err := deleteWithMachines(`DELETE FROM dbo.jobs WHERE machine_id IN (%s)`); err != nil {

@@ -72,9 +72,19 @@ func TestPoliciesSQLServer(t *testing.T) {
 		}
 		return v
 	}
+	if err := s.BackfillLegacyJobs(ctx); err != nil {
+		t.Fatal("legacy jobs backfill:", err)
+	}
 	initial := effective()
 	if len(initial.Config.FolderPolicies) != 0 || len(initial.Config.CertDirectories) != 0 {
 		t.Fatal("new machine has folder policies")
+	}
+	var unmappedJobs int
+	if err := pool.QueryRowContext(ctx, `SELECT COUNT(1) FROM dbo.jobs j WHERE j.task_item_id IS NULL AND EXISTS (SELECT 1 FROM dbo.registrations r WHERE r.machine_id=j.machine_id)`).Scan(&unmappedJobs); err != nil {
+		t.Fatal(err)
+	}
+	if unmappedJobs != 0 {
+		t.Fatalf("legacy jobs not fully migrated: unmapped=%d", unmappedJobs)
 	}
 	g, err := s.SaveGroup(ctx, MachineGroup{Name: name, MachineIDs: []string{machine}}, true, "test")
 	if err != nil {

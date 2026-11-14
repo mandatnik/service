@@ -102,6 +102,20 @@ func (s *Server) handleAgent(w http.ResponseWriter, r *http.Request) {
 		s.handleReport(recorder, r, body)
 	case protocol.PathJobAck:
 		s.handleJobAck(recorder, r, body)
+	case protocol.PathCapabilities:
+		s.handleCapabilities(recorder, r, body)
+	case protocol.PathTaskSync:
+		s.handleTaskSync(recorder, r, body)
+	case protocol.PathTaskAck:
+		s.handleTaskAck(recorder, r, body)
+	case protocol.PathTaskClaim:
+		s.handleTaskClaim(recorder, r, body)
+	case protocol.PathTaskProgress:
+		s.handleTaskProgress(recorder, r, body)
+	case protocol.PathTaskResult:
+		s.handleTaskResult(recorder, r, body)
+	case protocol.PathTaskDiagnostic:
+		s.handleTaskDiagnostic(recorder, r, body)
 	default:
 		writeError(recorder, http.StatusNotFound, protocol.CodeNotFound, "unknown agent endpoint")
 	}
@@ -237,10 +251,17 @@ func (s *Server) verifyRequest(ctx context.Context, body []byte, path string) (*
 		return nil, nil, &protocol.APIError{Code: protocol.CodeInvalidIdentity, Message: "signed UUID does not match the registration"}
 	}
 	expectedOperation := map[string]string{
-		protocol.PathRename: protocol.OpRename,
-		protocol.PathSync:   protocol.OpSync,
-		protocol.PathReport: protocol.OpReport,
-		protocol.PathJobAck: protocol.OpJobAck,
+		protocol.PathRename:         protocol.OpRename,
+		protocol.PathSync:           protocol.OpSync,
+		protocol.PathReport:         protocol.OpReport,
+		protocol.PathJobAck:         protocol.OpJobAck,
+		protocol.PathCapabilities:   protocol.OpCapabilities,
+		protocol.PathTaskSync:       protocol.OpTaskSync,
+		protocol.PathTaskAck:        protocol.OpTaskAck,
+		protocol.PathTaskClaim:      protocol.OpTaskClaim,
+		protocol.PathTaskProgress:   protocol.OpTaskProgress,
+		protocol.PathTaskResult:     protocol.OpTaskResult,
+		protocol.PathTaskDiagnostic: protocol.OpTaskDiagnostic,
 	}[path]
 	if expectedOperation == "" || request.Data.Operation != expectedOperation {
 		return nil, nil, &protocol.APIError{Code: protocol.CodeInvalidEnvelope, Message: "signed operation does not match the endpoint"}

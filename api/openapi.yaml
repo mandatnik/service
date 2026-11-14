@@ -86,6 +86,212 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/JobAckResponse' }
+  /api/agent/v1/capabilities:
+    post:
+      summary: Регистрация возможностей и RSA-3072 ключа шифрования параметров
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CapabilitiesEnvelope' }
+      responses:
+        '200':
+          description: Возможности и полная конфигурация
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CapabilitiesResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/agent/v1/tasks/sync:
+    post:
+      summary: Получение элементов задач с зашифрованными параметрами
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskSyncEnvelope' }
+      responses:
+        '200':
+          description: Публичные элементы задач без plaintext-параметров
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskSyncResponse' }
+  /api/agent/v1/tasks/ack:
+    post:
+      summary: Durable delivery ACK
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskAckEnvelope' }
+      responses:
+        '200':
+          description: ACK принят
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskAckResponse' }
+  /api/agent/v1/tasks/claim:
+    post:
+      summary: Разрешение на начало изменяющей операции
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskClaimEnvelope' }
+      responses:
+        '200':
+          description: Claim выдан или отклонён
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskClaimResponse' }
+  /api/agent/v1/tasks/progress:
+    post:
+      summary: Allowlist-событие выполнения
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskProgressEnvelope' }
+      responses:
+        '200':
+          description: Событие сохранено
+  /api/agent/v1/tasks/result:
+    post:
+      summary: Санитизированный результат выполнения
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskResultEnvelope' }
+      responses:
+        '200':
+          description: Результат принят или идемпотентно повторён
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TaskResultResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/agent/v1/tasks/diagnostic:
+    post:
+      summary: Диагностика локального журнала без секретов
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TaskDiagnosticEnvelope' }
+      responses:
+        '200':
+          description: Диагностика принята
+  /api/admin/v1/license-pools:
+    get:
+      summary: Список пулов и счётчиков
+      responses:
+        '200': { description: Пулы }
+    post:
+      summary: Создать пул
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LicensePoolInput' }
+      responses:
+        '201': { description: Пул создан }
+  /api/admin/v1/license-pools/{id}:
+    patch:
+      summary: Переименовать пул (версия/тип/срок неизменяемы)
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Пул обновлён }
+  /api/admin/v1/license-pools/{id}/archive:
+    post:
+      summary: Архивировать или вернуть пул
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Состояние архива обновлено }
+  /api/admin/v1/license-pools/{id}/licenses/import:
+    post:
+      summary: Атомарный импорт номеров; plaintext не возвращается и не аудируется
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Импорт принят }
+        '422': { description: Импорт отклонён целиком }
+  /api/admin/v1/license-pools/{id}/licenses:
+    get:
+      summary: Ключи пула только с маской и безопасными кодами
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Страница ключей }
+  /api/admin/v1/license-pools/{id}/history:
+    get:
+      summary: История закреплений и событий ключей без номеров
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: История }
+  /api/admin/v1/licenses/{id}/block:
+    post:
+      summary: Заблокировать свободный ключ с причиной
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Ключ заблокирован }
+  /api/admin/v1/tasks/activation-preview:
+    post:
+      summary: Четыре списка совместимости и основания классификации
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivationPreviewInput' }
+      responses:
+        '200': { description: Preview со сроком 10 минут }
+  /api/admin/v1/tasks:
+    get:
+      summary: Список задач с агрегатами
+      responses:
+        '200': { description: Задачи }
+    post:
+      summary: Создать scan или install_license идемпотентно
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTaskInput' }
+      responses:
+        '202': { description: Задача создана }
+        '409': { description: preview_stale, license_deficit или idempotency_conflict }
+  /api/admin/v1/tasks/{id}:
+    get:
+      summary: Детали задачи и выполнений
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Детали }
+  /api/admin/v1/tasks/{id}/items:
+    get:
+      summary: Выполнения задачи
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Выполнения }
+  /api/admin/v1/tasks/{id}/cancel:
+    post:
+      summary: Запросить отмену задачи
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Отмена запрошена }
+  /api/admin/v1/task-items/{id}/events:
+    get:
+      summary: Журнал выполнений без секретов
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: События }
+  /api/admin/v1/task-items/{id}/cancel:
+    post:
+      summary: Запросить отмену выполнения
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Отмена запрошена }
+  /api/admin/v1/task-items/{id}/reconcile:
+    post:
+      summary: Read-only согласование неизвестного результата
+      parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Сверка запрошена }
 components:
   responses:
     Conflict:
@@ -115,7 +321,7 @@ components:
       required: [protocol_version, operation, request_id, uuid, hostname, method, path, issued_at, agent_version]
       properties:
         protocol_version: { type: string, enum: ["1"] }
-        operation: { type: string, enum: [register, rename, sync, report, job_ack] }
+        operation: { type: string, enum: [register, rename, sync, report, job_ack, capabilities, task_sync, task_ack, task_claim, task_progress, task_result, task_diagnostic] }
         request_id: { type: string, format: uuid }
         uuid: { type: string, format: uuid }
         hostname: { type: string, maxLength: 253 }
@@ -232,6 +438,9 @@ components:
         recursive: { type: boolean }
         max_files: { type: integer, minimum: 1, maximum: 10000 }
         max_file_bytes: { type: integer, minimum: 1024, maximum: 10485760 }
+        poll_interval_seconds: { type: integer, minimum: 10, maximum: 3600, description: 'Sent only to schedule_v2 agents; participates in their config_hash.' }
+        inventory_freshness_seconds: { type: integer, minimum: 60, maximum: 2592000 }
+        task_ttl_seconds: { type: integer, minimum: 60, maximum: 2592000 }
     RegisterResponse:
       type: object
       required: [machine_id, uuid, hostname, registered_at, config, config_hash, server_time]
@@ -280,6 +489,257 @@ components:
         job_id: { type: string, format: uuid }
         state: { type: string }
         duplicate: { type: boolean }
+    CapabilitiesData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [capabilities, encryption_key_id, encryption_public_key, encryption_algorithm, encryption_bits]
+          properties:
+            capabilities: { type: array, maxItems: 32, items: { type: string, maxLength: 64 } }
+            encryption_key_id: { type: string, pattern: '^[0-9a-f]{64}$' }
+            encryption_public_key: { type: string }
+            encryption_algorithm: { type: string, enum: [RSA-OAEP-SHA256+AES-256-GCM] }
+            encryption_bits: { type: integer, enum: [3072] }
+            encryption_key_rotate: { type: boolean }
+    CapabilitiesEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/CapabilitiesData' }
+    CapabilitiesResponse:
+      type: object
+      required: [accepted, server_time, encryption_key_id, config_hash, poll_interval_seconds, task_ttl_seconds]
+      properties:
+        accepted: { type: boolean }
+        server_time: { type: string, format: date-time }
+        encryption_key_id: { type: string }
+        config: { $ref: '#/components/schemas/AgentConfig' }
+        config_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        poll_interval_seconds: { type: integer }
+        task_ttl_seconds: { type: integer }
+        warnings: { type: array, items: { type: string } }
+    EncryptedParameters:
+      type: object
+      required: [version, algorithm, recipient_key_id, wrapped_key, nonce, ciphertext]
+      properties:
+        version: { type: integer, enum: [1] }
+        algorithm: { type: string, enum: [RSA-OAEP-SHA256+AES-256-GCM] }
+        recipient_key_id: { type: string, pattern: '^[0-9a-f]{64}$' }
+        wrapped_key: { type: string, description: Base64 RSA-OAEP-SHA256 content key }
+        nonce: { type: string, description: Base64 12-byte AES-GCM nonce }
+        ciphertext: { type: string, description: Base64 AES-256-GCM ciphertext }
+    TaskItemDelivery:
+      type: object
+      required: [task_id, item_id, machine_id, registration_id, kind, state, delivery_version, encryption_key_id, parameters_envelope, expires_at]
+      properties:
+        task_id: { type: string, format: uuid }
+        item_id: { type: string, format: uuid }
+        machine_id: { type: string, format: uuid }
+        registration_id: { type: integer, format: int64 }
+        kind: { type: string, enum: [scan, install_license] }
+        state: { type: string, enum: [queued, delivered, running, retry_wait, outcome_unknown] }
+        delivery_version: { type: integer, minimum: 1 }
+        encryption_key_id: { type: string }
+        parameters_version: { type: integer, enum: [1] }
+        parameters_envelope: { $ref: '#/components/schemas/EncryptedParameters' }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        cancel_requested: { type: boolean }
+        reconcile_requested: { type: boolean }
+        attempt_count: { type: integer, minimum: 0, maximum: 3 }
+        license_id: { type: string, format: uuid }
+    TaskSyncResponse:
+      type: object
+      required: [server_time, items]
+      properties:
+        server_time: { type: string, format: date-time }
+        items: { type: array, items: { $ref: '#/components/schemas/TaskItemDelivery' } }
+        warnings: { type: array, items: { type: string } }
+    TaskAckData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [task_item_id, task_delivery_version]
+          properties:
+            task_item_id: { type: string, format: uuid }
+            task_delivery_version: { type: integer, minimum: 1 }
+    TaskAckEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/TaskAckData' }
+    TaskAckResponse:
+      type: object
+      required: [accepted, item_id, state, server_time]
+      properties:
+        accepted: { type: boolean }
+        item_id: { type: string, format: uuid }
+        state: { type: string }
+        duplicate: { type: boolean }
+        server_time: { type: string, format: date-time }
+    TaskClaimData:
+      allOf:
+        - $ref: '#/components/schemas/TaskAckData'
+    TaskClaimEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/TaskClaimData' }
+    TaskClaimResponse:
+      type: object
+      required: [granted, item_id, state, server_time]
+      properties:
+        granted: { type: boolean }
+        item_id: { type: string, format: uuid }
+        state: { type: string }
+        claim_until: { type: string, format: date-time }
+        reason_code: { type: string }
+        server_time: { type: string, format: date-time }
+    TaskProgressEvent:
+      type: object
+      required: [item_id, event_type, occurred_at]
+      properties:
+        item_id: { type: string, format: uuid }
+        attempt_no: { type: integer, minimum: 0, maximum: 3 }
+        event_type: { type: string }
+        stage: { type: string }
+        event_code: { type: string }
+        windows_error: { type: string }
+        duration_ms: { type: integer }
+        occurred_at: { type: string, format: date-time }
+        delivery_version: { type: integer }
+    TaskProgressData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [task_item_id, task_event]
+          properties:
+            task_item_id: { type: string, format: uuid }
+            task_event: { $ref: '#/components/schemas/TaskProgressEvent' }
+    TaskProgressEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/TaskProgressData' }
+    TaskResult:
+      type: object
+      required: [item_id, delivery_version, state, modified, result_version]
+      properties:
+        item_id: { type: string, format: uuid }
+        delivery_version: { type: integer, minimum: 1 }
+        state: { type: string, enum: [succeeded, skipped, failed, retry_wait, outcome_unknown, cancelled, expired] }
+        reason_code: { type: string }
+        message: { type: string }
+        attempt_no: { type: integer, minimum: 0, maximum: 3 }
+        result_version: { type: integer, minimum: 1 }
+        modified: { type: string, enum: [no, maybe, yes] }
+        serial_match: { type: boolean }
+        report_id: { type: string, format: uuid }
+        license: { $ref: '#/components/schemas/TaskLicenseState' }
+        reconcile: { type: boolean }
+    TaskLicenseState:
+      type: object
+      properties:
+        present: { type: boolean }
+        complete: { type: boolean }
+        product_version: { type: string }
+        core_version: { type: string }
+        environment: { type: string, enum: [workstation, server, unknown] }
+        kind: { type: string, enum: [client, server, unknown] }
+        kind_raw: { type: string }
+        state: { type: string, enum: [active, expired, not_installed, unknown, error] }
+        term_kind: { type: string, enum: [trial, time_limited, perpetual, unknown] }
+        is_trial: { type: string, enum: ['true', 'false', 'unknown'] }
+        valid_to_raw: { type: string }
+        valid_to_utc: { type: string }
+        time_basis: { type: string }
+        source: { type: string }
+        error_code: { type: string }
+    TaskResultData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [task_item_id, task_result]
+          properties:
+            task_item_id: { type: string, format: uuid }
+            task_result: { $ref: '#/components/schemas/TaskResult' }
+    TaskResultEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/TaskResultData' }
+    TaskResultResponse:
+      type: object
+      required: [accepted, item_id, state, server_time]
+      properties:
+        accepted: { type: boolean }
+        item_id: { type: string, format: uuid }
+        state: { type: string }
+        duplicate: { type: boolean }
+        server_time: { type: string, format: date-time }
+    TaskDiagnostic:
+      type: object
+      required: [code]
+      properties:
+        item_id: { type: string, format: uuid }
+        code: { type: string }
+        message: { type: string }
+        occurred_at: { type: string, format: date-time }
+    TaskDiagnosticData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [task_diagnostic]
+          properties:
+            task_diagnostic: { $ref: '#/components/schemas/TaskDiagnostic' }
+    TaskDiagnosticEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/TaskDiagnosticData' }
+    TaskSyncData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          properties:
+            task_queue: { type: object, additionalProperties: true }
+    TaskSyncEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/TaskSyncData' }
+    LicensePoolInput:
+      type: object
+      required: [name, csp_major_version, license_kind, term]
+      properties:
+        name: { type: string, maxLength: 200 }
+        csp_major_version: { type: integer, enum: [4, 5] }
+        license_kind: { type: string, enum: [client, server] }
+        term: { type: string, enum: [one_year, two_years, perpetual] }
+    ActivationPreviewInput:
+      type: object
+      required: [pool_id]
+      properties:
+        pool_id: { type: string, format: uuid }
+        machine_ids: { type: array, items: { type: string, format: uuid } }
+        group_ids: { type: array, items: { type: string, format: uuid } }
+    CreateTaskInput:
+      type: object
+      required: [kind, idempotency_key]
+      properties:
+        kind: { type: string, enum: [scan, install_license] }
+        pool_id: { type: string, format: uuid }
+        preview_id: { type: string, format: uuid }
+        machine_ids: { type: array, maxItems: 5000, items: { type: string, format: uuid } }
+        group_ids: { type: array, items: { type: string, format: uuid } }
+        idempotency_key: { type: string, maxLength: 128 }
     ErrorResponse:
       type: object
       required: [error]

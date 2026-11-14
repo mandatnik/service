@@ -78,11 +78,20 @@ func (s *Store) SubmitReport(ctx context.Context, identity *Identity, request *p
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "check existing report"}
 	}
 
+	personalComplete := true
+	for _, source := range report.Sources {
+		if source.SourceType == "user_store" && !source.Complete {
+			personalComplete = false
+		}
+	}
+	if !report.ProfilesComplete {
+		personalComplete = false
+	}
 	if _, err := tx.ExecContext(ctx, `
-INSERT INTO dbo.reports (report_id, machine_id, registration_id, scan_seq, collected_at, received_at, status, applied, applied_sources, payload_sha256, payload_json, source_ip, dns_status)
-VALUES (@p1,@p2,@p3,@p4,@p5,@p6,@p7,0,0,@p8,@p9,@p10,@p11)`,
+INSERT INTO dbo.reports (report_id, machine_id, registration_id, scan_seq, collected_at, received_at, status, applied, applied_sources, payload_sha256, payload_json, source_ip, dns_status, profiles_complete, personal_complete)
+VALUES (@p1,@p2,@p3,@p4,@p5,@p6,@p7,0,0,@p8,@p9,@p10,@p11,@p12,@p13)`,
 		report.ReportID, identity.MachineID, identity.RegistrationID, report.ScanSeq, collectedAt, now,
-		report.Status, payloadHash, string(canonical), ipBytes(sourceIP), dnsStatus); err != nil {
+		report.Status, payloadHash, string(canonical), ipBytes(sourceIP), dnsStatus, report.ProfilesComplete, personalComplete); err != nil {
 		if isDuplicateKey(err) {
 			return nil, &protocol.APIError{Code: protocol.CodeReportConflict, Message: "report_id was inserted concurrently"}
 		}
@@ -227,9 +236,10 @@ WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&
 			if sidErr != nil {
 				return false, &protocol.APIError{Code: protocol.CodeReportInvalid, Message: "source user SID: " + sidErr.Error()}
 			}
-			id, apiErr := upsertMachineUserTx(ctx, tx, identity.MachineID, sid, source.DisplayName, "", false, report.ReportID, now)
-			if apiErr != nil {
-				return false, apiErr
+			var createErr *protocol.APIError
+			id, createErr = upsertMachineUserTx(ctx, tx, identity.MachineID, sid, source.DisplayName, "", false, report.ReportID, now)
+			if createErr != nil {
+				return false, createErr
 			}
 			users[sid] = id
 		}
@@ -247,7 +257,11 @@ WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&
 
 	if source.SourceType == "user_store" {
 		for _, cert := range source.Certificates {
-			if apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", userID, report, now); apiErr != nil {
+			observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", userID, report, now)
+			if apiErr != nil {
+				return false, apiErr
+			}
+			if apiErr := replaceObservationBindingsTx(ctx, tx, observationID, cert.ProviderBindings, now); apiErr != nil {
 				return false, apiErr
 			}
 			if apiErr := upsertUserCertificateTx(ctx, tx, userID.(int64), cert.SHA256, report.ReportID, now); apiErr != nil {
@@ -266,13 +280,21 @@ WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&
 			}
 			seenFileCert[hash] = true
 			obsKey := observationHash(scope, file.Path)
-			if apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, obsKey, source, hash, file.Path, nil, report, now); apiErr != nil {
+			observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, obsKey, source, hash, file.Path, nil, report, now)
+			if apiErr != nil {
+				return false, apiErr
+			}
+			if apiErr := replaceObservationBindingsTx(ctx, tx, observationID, nil, now); apiErr != nil {
 				return false, apiErr
 			}
 		}
 		for _, cert := range source.Certificates {
 			if !seenFileCert[cert.SHA256] {
-				if apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", nil, report, now); apiErr != nil {
+				observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", nil, report, now)
+				if apiErr != nil {
+					return false, apiErr
+				}
+				if apiErr := replaceObservationBindingsTx(ctx, tx, observationID, nil, now); apiErr != nil {
 					return false, apiErr
 				}
 			}
@@ -367,12 +389,13 @@ VALUES (@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@
 	return nil
 }
 
-func upsertObservationTx(ctx context.Context, tx *sql.Tx, machineID string, scope, obsKey []byte, source *protocol.SourceResult, certSHA, filePath string, userID any, report *protocol.Report, now time.Time) *protocol.APIError {
+func upsertObservationTx(ctx context.Context, tx *sql.Tx, machineID string, scope, obsKey []byte, source *protocol.SourceResult, certSHA, filePath string, userID any, report *protocol.Report, now time.Time) (int64, *protocol.APIError) {
 	var path any
 	if strings.TrimSpace(filePath) != "" {
 		path = filePath
 	}
-	_, err := tx.ExecContext(ctx, `
+	var observationID int64
+	err := tx.QueryRowContext(ctx, `
 MERGE dbo.certificate_observations WITH (HOLDLOCK) AS target
 USING (SELECT @p1 AS machine_id, @p2 AS observation_key_hash, @p3 AS certificate_sha256) AS source
 ON target.machine_id=source.machine_id AND target.observation_key_hash=source.observation_key_hash AND target.certificate_sha256=source.certificate_sha256
@@ -382,11 +405,51 @@ WHEN MATCHED THEN UPDATE SET
 WHEN NOT MATCHED THEN INSERT
     (machine_id, machine_user_id, source_type, source_key, source_scope_hash, observation_key_hash, file_path,
      certificate_sha256, active, first_seen_at, last_seen_at, removed_at, last_report_id, last_scan_seq)
-VALUES (@p1,@p4,@p5,@p6,@p7,@p2,@p8,@p3,1,@p9,@p9,NULL,@p10,@p11);`,
+VALUES (@p1,@p4,@p5,@p6,@p7,@p2,@p8,@p3,1,@p9,@p9,NULL,@p10,@p11)
+OUTPUT INSERTED.observation_id;`,
 		machineID, obsKey, certSHA, userID, source.SourceType, source.SourceKey, scope, path,
-		now, report.ReportID, report.ScanSeq)
+		now, report.ReportID, report.ScanSeq).Scan(&observationID)
 	if err != nil {
-		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "upsert certificate observation"}
+		return 0, &protocol.APIError{Code: protocol.CodeDatabase, Message: "upsert certificate observation: " + err.Error()}
+	}
+	return observationID, nil
+}
+
+func replaceObservationBindingsTx(ctx context.Context, tx *sql.Tx, observationID int64, bindings []protocol.ProviderBinding, now time.Time) *protocol.APIError {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.certificate_observation_bindings WHERE observation_id=@p1`, observationID); err != nil {
+		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "replace provider bindings"}
+	}
+	for index, binding := range bindings {
+		state := binding.BindingState
+		if state == "" {
+			state = "absent"
+		}
+		owner := binding.ProviderOwner
+		if owner == "" {
+			owner = "unknown"
+		}
+		privateKeyState := binding.PrivateKeyState
+		if privateKeyState == "" {
+			privateKeyState = "not_checked"
+		}
+		var observed any
+		if binding.ObservedAt != "" {
+			if value, err := protocol.ValidateTimestamp(binding.ObservedAt); err == nil {
+				observed = value.UTC()
+			}
+		} else {
+			observed = now
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO dbo.certificate_observation_bindings(observation_id,binding_index,provider_name,provider_api,provider_type,key_spec,
+ binding_state,provider_owner,attribution_source,attribution_version,private_key_state,metadata_error_code,observed_at)
+VALUES(@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13)`,
+			observationID, index, truncate(binding.ProviderName, 512), truncate(binding.ProviderAPI, 16), int(binding.ProviderType), int(binding.KeySpec),
+			state, owner, truncate(binding.AttributionSource, 128), truncate(binding.AttributionVersion, 64), privateKeyState,
+			truncate(binding.MetadataErrorCode, 128), observed)
+		if err != nil {
+			return &protocol.APIError{Code: protocol.CodeDatabase, Message: "insert provider binding"}
+		}
 	}
 	return nil
 }
@@ -563,18 +626,18 @@ WHEN MATCHED THEN UPDATE SET scanned=1, complete=1, present=@p2, product_version
  license_kind=@p5, license_kind_raw=@p6, license_kind_source=@p7, license_state=@p8,
  valid_to_raw=@p9, valid_to_utc=@p10, time_basis=@p11, term_kind=@p12, is_trial=@p13,
  source=@p14, error=@p15, products_json=@p16, last_report_id=@p17, last_scan_seq=@p18,
- collected_at=@p19, updated_at=@p20, last_attempt_at=@p20, last_attempt_error=NULL
+ collected_at=@p19, updated_at=@p20, last_attempt_at=@p20, last_attempt_error=NULL, environment=@p21
 WHEN NOT MATCHED THEN INSERT (machine_id, scanned, complete, present, product_version, core_version,
  license_kind, license_kind_raw, license_kind_source, license_state, valid_to_raw, valid_to_utc,
  time_basis, term_kind, is_trial, source, error, products_json, last_report_id, last_scan_seq,
- collected_at, updated_at, last_attempt_at, last_attempt_error)
-VALUES (@p1,1,1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@p17,@p18,@p19,@p20,@p20,NULL);`,
+ collected_at, updated_at, last_attempt_at, last_attempt_error, environment)
+VALUES (@p1,1,1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@p17,@p18,@p19,@p20,@p20,NULL,@p21);`,
 		identity.MachineID, report.CSP.Present, nilIfEmpty(report.CSP.ProductVersion), nilIfEmpty(report.CSP.CoreVersion),
 		nilIfEmpty(report.CSP.License.Kind), nilIfEmpty(report.CSP.License.KindRaw), nilIfEmpty(report.CSP.License.KindSource),
 		nilIfEmpty(report.CSP.License.State), nilIfEmpty(report.CSP.License.ValidToRaw), validToUTC,
 		nilIfEmpty(report.CSP.License.TimeBasis), nilIfEmpty(report.CSP.License.TermKind), nilIfEmpty(report.CSP.License.IsTrial),
 		nilIfEmpty(report.CSP.License.Source), nilIfEmpty(report.CSP.Error), productsJSON, report.ReportID,
-		report.ScanSeq, parseTimeOrZero(report.CollectedAt), now)
+		report.ScanSeq, parseTimeOrZero(report.CollectedAt), now, nilIfEmpty(report.CSP.Environment))
 	if err != nil {
 		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "store CSP state"}
 	}

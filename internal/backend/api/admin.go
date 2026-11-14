@@ -188,6 +188,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case parts[0] == "inventory-settings" || parts[0] == "groups" || parts[0] == "folder-policies":
 		s.adminInventory(w, r, session, parts)
+	case parts[0] == "license-pools" || parts[0] == "licenses" || parts[0] == "tasks" || parts[0] == "task-items":
+		s.adminLicensesAndTasks(w, r, session, parts)
 	case path == "session" && r.Method == http.MethodGet:
 		writeAdminJSON(w, http.StatusOK, map[string]any{"username": session.Username, "expires_at": session.ExpiresAt, "csrf_token": csrf})
 	case path == "logout" && r.Method == http.MethodPost:
@@ -511,6 +513,10 @@ func (s *Server) adminGetConfig(w http.ResponseWriter, r *http.Request) {
 		writeAdminError(w, http.StatusServiceUnavailable, protocol.CodeDatabase, "could not load configuration")
 		return
 	}
+	cfg = cfg.WithScheduleDefaults()
+	if effectiveHash, hashErr := protocol.ConfigHash(cfg); hashErr == nil {
+		hash = effectiveHash
+	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"config": cfg, "config_hash": hash})
 }
 
@@ -523,6 +529,7 @@ func (s *Server) adminPutConfig(w http.ResponseWriter, r *http.Request, session 
 	ctx, cancel := contextWithTimeout(r, 15*time.Second)
 	defer cancel()
 	_, oldHash, _ := s.store.Config(ctx)
+	cfg = cfg.WithScheduleDefaults()
 	updated, hash, err := s.store.SetConfig(ctx, cfg, session.Username)
 	if err != nil {
 		writeAdminError(w, http.StatusUnprocessableEntity, protocol.CodeConfigInvalid, err.Error())

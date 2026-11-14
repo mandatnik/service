@@ -16,18 +16,29 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
+	"telehack2026/internal/backend/licensecrypto"
 	"telehack2026/internal/protocol"
 )
 
 // Store is the persistence layer.
 type Store struct {
-	DB  *sql.DB
-	Now func() time.Time
+	DB             *sql.DB
+	Now            func() time.Time
+	LicenseKeyring *licensecrypto.Keyring
+	FingerprintKey *licensecrypto.FingerprintKey
 }
 
 // New creates a Store. The clock is injectable for tests.
 func New(db *sql.DB) *Store {
 	return &Store{DB: db, Now: func() time.Time { return time.Now().UTC() }}
+}
+
+// SetLicenseCrypto installs the protected keyring and deduplication key. When
+// they are absent, license operations fail explicitly and never fall back to
+// plaintext.
+func (s *Store) SetLicenseCrypto(keyring *licensecrypto.Keyring, fingerprint *licensecrypto.FingerprintKey) {
+	s.LicenseKeyring = keyring
+	s.FingerprintKey = fingerprint
 }
 
 func (s *Store) now() time.Time {

@@ -93,6 +93,13 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("identity archived to", backup)
+	case "rotate-encryption-key":
+		keyID, err := agent.RotateEncryptionKey()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "rotate-encryption-key:", err)
+			os.Exit(1)
+		}
+		fmt.Println("encryption key rotated; restart the service to register:", keyID)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -113,6 +120,7 @@ Usage:
   telehack-agent.exe run [-config PATH]
   telehack-agent.exe start | stop | status | diag
   telehack-agent.exe reset-identity --confirm
+  telehack-agent.exe rotate-encryption-key
 
 uninstall delegates to the MSI when the product is installed by MSI and
 removes agent-owned state on a full uninstall. Normal operation requires no
