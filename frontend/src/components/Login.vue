@@ -26,28 +26,32 @@ async function submit() {
 <template>
   <div class="login-screen">
     <div class="login-theme"><ThemePicker /></div>
-    <div class="login-brand">
+    <main class="login-layout">
+    <section class="login-brand" aria-labelledby="login-brand-name">
       <BrandLogo />
       <div>
-        <div class="brand-name">Мандатник</div>
-        <div class="muted">Инвентаризация сертификатов</div>
+        <h1 id="login-brand-name" class="brand-name">Мандатник</h1>
+        <p class="login-description muted">Инвентаризация сертификатов</p>
       </div>
-    </div>
-    <form class="login-card" @submit.prevent="submit">
-      <h1>Вход администратора</h1>
-      <p class="muted">Войдите, чтобы управлять машинами, сертификатами и лицензиями.</p>
+    </section>
+    <section class="login-form-panel" aria-labelledby="login-title">
+    <form class="login-card" aria-labelledby="login-title" @submit.prevent="submit">
+      <h2 id="login-title">Вход</h2>
+      <p class="muted">Войдите в рабочее пространство администратора.</p>
       <div v-if="notice" class="alert alert-info">{{ notice }}</div>
       <div v-if="error" class="alert alert-error" role="alert">{{ error }}</div>
       <label class="field">
         <span>Электронная почта</span>
-        <input v-model="email" type="email" autocomplete="username" required autofocus />
+        <input v-model="email" type="email" autocomplete="username" placeholder="name@example.ru" required autofocus />
       </label>
       <label class="field">
         <span>Пароль</span>
-        <input v-model="password" type="password" autocomplete="current-password" required />
+        <input v-model="password" type="password" autocomplete="current-password" placeholder="Введите пароль" required />
       </label>
       <button class="btn btn-primary btn-wide" :disabled="busy">{{ busy ? 'Проверка…' : 'Войти' }}</button>
       <p class="login-help muted">Нет доступа? Обратитесь к администратору системы.</p>
     </form>
+    </section>
+    </main>
   </div>
 </template>
