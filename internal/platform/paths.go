@@ -28,12 +28,17 @@ func AgentDir() string          { return filepath.Join(ProgramDataDir(), "Agent"
 func AgentConfigPath() string   { return filepath.Join(ProgramDataDir(), "agent-config.json") }
 func AgentLogDir() string       { return filepath.Join(AgentDir(), "logs") }
 func AgentQueueDir() string     { return filepath.Join(AgentDir(), "queue") }
-func AgentIdentityPath() string { return filepath.Join(AgentDir(), "identity.json") }
-func AgentKeyPath() string      { return filepath.Join(AgentDir(), "key.dpapi") }
-func AgentStatePath() string    { return filepath.Join(AgentDir(), "state.json") }
-func AgentJobsPath() string     { return filepath.Join(AgentDir(), "jobs.json") }
+func AgentIdentityPath() string { return filepath.Join(AgentDir(), "identity.dpapi") }
+func AgentPublicIdentityPath() string {
+	return filepath.Join(AgentDir(), "identity-public.json")
+}
+func AgentStatePath() string { return filepath.Join(AgentDir(), "state.json") }
+func AgentJobsPath() string  { return filepath.Join(AgentDir(), "jobs.json") }
 func AgentPendingRenamePath() string {
-	return filepath.Join(AgentDir(), "pending_rename.json")
+	return filepath.Join(AgentDir(), "pending_rename.dpapi")
+}
+func AgentPendingRenameAcceptedPath() string {
+	return filepath.Join(AgentDir(), "pending_rename.accepted")
 }
 func BackendDir() string        { return filepath.Join(ProgramDataDir(), "Backend") }
 func BackendConfigPath() string { return filepath.Join(BackendDir(), "backend.json") }

@@ -29,6 +29,6 @@ func secureAgentState(logger *Logger) {
 
 // Run starts the agent. On Windows this is a real SCM service when launched by
 // the service control manager, and a console loop for diagnostics otherwise.
-func Run(configPath string, diagDirs ...string) error {
-	return runPlatform(configPath, diagDirs)
+func Run(configPath string) error {
+	return runPlatform(configPath)
 }

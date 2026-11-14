@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"telehack2026/internal/agent"
 	"telehack2026/internal/version"
@@ -21,18 +20,16 @@ func main() {
 	case "run":
 		fs := flag.NewFlagSet("run", flag.ExitOnError)
 		config := fs.String("config", "", "path to agent-config.json (default: ProgramData)")
-		diagDirs := fs.String("diag-dirs", "", "diagnostic-only semicolon-separated .cer folders")
 		_ = fs.Parse(os.Args[2:])
-		if err := agent.Run(*config, splitDirs(*diagDirs)...); err != nil {
+		if err := agent.Run(*config); err != nil {
 			fmt.Fprintln(os.Stderr, "agent:", err)
 			os.Exit(1)
 		}
 	case "install":
 		fs := flag.NewFlagSet("install", flag.ExitOnError)
 		config := fs.String("config", "", "path to agent-config.json (default: ProgramData)")
-		diagDirs := fs.String("diag-dirs", "", "diagnostic-only semicolon-separated .cer folders")
 		_ = fs.Parse(os.Args[2:])
-		if err := agent.InstallService(*config, splitDirs(*diagDirs)); err != nil {
+		if err := agent.InstallService(*config); err != nil {
 			fmt.Fprintln(os.Stderr, "install:", err)
 			os.Exit(1)
 		}
@@ -98,24 +95,14 @@ func main() {
 	}
 }
 
-func splitDirs(value string) []string {
-	var dirs []string
-	for _, dir := range strings.Split(value, ";") {
-		if dir = strings.TrimSpace(dir); dir != "" {
-			dirs = append(dirs, dir)
-		}
-	}
-	return dirs
-}
-
 func usage() {
 	fmt.Print(`telehack-agent - Windows service certificate and CryptoPro inventory agent
 
 Usage:
   telehack-agent.exe version
-  telehack-agent.exe install [-config PATH] [-diag-dirs DIRS]
+  telehack-agent.exe install [-config PATH]
   telehack-agent.exe uninstall [-purge]
-  telehack-agent.exe run [-config PATH] [-diag-dirs DIRS]
+  telehack-agent.exe run [-config PATH]
   telehack-agent.exe start | stop | status | diag
   telehack-agent.exe reset-identity --confirm
 

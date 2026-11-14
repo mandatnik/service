@@ -12,22 +12,21 @@ import (
 	"golang.org/x/sys/windows/svc"
 )
 
-func runPlatform(configPath string, diagDirs []string) error {
+func runPlatform(configPath string) error {
 	isService, err := svc.IsWindowsService()
 	if err != nil {
 		return fmt.Errorf("detect service context: %w", err)
 	}
 	if isService {
-		return svc.Run(ServiceName, &serviceHandler{configPath: configPath, diagDirs: diagDirs})
+		return svc.Run(ServiceName, &serviceHandler{configPath: configPath})
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	return runDiagnosticRuntime(ctx, configPath, diagDirs)
+	return runAgentRuntime(ctx, configPath)
 }
 
 type serviceHandler struct {
 	configPath string
-	diagDirs   []string
 }
 
 func (h *serviceHandler) Execute(_ []string, requests <-chan svc.ChangeRequest, changes chan<- svc.Status) (bool, uint32) {
@@ -36,7 +35,7 @@ func (h *serviceHandler) Execute(_ []string, requests <-chan svc.ChangeRequest, 
 	defer cancel()
 	done := make(chan error, 1)
 	go func() {
-		done <- runDiagnosticRuntime(ctx, h.configPath, h.diagDirs)
+		done <- runAgentRuntime(ctx, h.configPath)
 	}()
 	changes <- svc.Status{State: svc.Running, Accepts: svc.AcceptStop | svc.AcceptShutdown}
 	for {

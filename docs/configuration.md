@@ -45,9 +45,9 @@
 C:\ProgramData\Telehack2026\
   agent-config.json          # GPO/ручной файл, не удаляется агентом
   Agent\
-    identity.json            # UUID, hostname, created_at, public key
-    key.dpapi                # PKCS#8, защищён DPAPI
-    pending_rename.json      # незавершённый подписанный переход
+    identity.dpapi           # единый DPAPI-bundle: UUID, hostname, ключ
+    identity-public.json     # только публичные поля для диагностики
+    pending_rename.dpapi     # подготовленный подписанный переход
     state.json               # scan_seq, last_scan_*, config cache
     jobs.json                # состояние ручных заданий
     queue\report-*.json      # не более двух

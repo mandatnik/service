@@ -4,7 +4,7 @@
 
 | Компонент | Версия | Проверено |
 | --- | --- | --- |
-| Go | 1.26.3 (минимум 1.23) | macOS arm64, Windows amd64 |
+| Go | 1.26.3 (go.mod: 1.26.0) | macOS arm64, Windows amd64 |
 | Node.js | 22.22.3 (только frontend P08) | macOS arm64 |
 | SQL Server | 2019 Express 15.0.2000.5 RTM | Windows Server 2022 |
 | КриптоПро CSP | 5.0.13003 / 4.0.9963 | Windows 10 19045 |

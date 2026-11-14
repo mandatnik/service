@@ -26,7 +26,7 @@
 
 ## Сборка
 
-Требуется Go 1.23+ (проверено на Go 1.26.3). CGO не требуется.
+Требуется Go 1.26+ (проверено на Go 1.26.3). CGO не требуется.
 
 ```bash
 go build ./cmd/agent ./cmd/backend ./cmd/acceptance

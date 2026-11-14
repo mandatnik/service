@@ -17,7 +17,7 @@ import (
 )
 
 // InstallService registers TelehackAgent as an automatic LocalSystem service.
-func InstallService(configPath string, diagDirs []string) error {
+func InstallService(configPath string) error {
 	if configPath == "" {
 		configPath = platform.AgentConfigPath()
 	}
@@ -46,9 +46,6 @@ func InstallService(configPath string, diagDirs []string) error {
 		return fmt.Errorf("service %s is already installed; run uninstall first", ServiceName)
 	}
 	args := []string{"run", "-config", absoluteConfig}
-	if len(diagDirs) > 0 {
-		args = append(args, "-diag-dirs", strings.Join(diagDirs, ";"))
-	}
 	service, err := manager.CreateService(ServiceName, exe, mgr.Config{
 		DisplayName: "Telehack 2026 Agent",
 		Description: "Collects personal certificate inventory and CryptoPro CSP state.",
@@ -208,7 +205,7 @@ func ResetIdentity() (string, error) {
 	if err := os.MkdirAll(backup, 0o755); err != nil {
 		return "", err
 	}
-	for _, name := range []string{"identity.json", "key.dpapi", "pending_rename.json", "state.json", "jobs.json", "queue"} {
+	for _, name := range []string{"identity.dpapi", "pending_rename.dpapi", "identity-public.json", "state.json", "jobs.json", "queue"} {
 		source := filepath.Join(platform.AgentDir(), name)
 		if _, err := os.Stat(source); err != nil {
 			continue
@@ -235,17 +232,9 @@ func Diagnostics() (string, error) {
 			builder.WriteString("binary: " + info.BinaryPath + "\n")
 		}
 	}
-	identityPath := platform.AgentIdentityPath()
-	if raw, err := os.ReadFile(identityPath); err == nil {
-		var identity map[string]any
-		if json.Unmarshal(raw, &identity) == nil {
-			if uuid, ok := identity["uuid"]; ok {
-				builder.WriteString(fmt.Sprintf("identity uuid: %v\n", uuid))
-			}
-			if hostname, ok := identity["hostname"]; ok {
-				builder.WriteString(fmt.Sprintf("identity hostname: %v\n", hostname))
-			}
-		}
+	if identity, err := readPublicIdentity(); err == nil {
+		builder.WriteString(fmt.Sprintf("identity uuid: %s\n", identity.UUID))
+		builder.WriteString(fmt.Sprintf("identity hostname: %s\n", identity.Hostname))
 	} else {
 		builder.WriteString("identity: not initialized\n")
 	}

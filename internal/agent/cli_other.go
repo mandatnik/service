@@ -4,7 +4,7 @@ package agent
 
 import "fmt"
 
-func InstallService(string, []string) error {
+func InstallService(string) error {
 	return fmt.Errorf("%w: Windows service", ErrUnsupportedPlatform)
 }
 func UninstallService(bool) error { return fmt.Errorf("%w: Windows service", ErrUnsupportedPlatform) }

@@ -38,14 +38,25 @@ telehack-backend.exe bootstrap -config C:\ProgramData\Telehack2026\Backend\backe
 
 `backend.json` размещается в
 `C:\ProgramData\Telehack2026\Backend\backend.json` с ACL только для SYSTEM и
-Administrators. Пароль БД — в переменной окружения службы
-`TELEHACK_DB_PASSWORD`. Бэкенд регистрируется как служба:
+Administrators. Пароль БД — в отдельном ACL-защищённом файле, имя которого
+задано `db.password_file`; переменная окружения `TELEHACK_DB_PASSWORD`
+поддерживается как альтернатива. Бэкенд — портативный EXE, не реализующий
+SCM-диспетчер, поэтому на стенде он запускается планировщиком как SYSTEM:
 
 ```powershell
-sc.exe create TelehackBackend binPath= "C:\ProgramData\Telehack2026\Backend\telehack-backend.exe run -config C:\ProgramData\Telehack2026\Backend\backend.json" start= auto obj= LocalSystem
-sc.exe failure TelehackBackend reset= 86400 actions= restart/5000/restart/15000/restart/60000
-Start-Service TelehackBackend
+$action = New-ScheduledTaskAction -Execute 'C:\ProgramData\Telehack2026\Backend\telehack-backend.exe' `
+  -Argument 'run -config "C:\ProgramData\Telehack2026\Backend\backend.json"' `
+  -WorkingDirectory 'C:\ProgramData\Telehack2026\Backend'
+$trigger = New-ScheduledTaskTrigger -AtStartup
+$principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
+$settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero)
+Register-ScheduledTask -TaskName 'TelehackBackend' -Action $action -Trigger $trigger `
+  -Principal $principal -Settings $settings
+Start-ScheduledTask -TaskName 'TelehackBackend'
 ```
+
+Это не является обязательным контейнером/службой продукта: EXE можно
+запустить и вручную; требование «один portable процесс» сохранено.
 
 Порты 8443/8444 открываются в firewall только на сервере. На рабочих
 станциях входящие порты агента не создаются.

@@ -1,0 +1,65 @@
+2026-11-14 07:46:51.836 - agent runtime starting: 0.1.0 (commit dev, built unknown)
+2026-11-14 07:46:51.842 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7807" host=WORKSTATION-2
+2026-11-14 07:46:51.842 - identity uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 07:46:51.842 - queue items=0 scan_seq=0 config_hash=
+2026-11-14 07:46:51.842 - agent cycle started
+2026-11-14 07:46:51.874 - registration ok: machine_id=6a0561a2-400d-40e8-889f-a1d8a5916d8c uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 07:46:51.876 - sync ok: config_hash=4fdae6d1c01a68335c092dc64fc7815b37111d015826019a84ad689bb51af0d0 config_received=false jobs=0
+2026-11-14 07:46:51.983 - collection finished in 101ms: scan_seq=1 status=complete complete=true profiles=5 sources=6 certificates=16 csp_present=true csp_complete=true job_count=0 errors=0
+2026-11-14 07:47:21.987 - delivering report 29a2d452-71fb-42a0-9da3-4b6812584aef scan_seq=1
+2026-11-14 07:47:22.031 - report 29a2d452-71fb-42a0-9da3-4b6812584aef accepted duplicate=false applied=true
+2026-11-14 07:55:37.654 - agent cycle stopping
+2026-11-14 07:55:41.352 - agent runtime starting: 0.1.0 (commit dev, built unknown)
+2026-11-14 07:55:41.358 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7807" host=WORKSTATION-2
+2026-11-14 07:55:41.358 - identity uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 07:55:41.358 - queue items=0 scan_seq=1 config_hash=4fdae6d1c01a68335c092dc64fc7815b37111d015826019a84ad689bb51af0d0
+2026-11-14 07:55:41.358 - agent cycle started
+2026-11-14 07:55:41.391 - registration ok: machine_id=6a0561a2-400d-40e8-889f-a1d8a5916d8c uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 07:55:41.392 - sync ok: config_hash=4fdae6d1c01a68335c092dc64fc7815b37111d015826019a84ad689bb51af0d0 config_received=false jobs=0
+2026-11-14 08:05:41.412 - sync ok: config_hash=b6af10f844f162660c26bfd8590a22d9712f21ec2a303f8a3456cf989e403eeb config_received=true jobs=0
+2026-11-14 08:15:41.403 - sync ok: config_hash=b6af10f844f162660c26bfd8590a22d9712f21ec2a303f8a3456cf989e403eeb config_received=false jobs=0
+2026-11-14 08:19:33.004 - agent cycle stopping
+2026-11-14 08:19:33.543 - agent runtime starting: 0.1.0 (commit dev, built unknown)
+2026-11-14 08:19:33.549 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7807" host=WORKSTATION-2
+2026-11-14 08:19:33.549 - identity uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 08:19:33.549 - queue items=0 scan_seq=1 config_hash=b6af10f844f162660c26bfd8590a22d9712f21ec2a303f8a3456cf989e403eeb
+2026-11-14 08:19:33.549 - agent cycle started
+2026-11-14 08:19:33.575 - registration ok: machine_id=6a0561a2-400d-40e8-889f-a1d8a5916d8c uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 08:19:33.581 - sync ok: config_hash=b6af10f844f162660c26bfd8590a22d9712f21ec2a303f8a3456cf989e403eeb config_received=false jobs=1
+2026-11-14 08:19:33.688 - collection finished in 103ms: scan_seq=2 status=partial complete=false profiles=5 sources=6 certificates=4 csp_present=true csp_complete=true job_count=1 errors=1
+2026-11-14 08:19:33.688 - collection error: S-1-5-21-2458881001-951638917-3945708937-1107: RegLoadKey(C:\Users\user2\NTUSER.DAT): The process cannot access the file because it is being used by another process.
+2026-11-14 08:20:03.699 - delivering report daf85baf-cf68-4bf1-b1a3-4e4cd2c5a8f6 scan_seq=2
+2026-11-14 08:20:03.741 - report daf85baf-cf68-4bf1-b1a3-4e4cd2c5a8f6 accepted duplicate=false applied=true
+2026-11-14 08:20:03.744 - job d69d0082-3246-44cf-84ee-a3f54603f6c5 acknowledged as completed
+2026-11-14 08:24:04.547 - agent cycle stopping
+2026-11-14 08:24:05.089 - agent runtime starting: 0.1.0 (commit dev, built unknown)
+2026-11-14 08:24:05.094 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7807" host=WORKSTATION-2
+2026-11-14 08:24:05.094 - identity uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 08:24:05.094 - queue items=0 scan_seq=2 config_hash=b6af10f844f162660c26bfd8590a22d9712f21ec2a303f8a3456cf989e403eeb
+2026-11-14 08:24:05.094 - agent cycle started
+2026-11-14 08:24:05.119 - registration ok: machine_id=6a0561a2-400d-40e8-889f-a1d8a5916d8c uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 08:24:05.124 - sync ok: config_hash=b6af10f844f162660c26bfd8590a22d9712f21ec2a303f8a3456cf989e403eeb config_received=false jobs=1
+2026-11-14 08:24:05.235 - collection finished in 107ms: scan_seq=3 status=complete complete=true profiles=5 sources=6 certificates=0 csp_present=true csp_complete=true job_count=1 errors=0
+2026-11-14 08:24:35.240 - delivering report 0b5dc864-d097-4f51-bf84-422b46e2b699 scan_seq=3
+2026-11-14 08:24:35.263 - report 0b5dc864-d097-4f51-bf84-422b46e2b699 accepted duplicate=false applied=true
+2026-11-14 08:24:35.266 - job 86e56225-249c-4623-bb96-23a914ef8d35 acknowledged as completed
+2026-11-14 08:32:25.517 - agent cycle stopping
+2026-11-14 08:32:26.068 - agent runtime starting: 0.1.0 (commit dev, built unknown)
+2026-11-14 08:32:26.074 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7807" host=WORKSTATION-2
+2026-11-14 08:32:26.074 - identity uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 08:32:26.074 - queue items=0 scan_seq=3 config_hash=b6af10f844f162660c26bfd8590a22d9712f21ec2a303f8a3456cf989e403eeb
+2026-11-14 08:32:26.074 - agent cycle started
+2026-11-14 08:32:26.102 - registration ok: machine_id=6a0561a2-400d-40e8-889f-a1d8a5916d8c uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 08:32:26.106 - sync ok: config_hash=7c416c6dba46654d458ba0fd7fd203f5bd08af69d940aaa27a989a4d71418b60 config_received=false jobs=1
+2026-11-14 08:32:26.217 - collection finished in 107ms: scan_seq=4 status=complete complete=true profiles=5 sources=5 certificates=0 csp_present=true csp_complete=true job_count=1 errors=0
+2026-11-14 08:32:56.221 - delivering report 9aabf391-fabe-4ca8-aad0-e925cf81cad6 scan_seq=4
+2026-11-14 08:32:56.235 - report 9aabf391-fabe-4ca8-aad0-e925cf81cad6 accepted duplicate=false applied=true
+2026-11-14 08:32:56.238 - job f5b44699-e286-44a8-8e14-a7c5b2759c99 acknowledged as completed
+2026-11-14 08:40:12.033 - agent cycle stopping
+2026-11-14 08:40:15.269 - agent runtime starting: 0.1.0 (commit dev, built unknown)
+2026-11-14 08:40:15.274 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7807" host=WORKSTATION-2
+2026-11-14 08:40:15.274 - identity uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 08:40:15.274 - queue items=0 scan_seq=4 config_hash=7c416c6dba46654d458ba0fd7fd203f5bd08af69d940aaa27a989a4d71418b60
+2026-11-14 08:40:15.274 - agent cycle started
+2026-11-14 08:40:15.301 - registration ok: machine_id=6a0561a2-400d-40e8-889f-a1d8a5916d8c uuid=2232d820-14a1-4027-84cc-cc31d6d8d8e6 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 08:40:15.303 - sync ok: config_hash=5a4a5b74ee2189f05424a702764eff7fdfcfacec50d018afc6cd490663d7170c config_received=false jobs=0

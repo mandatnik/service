@@ -1,0 +1,472 @@
+{
+  "started_at": "2026-11-14T02:40:16.884839Z",
+  "finished_at": "2026-11-14T02:40:25.984632Z",
+  "server_url": "https://192.168.189.138:8443",
+  "results": [
+    {
+      "name": "register new machine",
+      "ok": true,
+      "detail": {
+        "http_status": 200,
+        "machine_id": "742739ba-512f-4b3c-8fff-a8134ca131a4",
+        "uuid": "f5a7d508-6c2c-4c06-8f9e-90b50a333ce7"
+      }
+    },
+    {
+      "name": "registration returned machine/config",
+      "ok": true,
+      "detail": {
+        "config_hash": "9b2c256c557b1f8fbd2eed2c7156c37ef494193bb8a3dbd9556911a1c26f5edd",
+        "machine_id": "742739ba-512f-4b3c-8fff-a8134ca131a4"
+      }
+    },
+    {
+      "name": "re-register same UUID/key/hostname",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "re-registration preserves machine_id",
+      "ok": true,
+      "detail": {
+        "machine_id": "742739ba-512f-4b3c-8fff-a8134ca131a4"
+      }
+    },
+    {
+      "name": "known UUID with a different key is rejected",
+      "ok": true,
+      "detail": {
+        "call_error": "key_conflict: UUID is already registered with a different public key",
+        "error_code": "key_conflict",
+        "error_message": "UUID is already registered with a different public key",
+        "http_status": 409
+      }
+    },
+    {
+      "name": "known UUID with changed hostname requires rename",
+      "ok": true,
+      "detail": {
+        "call_error": "hostname_mismatch: hostname changed; a signed rename is required",
+        "error_code": "hostname_mismatch",
+        "error_message": "hostname changed; a signed rename is required",
+        "http_status": 409
+      }
+    },
+    {
+      "name": "register independent machine B",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "new UUID reusing an active hostname is accepted with warning",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "hostname conflict is not a silent takeover",
+      "ok": true,
+      "detail": {
+        "machine_id": "a6c36607-5d19-4df2-ab26-25471eb4bd5c",
+        "warnings": [
+          "hostname_conflict",
+          "dns_unverified"
+        ]
+      }
+    },
+    {
+      "name": "hostname conflict creates a different machine record",
+      "ok": true,
+      "detail": {
+        "machine_a": "742739ba-512f-4b3c-8fff-a8134ca131a4",
+        "machine_b": "a6c36607-5d19-4df2-ab26-25471eb4bd5c"
+      }
+    },
+    {
+      "name": "sync with empty config hash returns config",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "config body present for empty hash",
+      "ok": true,
+      "detail": {
+        "config_hash": "9b2c256c557b1f8fbd2eed2c7156c37ef494193bb8a3dbd9556911a1c26f5edd"
+      }
+    },
+    {
+      "name": "sync with matching hash",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "matching config hash omits body",
+      "ok": true
+    },
+    {
+      "name": "first use of a request_id succeeds",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "replay of the same request_id is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "replay",
+        "error_message": "request_id has already been used",
+        "http_status": 409
+      }
+    },
+    {
+      "name": "concurrent identical request_ids: exactly one succeeds",
+      "ok": true,
+      "detail": {
+        "statuses": [
+          200,
+          409
+        ]
+      }
+    },
+    {
+      "name": "update configuration",
+      "ok": true,
+      "detail": {
+        "new_hash": "2b3a7ece32c7899de3adfb95560208f7207873b81574761de99cd1fb86e36007",
+        "version": 8
+      }
+    },
+    {
+      "name": "sync after config change",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "changed config and hash are returned",
+      "ok": true,
+      "detail": {
+        "config_hash": "2b3a7ece32c7899de3adfb95560208f7207873b81574761de99cd1fb86e36007"
+      }
+    },
+    {
+      "name": "create manual job",
+      "ok": true,
+      "detail": {
+        "job_id": "5e9ffc2a-eed4-4e8c-946e-f7d46d57d20c"
+      }
+    },
+    {
+      "name": "sync with unchanged hash still returns jobs",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "job is delivered with unchanged config hash",
+      "ok": true,
+      "detail": {
+        "jobs": 1
+      }
+    },
+    {
+      "name": "submit complete report",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "complete report applied",
+      "ok": true,
+      "detail": {
+        "report_id": "fcd81125-c940-47eb-b349-b3ffdb7ec0e1"
+      }
+    },
+    {
+      "name": "report observations are active",
+      "ok": true
+    },
+    {
+      "name": "duplicate report_id with new request_id",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "duplicate report is idempotent",
+      "ok": true,
+      "detail": {
+        "applied": false,
+        "duplicate": true
+      }
+    },
+    {
+      "name": "same report_id with different payload conflicts",
+      "ok": true,
+      "detail": {
+        "call_error": "report_conflict: report_id already exists with different content or machine",
+        "error_code": "report_conflict",
+        "error_message": "report_id already exists with different content or machine",
+        "http_status": 409
+      }
+    },
+    {
+      "name": "exact report retry succeeds idempotently",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "exact report request replay is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "replay",
+        "error_message": "request_id has already been used",
+        "http_status": 409
+      }
+    },
+    {
+      "name": "submit partial report",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "partial report applied without removing unobserved certs",
+      "ok": true,
+      "detail": {
+        "applied": true,
+        "report_id": "d0818466-7a3b-4e51-9baa-f2fdb9820010"
+      }
+    },
+    {
+      "name": "submit empty successful report",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "empty complete report removes observations",
+      "ok": true,
+      "detail": {
+        "applied": true,
+        "report_id": "5ca59493-5f23-416f-afef-93942074fd88"
+      }
+    },
+    {
+      "name": "submit delayed older report",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "delayed report does not roll back a newer source",
+      "ok": true,
+      "detail": {
+        "applied": false,
+        "reason": ""
+      }
+    },
+    {
+      "name": "delayed certificate is not active",
+      "ok": true
+    },
+    {
+      "name": "acknowledge manual job",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "job acknowledgement records report",
+      "ok": true,
+      "detail": {
+        "state": "completed"
+      }
+    },
+    {
+      "name": "duplicate job acknowledgement is idempotent",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "different terminal job state conflicts",
+      "ok": true,
+      "detail": {
+        "call_error": "job_conflict: job already has a different terminal state",
+        "error_code": "job_conflict",
+        "error_message": "job already has a different terminal state",
+        "http_status": 409
+      }
+    },
+    {
+      "name": "signed rename",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "rename preserves machine_id",
+      "ok": true,
+      "detail": {
+        "machine_id": "742739ba-512f-4b3c-8fff-a8134ca131a4"
+      }
+    },
+    {
+      "name": "old UUID is no longer authorized",
+      "ok": true,
+      "detail": {
+        "error_code": "identity_revoked",
+        "error_message": "identity is not active",
+        "http_status": 401
+      }
+    },
+    {
+      "name": "new UUID works after rename",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "report from the renamed identity",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "renamed identity applies fresh source sequences",
+      "ok": true,
+      "detail": {
+        "applied": true
+      }
+    },
+    {
+      "name": "rename to a busy hostname is accepted with warning",
+      "ok": true,
+      "detail": {
+        "http_status": 200
+      }
+    },
+    {
+      "name": "rename hostname conflict is explicit",
+      "ok": true,
+      "detail": {
+        "warnings": [
+          "hostname_conflict"
+        ]
+      }
+    },
+    {
+      "name": "rename preserves machine history under conflict",
+      "ok": true
+    },
+    {
+      "name": "certificate created_at is preserved across reports",
+      "ok": true,
+      "detail": {
+        "created_at": "2026-11-14T02:40:18.587Z",
+        "sha256": "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d"
+      }
+    },
+    {
+      "name": "non-POST method is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "method_not_allowed",
+        "error_message": "only POST is supported",
+        "http_status": 405
+      }
+    },
+    {
+      "name": "wrong content type is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "invalid_json",
+        "error_message": "Content-Type must be application/json",
+        "http_status": 400
+      }
+    },
+    {
+      "name": "empty body is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "invalid_json",
+        "error_message": "empty request body",
+        "http_status": 400
+      }
+    },
+    {
+      "name": "unknown endpoint is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "not_found",
+        "error_message": "unknown agent endpoint",
+        "http_status": 404
+      }
+    },
+    {
+      "name": "oversized body is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "payload_too_large",
+        "error_message": "request body exceeds limit",
+        "http_status": 413
+      }
+    },
+    {
+      "name": "wrong ECDSA curve is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "invalid_curve",
+        "error_message": "unsupported elliptic curve: only P-256 is supported",
+        "http_status": 400
+      }
+    },
+    {
+      "name": "tampered signature is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "invalid_signature",
+        "error_message": "ECDSA signature verification failed",
+        "http_status": 400
+      }
+    },
+    {
+      "name": "signed path substitution is rejected",
+      "ok": true,
+      "detail": {
+        "error_code": "invalid_envelope",
+        "error_message": "signed path \"/api/agent/v1/report\" does not match \"/api/agent/v1/sync\"",
+        "http_status": 400
+      }
+    },
+    {
+      "name": "cleanup synthetic records",
+      "ok": true
+    }
+  ]
+}

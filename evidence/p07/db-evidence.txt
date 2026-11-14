@@ -1,0 +1,121 @@
+== machines and registrations
+display_name|machine_id|registration_id|uuid|hostname|state|previous_registration_id|replaced_by_registration_id
+------------|----------|---------------|----|--------|-----|------------------------|---------------------------
+WORKSTATION-1|C7DDDC94-5D7B-4AC1-8EA1-45AF871BC03C|23|5297A534-08B3-418C-823C-BE2E8EC01160|WORKSTATION-1|renamed|NULL|25
+WORKSTATION-1|C7DDDC94-5D7B-4AC1-8EA1-45AF871BC03C|25|B790C3AB-EF02-435C-8919-BCA119837F31|WORKSTATION-1A|renamed|23|26
+WORKSTATION-1|C7DDDC94-5D7B-4AC1-8EA1-45AF871BC03C|26|974357A1-A24E-4650-AB92-B4E8FF7EE4B5|WORKSTATION-1|active|25|NULL
+WORKSTATION-2|6A0561A2-400D-40E8-889F-A1D8A5916D8C|24|2232D820-14A1-4027-84CC-CC31D6D8D8E6|WORKSTATION-2|active|NULL|NULL
+== machine users
+display_name|sid|name|loaded|present
+------------|---|----|------|-------
+WORKSTATION-1|S-1-5-21-1727000066-743076230-1560906353-1001|WORKSTATION-1\MagickMan|0|1
+WORKSTATION-1|S-1-5-21-2458881001-951638917-3945708937-1104|HACK\magickman|0|1
+WORKSTATION-1|S-1-5-21-2458881001-951638917-3945708937-1105|HACK\mimbol|0|1
+WORKSTATION-1|S-1-5-21-2458881001-951638917-3945708937-1106|HACK\user1|0|1
+WORKSTATION-1|S-1-5-21-2458881001-951638917-3945708937-1113|HACK\agent|1|1
+WORKSTATION-2|S-1-5-21-2458881001-951638917-3945708937-1104|HACK\magickman|1|1
+WORKSTATION-2|S-1-5-21-2458881001-951638917-3945708937-1105|HACK\mimbol|0|1
+WORKSTATION-2|S-1-5-21-2458881001-951638917-3945708937-1107|HACK\user2|0|1
+WORKSTATION-2|S-1-5-21-2458881001-951638917-3945708937-1113|HACK\agent|1|1
+WORKSTATION-2|S-1-5-21-3886529005-82156080-351106946-1001|WORKSTATION-2\MagickMan|0|1
+== CSP and licenses
+display_name|product_version|core_version|license_kind|license_kind_raw|license_kind_source|license_state|valid_to_raw|time_basis|term_kind|is_trial|complete
+------------|---------------|------------|------------|----------------|-------------------|-------------|------------|----------|---------|--------|--------
+WORKSTATION-1|5.0.13003|5.0.10013|client|0|CPCSPLicense.GetType|active|2027-02-14T18:59:59|system_local_assumed|time_limited|unknown|1
+WORKSTATION-2|4.0.9963|4.0.9019|server|1|CPCSPLicense.GetType|active|2027-02-14T18:59:59|system_local_assumed|time_limited|unknown|1
+== observations per certificate and machine (history incl. removed fixtures; same DER across machines)
+certificate_sha256|machines|observation_rows|active_rows
+------------------|--------|----------------|-----------
+5d2deccffd076c01818df6c9144897da90eabf5d278697ce051aac54f04c0080|2|2|0
+686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d|2|8|0
+6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1|2|4|0
+88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6|2|6|0
+96b830dff36475ab9c9d8bcc281b9f13ca4d8746a33766b63d533fe19a88dcaf|2|2|0
+9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83|2|4|0
+a3a1624b9caa518b1ebebf003fcfb6d125bb1d3ce5728957e9aa2cd6a430b2c8|2|2|0
+dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9|2|6|0
+3f48440fae0ead167a4812f6e3729dbadafcbccc968b9b78b5bee996484eb6ae|1|1|1
+== active folder observations
+display_name|file_path|certificate_sha256|active
+------------|---------|------------------|------
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\01-duplicate-copy.cer|686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\01-individual-valid.cer|686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\02-individual-expired.cer|88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\03-individual-future.cer|dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\04-individual-expires-soon.cer|6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\08-individual-gost512.cer|96b830dff36475ab9c9d8bcc281b9f13ca4d8746a33766b63d533fe19a88dcaf|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\09-ip-valid.pem|a3a1624b9caa518b1ebebf003fcfb6d125bb1d3ce5728957e9aa2cd6a430b2c8|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\15-company-director-valid.cer|9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83|0
+WORKSTATION-1|C:\ProgramData\Telehack2026\test-certs\17-company-gost512.cer|5d2deccffd076c01818df6c9144897da90eabf5d278697ce051aac54f04c0080|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\01-duplicate-copy.cer|686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\01-individual-valid.cer|686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\02-individual-expired.cer|88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\03-individual-future.cer|dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\04-individual-expires-soon.cer|6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\08-individual-gost512.cer|96b830dff36475ab9c9d8bcc281b9f13ca4d8746a33766b63d533fe19a88dcaf|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\09-ip-valid.pem|a3a1624b9caa518b1ebebf003fcfb6d125bb1d3ce5728957e9aa2cd6a430b2c8|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\15-company-director-valid.cer|9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83|0
+WORKSTATION-2|C:\ProgramData\Telehack2026\test-certs\17-company-gost512.cer|5d2deccffd076c01818df6c9144897da90eabf5d278697ce051aac54f04c0080|0
+== reports
+display_name|report_id|scan_seq|status|applied|applied_sources|collected_at|received_at
+------------|---------|--------|------|-------|---------------|------------|-----------
+WORKSTATION-1|38352091-D0D5-4E07-9CAE-5523B014A7EA|1|complete|1|6|2026-11-14 02:46:31.619|2026-11-14 02:47:01.747
+WORKSTATION-1|F6E67C15-CC1A-4DD3-BB6D-DD8B2A23136C|2|partial|1|6|2026-11-14 02:49:30.462|2026-11-14 02:50:00.601
+WORKSTATION-1|835DA1C1-72FF-4063-BAD8-CBDF3622625C|4|partial|0|0|2026-11-14 02:53:23.031|2026-11-14 02:54:00.698
+WORKSTATION-1|64DC5AA1-9835-4C81-A683-550382B85AE7|5|partial|0|0|2026-11-14 02:53:44.820|2026-11-14 02:54:30.832
+WORKSTATION-1|47847E39-1518-4E0F-BA6B-6753337F63FF|6|complete|1|6|2026-11-14 02:54:00.707|2026-11-14 02:55:00.837
+WORKSTATION-1|71FE069D-4685-4752-9C17-299E6B01FB4A|8|complete|1|6|2026-11-14 02:57:26.926|2026-11-14 02:58:41.485
+WORKSTATION-1|0EE45E5F-CF32-4E56-9B2D-27B920CA11BA|9|complete|1|6|2026-11-14 02:57:41.317|2026-11-14 02:59:11.413
+WORKSTATION-1|886BCC1E-BD7E-4D12-8CB3-98033D533735|10|complete|1|6|2026-11-14 03:00:20.129|2026-11-14 03:00:50.260
+WORKSTATION-1|C014942C-E329-4759-90F1-FC82534E31E2|11|partial|1|6|2026-11-14 03:16:29.600|2026-11-14 03:16:59.959
+WORKSTATION-1|7E93C0A2-0743-4877-9E5B-0C8F96AAAF04|12|partial|1|5|2026-11-14 03:28:08.469|2026-11-14 03:28:38.632
+WORKSTATION-1|2E045FFC-CEDA-43E1-90A2-31AFD6C0F34A|13|partial|1|6|2026-11-14 03:36:31.373|2026-11-14 03:37:01.479
+WORKSTATION-2|29A2D452-71FB-42A0-9DA3-4B6812584AEF|1|complete|1|6|2026-11-14 02:46:51.881|2026-11-14 02:47:22.005
+WORKSTATION-2|DAF85BAF-CF68-4BF1-B1A3-4E4CD2C5A8F6|2|partial|1|6|2026-11-14 03:19:33.585|2026-11-14 03:20:03.703
+WORKSTATION-2|0B5DC864-D097-4F51-BF84-422B46E2B699|3|complete|1|6|2026-11-14 03:24:05.129|2026-11-14 03:24:35.252
+WORKSTATION-2|9AABF391-FABE-4CA8-AAD0-E925CF81CAD6|4|complete|1|5|2026-11-14 03:32:26.110|2026-11-14 03:32:56.222
+== jobs
+display_name|job_id|state|report_id|created_at|completed_at
+------------|------|-----|---------|----------|------------
+WORKSTATION-1|63924A0D-9C2A-45A5-B203-132DDEB63030|completed|F6E67C15-CC1A-4DD3-BB6D-DD8B2A23136C|2026-11-14 02:49:28.630|2026-11-14 02:50:00.630
+WORKSTATION-1|30D95478-E3DE-47F5-BA03-7DB7023B2115|completed|886BCC1E-BD7E-4D12-8CB3-98033D533735|2026-11-14 03:00:18.130|2026-11-14 03:00:50.274
+WORKSTATION-1|A6EFEE98-3E40-494C-8F95-F4054C0B5C0A|completed|C014942C-E329-4759-90F1-FC82534E31E2|2026-11-14 03:16:27.655|2026-11-14 03:17:00.094
+WORKSTATION-1|FCB0FA36-FCD4-46C9-8BF5-3B9A7B6BEDF1|completed|7E93C0A2-0743-4877-9E5B-0C8F96AAAF04|2026-11-14 03:28:06.667|2026-11-14 03:28:38.650
+WORKSTATION-1|3566BE5F-5BB9-407A-A1BA-6A4F1EE8C3E2|completed|2E045FFC-CEDA-43E1-90A2-31AFD6C0F34A|2026-11-14 03:36:29.614|2026-11-14 03:37:01.498
+WORKSTATION-2|D69D0082-3246-44CF-84EE-A3F54603F6C5|completed|DAF85BAF-CF68-4BF1-B1A3-4E4CD2C5A8F6|2026-11-14 03:19:31.816|2026-11-14 03:20:03.743
+WORKSTATION-2|86E56225-249C-4623-BB96-23A914EF8D35|completed|0B5DC864-D097-4F51-BF84-422B46E2B699|2026-11-14 03:24:03.360|2026-11-14 03:24:35.264
+WORKSTATION-2|F5B44699-E286-44A8-8E14-A7C5B2759C99|completed|9AABF391-FABE-4CA8-AAD0-E925CF81CAD6|2026-11-14 03:28:06.667|2026-11-14 03:32:56.235
+== hostname reservations
+hostname_norm|display_name|owner_registration_id|owner_machine_id
+-------------|------------|---------------------|----------------
+workstation-1|WORKSTATION-1|26|C7DDDC94-5D7B-4AC1-8EA1-45AF871BC03C
+workstation-1a|WORKSTATION-1A|NULL|NULL
+workstation-2|WORKSTATION-2|24|6A0561A2-400D-40E8-889F-A1D8A5916D8C
+== events by kind
+kind|severity|events
+----|--------|------
+certificate_disappeared|warning|34
+job_acknowledged|info|8
+machine_registered|info|2
+machine_renamed|info|2
+report_received|info|15
+source_partial|warning|5
+== test fixture certificate fields
+sha256|serial_hex|subject|not_before|not_after|issuer
+------|----------|-------|----------|---------|------
+9b8113505011b5910e0e29dce12f4486c2e99bd0eec0d63cf8be1c382e4ffe83|10|C=RU, ST=???????????? ???????, L=????????????, CN=?????? ????? ?????????, E=fixture-15@example.test, INN=000000000015, O=??? «???????? ??????????? 15», OU=???????? ????? ??
+?????????? ????????????????, INNLE=0000000015, KPP=000000000, OGRN=0000000000015|2026-10-15 07:00:00.000|2027-11-14 07:00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
+5d2deccffd076c01818df6c9144897da90eabf5d278697ce051aac54f04c0080|12|C=RU, ST=???????????? ???????, L=????????????, CN=???????? ??????? ????????, E=fixture-17@example.test, INN=000000000017, O=??? «???????? ??????????? 17», OU=???????? ?????
+ ???????????? ????????????????, INNLE=0000000017, KPP=000000000, OGRN=0000000000017|2026-10-15 07:00:00.000|2027-11-14 07:00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
+686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d|2|C=RU, ST=???????????? ???????, L=????????????, CN=?????? ???? ????????, E=fixture-01@example.test, INN=000000000001, SNILS=00000000001|2026-10-15 07:00:00.000|2027-11-14 07:
+00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
+88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6|3|C=RU, ST=???????????? ???????, L=????????????, CN=??????? ???? ????????, E=fixture-02@example.test, INN=000000000002, SNILS=00000000002|2024-11-14 07:00:00.000|2026-10-15 07
+:00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
+dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9|4|C=RU, ST=???????????? ???????, L=????????????, CN=???????? ???? ?????????, E=fixture-03@example.test, INN=000000000003, SNILS=00000000003|2026-12-14 07:00:00.000|2027-12-14 
+07:00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
+6a9c17b4934aaea8214360f75fda8b97542d5b194558f3fc8c557451a70270e1|5|C=RU, ST=???????????? ???????, L=????????????, CN=????????? ????? ?????????, E=fixture-04@example.test, INN=000000000004, SNILS=00000000004|2026-10-15 07:00:00.000|2026-11-2
+1 07:00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
+96b830dff36475ab9c9d8bcc281b9f13ca4d8746a33766b63d533fe19a88dcaf|9|C=RU, ST=???????????? ???????, L=????????????, CN=????????? ????? ??????????, E=fixture-08@example.test, INN=000000000008, SNILS=00000000008|2026-10-15 07:00:00.000|2027-11-
+14 07:00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
+a3a1624b9caa518b1ebebf003fcfb6d125bb1d3ce5728957e9aa2cd6a430b2c8|a|C=RU, ST=???????????? ???????, L=????????????, CN=?????? ?????? ??????????, E=fixture-09@example.test, INN=000000000009, O=?? ?????? ?????? ??????????, OGRNIP=00000000000000
+9|2026-10-15 07:00:00.000|2027-11-14 07:00:00.000|C=RU, O=Telehack 2026 — ???????? ??????????????, CN=Telehack 2026 TEST ONLY Root CA
