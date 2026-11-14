@@ -165,11 +165,23 @@ func (c *contract) run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	registeredConflict, resultConflictRegister, err := c.client.register(ctx, idConflict)
+	_, resultConflictRegister, err := c.client.register(ctx, idConflict)
 	c.track(idConflict)
-	c.expectStatus("new UUID reusing an active hostname is accepted with warning", resultConflictRegister, err, 200, "", nil)
-	c.check("hostname conflict is not a silent takeover", nilIf(resultConflictRegister.Status != 200 || !contains(registeredConflict.Warnings, "hostname_conflict"), "hostname_conflict warning missing"), map[string]any{"warnings": registeredConflict.Warnings, "machine_id": registeredConflict.MachineID})
-	c.check("hostname conflict creates a different machine record", nilIf(registeredConflict.MachineID == idA.MachineID, "machine_id was reused"), map[string]any{"machine_a": idA.MachineID, "machine_b": registeredConflict.MachineID})
+	c.expectStatus("new UUID reusing an active hostname requires confirmation", resultConflictRegister, err, 409, protocol.CodeInstallationPending, nil)
+	var pendingRequest *store.PendingInstallation
+	pendingItems, pendingErr := c.store.ListInstallations(ctx, "pending")
+	if pendingErr == nil {
+		for i := range pendingItems {
+			if strings.EqualFold(pendingItems[i].UUID, idConflict.UUID) {
+				pendingRequest = &pendingItems[i]
+				break
+			}
+		}
+	}
+	c.check("pending installation request is created", nilIf(pendingErr != nil || pendingRequest == nil, "pending request not found"), map[string]any{"error": fmt.Sprint(pendingErr)})
+	hostMachines, machinesErr := c.store.ListMachines(ctx, store.AdminMachineFilter{Query: hostA, Page: 1, PageSize: 100})
+	sameMachine := machinesErr == nil && len(hostMachines.Items) == 1 && hostMachines.Items[0].MachineID == idA.MachineID
+	c.check("hostname collision does not create a second machine card", nilIf(!sameMachine, "machine list changed"), map[string]any{"error": fmt.Sprint(machinesErr), "items": len(hostMachines.Items)})
 
 	// Config cache and jobs.
 	syncA, resultSync, err := c.client.sync(ctx, idA, "")

@@ -25,6 +25,12 @@ func (c *contract) cleanup(ctx context.Context) error {
 		_, err := tx.ExecContext(ctx, fmt.Sprintf(query, placeholders), args...)
 		return err
 	}
+	if len(uuids) > 0 {
+		args, placeholders := stringArgs(uuids)
+		if _, err := tx.ExecContext(ctx, fmt.Sprintf(`DELETE FROM dbo.agent_install_requests WHERE uuid IN (%s)`, placeholders), args...); err != nil {
+			return err
+		}
+	}
 	if err := deleteWithMachines(`DELETE FROM dbo.events WHERE machine_id IN (%s)`); err != nil {
 		return err
 	}
@@ -120,6 +126,12 @@ WHERE NOT EXISTS (SELECT 1 FROM dbo.certificate_observations o WHERE o.certifica
 		}
 		if count != 0 {
 			return fmt.Errorf("synthetic request_ids remain: %d", count)
+		}
+		if err := c.pool.QueryRowContext(ctx, fmt.Sprintf(`SELECT COUNT(1) FROM dbo.agent_install_requests WHERE uuid IN (%s)`, placeholders), args...).Scan(&count); err != nil {
+			return err
+		}
+		if count != 0 {
+			return fmt.Errorf("synthetic installation requests remain: %d", count)
 		}
 	}
 	return nil
