@@ -30,7 +30,7 @@ func TestScanFoldersDERPEMDuplicatesAndCorruption(t *testing.T) {
 	copyFixture(t, fixturePath("certificates/01-individual-valid.cer"), filepath.Join(dir, "01.cer"))
 	copyFixture(t, fixturePath("certificates/02-individual-expired.cer"), filepath.Join(dir, "02.cer"))
 	copyFixture(t, fixturePath("certificates/03-individual-future.cer"), filepath.Join(dir, "03.cer"))
-	copyFixture(t, fixturePath("pem/09-ip-valid.pem"), filepath.Join(dir, "09.pem"))
+	copyFixture(t, fixturePath("pem/09-ip-valid.pem"), filepath.Join(dir, "09.cer"))
 	copyFixture(t, fixturePath("certificates/01-individual-valid.cer"), filepath.Join(dir, "01-duplicate.cer"))
 	if err := os.Mkdir(filepath.Join(dir, "nested"), 0o700); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestScanFoldersDERPEMDuplicatesAndCorruption(t *testing.T) {
 	copyFixture(t, fixturePath("certificates/04-individual-expires-soon.cer"), filepath.Join(dir, "nested", "04.cer"))
 
 	cfg := protocol.DefaultAgentConfig()
-	cfg.CertDirectories = []string{dir}
+	cfg.FolderPolicies = []protocol.FolderPolicy{{ID: "test", Name: "Test", Level: "machine", Rules: filepath.ToSlash(dir)}}
 	sources := ScanFolders(context.Background(), cfg, nil)
 	if len(sources) != 1 {
 		t.Fatalf("sources = %d", len(sources))
@@ -95,7 +95,7 @@ func TestScanFoldersDERPEMDuplicatesAndCorruption(t *testing.T) {
 	}
 
 	// Missing directory is partial, not a successful empty result.
-	cfg.CertDirectories = []string{filepath.Join(dir, "does-not-exist")}
+	cfg.FolderPolicies[0].Rules = filepath.ToSlash(filepath.Join(dir, "does-not-exist"))
 	source = ScanFolders(context.Background(), cfg, nil)[0]
 	if source.Complete {
 		t.Fatal("missing directory reported complete")
@@ -111,7 +111,7 @@ func TestScanFoldersFileLimit(t *testing.T) {
 		copyFixture(t, fixturePath("certificates/"+name), filepath.Join(dir, name))
 	}
 	cfg := protocol.DefaultAgentConfig()
-	cfg.CertDirectories = []string{dir}
+	cfg.FolderPolicies = []protocol.FolderPolicy{{ID: "test", Name: "Test", Level: "machine", Rules: filepath.ToSlash(dir)}}
 	cfg.MaxFiles = 2
 	source := ScanFolders(context.Background(), cfg, nil)[0]
 	if source.Complete {

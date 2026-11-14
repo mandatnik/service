@@ -1,0 +1,5 @@
+=== RUN   TestPoliciesSQLServer
+    policies_integration_test.go:137: SQL Server: migrations, group many-to-many, assignment resolution, hash invalidation, atomic rollback, deletion: PASS
+--- PASS: TestPoliciesSQLServer (1.38s)
+PASS
+ok  	telehack2026/internal/backend/store	1.625s

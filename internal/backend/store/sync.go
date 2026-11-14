@@ -76,7 +76,7 @@ WHERE job_id=@p2 AND state IN (N'pending', N'delivered')`, now, job.JobID); err 
 			return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "mark job delivered"}
 		}
 	}
-	config, configErr := loadConfigTx(ctx, tx)
+	config, configErr := effectiveConfigTx(ctx, tx, identity.MachineID)
 	if configErr != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: configErr.Error()}
 	}
@@ -111,6 +111,10 @@ VALUES (@p1, @p2, N'scan', N'pending', @p3, @p4)`, jobID, machineID, s.now(), cr
 // the future admin API and by acceptance tests; the version is incremented by
 // the server, never trusted from the caller.
 func (s *Store) SetConfig(ctx context.Context, cfg protocol.AgentConfig, updatedBy string) (protocol.AgentConfig, string, error) {
+	if len(cfg.CertDirectories) > 0 || len(cfg.FolderPolicies) > 0 {
+		return protocol.AgentConfig{}, "", fmt.Errorf("папки задаются только назначаемыми политиками")
+	}
+
 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return protocol.AgentConfig{}, "", err

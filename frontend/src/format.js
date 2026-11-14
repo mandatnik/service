@@ -26,7 +26,7 @@ export function timeAgo(value) {
 export function licenseKindLabel(kind, raw) {
   if (kind === 'client') return 'Клиентская'
   if (kind === 'server') return 'Серверная'
-  if (kind === 'unknown') return raw ? `Неизвестно (${raw})` : 'Неизвестно'
+  if (kind === 'unknown') return 'Не определено'
   return 'Не собрано'
 }
 
@@ -36,7 +36,18 @@ export function stateLabel(value) {
     unknown: 'неизвестно', valid: 'действительна', invalid: 'недействительна',
     complete: 'полный', partial: 'частичный', empty: 'пустой',
     pending: 'ожидает', delivered: 'доставлено', completed: 'выполнено',
+    not_installed: 'Не установлен', missing: 'Отсутствует', perpetual: 'Бессрочная',
     failed: 'ошибка', revoked: 'отозвана', replaced: 'заменена'
   }
   return map[value] || value || '—'
+}
+
+export function trialLabel(value) {
+  return ({ yes: 'Пробная', no: 'Обычная', true: 'Пробная', false: 'Обычная', unknown: 'Не определено' })[value] || 'Не определено'
+}
+export function licenseExpiry(license) {
+  if (license.term_kind === 'perpetual' || license.term_kind === 'unlimited') return 'Бессрочно'
+  if (license.valid_to_utc) return formatDate(license.valid_to_utc)
+  if (license.valid_to_raw) return formatDate(license.valid_to_raw)
+  return 'Не определён'
 }

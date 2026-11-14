@@ -1,0 +1,2 @@
+136 PASS ['C:/ProgramData/Telehack2026/policy-acceptance/keep/a.cer', 'C:/ProgramData/Telehack2026/policy-acceptance/other/c.cer']
+137 PASS ['C:/ProgramData/Telehack2026/policy-acceptance/keep/a.cer', 'C:/ProgramData/Telehack2026/policy-acceptance/other/c.cer', 'C:/ProgramData/Telehack2026/policy-acceptance/trash/b.CER']

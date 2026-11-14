@@ -74,13 +74,21 @@ type SignedRequest struct {
 // AgentConfig is the server-controlled collection configuration. Its
 // canonical JSON hash is the cache key; the agent never computes a hash over
 // a different representation.
+type FolderPolicy struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Rules string `json:"rules"`
+	Level string `json:"level"` // machine or group
+}
+
 type AgentConfig struct {
-	Version          int      `json:"version"`
-	ScanIntervalDays int      `json:"scan_interval_days"`
-	CertDirectories  []string `json:"cert_directories"`
-	Recursive        bool     `json:"recursive"`
-	MaxFiles         int      `json:"max_files"`
-	MaxFileBytes     int64    `json:"max_file_bytes"`
+	FolderPolicies   []FolderPolicy `json:"folder_policies,omitempty"`
+	Version          int            `json:"version"`
+	ScanIntervalDays int            `json:"scan_interval_days"`
+	CertDirectories  []string       `json:"cert_directories"`
+	Recursive        bool           `json:"recursive"`
+	MaxFiles         int            `json:"max_files"`
+	MaxFileBytes     int64          `json:"max_file_bytes"`
 }
 
 // DefaultAgentConfig returns the agreed defaults. The server stores the same

@@ -184,3 +184,27 @@ button.metric-card:hover { border-color: #aac7d2; transform: translateY(-1px); }
   .data-table { display: block; overflow-x: auto; }
   .topbar-status { display: none; }
 }
+
+/* Inventory policies and readable summary cells. */
+.selection-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:16px; }
+.selection-cell { width:42px; min-width:42px; text-align:center; }
+input[type="checkbox"] { width:16px; height:16px; min-width:16px; accent-color:var(--primary, #2563eb); cursor:pointer; }
+.machine-groups { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+.assignment-picker { border:1px solid #dce3ee; border-radius:10px; padding:14px; min-width:0; }
+.assignment-picker > input { width:100%; }
+.assignment-picker legend { font-weight:600; padding:0 5px; }
+.assignment-options { max-height:240px; overflow:auto; margin-top:10px; }
+.assignment-options .checkbox-field { margin:8px 0; }
+.policy-rules, .policy-rules-preview { font-family:ui-monospace, SFMono-Regular, Consolas, monospace; }
+.policy-rules-preview { background:#f6f8fb; border-radius:8px; padding:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.policy-card { margin-top:16px; }
+.policy-card .page-heading { margin-bottom:8px; }
+.policy-card h3 { margin:0; }
+.policy-card .small { margin-top:6px; }
+.policy-help { margin-bottom:16px; }
+.policy-help summary, .certificate-technical summary { cursor:pointer; font-weight:600; }
+.certificate-technical { margin-top:20px; }
+.certificate-owner { max-width:340px; line-height:1.5; }
+.certificate-serial { max-width:260px; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.row-details td { background:#f7f9fc; }
+.group-members-preview { max-width:360px; }

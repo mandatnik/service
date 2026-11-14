@@ -3,6 +3,8 @@ import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatDate, formatTime } from '../format'
 import ErrorState from './ErrorState.vue'
+import CertificateOwner from './CertificateOwner.vue'
+import EmbeddedLicenseBadge from './EmbeddedLicenseBadge.vue'
 const props = defineProps({ sha256: { type: String, required: true } })
 const emit = defineEmits(['back', 'open-machine'])
 const data = ref(null)
@@ -21,11 +23,13 @@ onMounted(load)
     <template v-else>
       <div class="page-heading"><div><p class="muted"><code>{{ data.certificate.sha256 }}</code></p></div><button class="btn" @click="load">Обновить</button></div>
       <div class="panel">
+        <CertificateOwner :certificate="data.certificate" />
+        <details class="certificate-technical"><summary>Реквизиты сертификата</summary>
         <div class="two-column">
           <dl class="facts">
-            <dt>Subject</dt><dd>{{ data.certificate.subject || '—' }}</dd>
-            <dt>Issuer</dt><dd>{{ data.certificate.issuer || '—' }}</dd>
-            <dt>Serial</dt><dd><code>{{ data.certificate.serial_hex || data.certificate.serial_number || '—' }}</code></dd>
+            <dt>Полное имя владельца</dt><dd>{{ data.certificate.subject || '—' }}</dd>
+            <dt>Издатель</dt><dd>{{ data.certificate.issuer || '—' }}</dd>
+            <dt>Номер</dt><dd><code>{{ data.certificate.serial_hex || data.certificate.serial_number || '—' }}</code></dd>
             <dt>Действует с</dt><dd>{{ formatDate(data.certificate.not_before) }}</dd>
             <dt>Действует до</dt><dd>{{ formatDate(data.certificate.not_after) }}</dd>
           </dl>
@@ -33,10 +37,11 @@ onMounted(load)
             <dt>Владелец CN</dt><dd>{{ data.certificate.owner_cn || '—' }}</dd>
             <dt>ИНН</dt><dd>{{ data.certificate.inn || '—' }}</dd>
             <dt>СНИЛС</dt><dd>{{ data.certificate.snils || '—' }}</dd>
-            <dt>Встроенная лицензия</dt><dd>{{ data.certificate.embedded_license || '—' }}</dd>
+            <dt>Встроенная лицензия</dt><dd><EmbeddedLicenseBadge :value="data.certificate.embedded_license" /></dd>
             <dt>Обновлён</dt><dd>{{ formatTime(data.certificate.updated_at) }}</dd>
           </dl>
         </div>
+        </details>
       </div>
       <div class="panel">
         <h3>Места обнаружения</h3>

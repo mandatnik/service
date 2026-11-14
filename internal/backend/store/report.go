@@ -196,6 +196,18 @@ OUTPUT INSERTED.machine_user_id;`,
 
 func (s *Store) applySourceTx(ctx context.Context, tx *sql.Tx, identity *Identity, report *protocol.Report, source *protocol.SourceResult, users map[string]int64, now time.Time) (bool, *protocol.APIError) {
 	scope := scopeHash(source.SourceType, source.SourceKey)
+	// A queued legacy-folder report must not resurrect files after a newer
+	// policy scan has revoked them. Compare ordering across the scope transition.
+	if source.SourceType == "folder" && source.SourceKey != "folder-policies" {
+		var seq int64
+		err := tx.QueryRowContext(ctx, `SELECT last_scan_seq FROM dbo.source_states WITH(UPDLOCK,HOLDLOCK) WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scopeHash("folder", "folder-policies")).Scan(&seq)
+		if err == nil && report.ScanSeq <= seq {
+			return false, nil
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return false, &protocol.APIError{Code: protocol.CodeDatabase, Message: "load policy source ordering"}
+		}
+	}
 	var lastSeq int64
 	err := tx.QueryRowContext(ctx, `
 SELECT last_scan_seq FROM dbo.source_states WITH (UPDLOCK, HOLDLOCK)
@@ -403,14 +415,14 @@ func removeMissingObservationsTx(ctx context.Context, tx *sql.Tx, identity *Iden
 			if file.SHA256 == "" {
 				continue
 			}
-			expectedObservations[hex.EncodeToString(observationHash(scope, file.Path))] = true
+			expectedObservations[hex.EncodeToString(observationHash(scope, file.Path))+"\x00"+strings.ToLower(file.SHA256)] = true
 		}
 	} else {
 		expectedObservations[hex.EncodeToString(scope)] = true
 	}
 	rows, err := tx.QueryContext(ctx, `
 SELECT observation_id, observation_key_hash, certificate_sha256 FROM dbo.certificate_observations WITH (UPDLOCK, HOLDLOCK)
-WHERE machine_id=@p1 AND source_scope_hash=@p2 AND active=1`, identity.MachineID, scope)
+WHERE machine_id=@p1 AND (source_scope_hash=@p2 OR (@p3=1 AND source_type=N'folder')) AND active=1 AND last_scan_seq<=@p4`, identity.MachineID, scope, source.SourceType == "folder" && source.SourceKey == "folder-policies", report.ScanSeq)
 	if err != nil {
 		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "load current observations"}
 	}
@@ -429,7 +441,7 @@ WHERE machine_id=@p1 AND source_scope_hash=@p2 AND active=1`, identity.MachineID
 		}
 		remove := false
 		if source.SourceType == "folder" {
-			remove = !expectedObservations[hex.EncodeToString(key)]
+			remove = !expectedObservations[hex.EncodeToString(key)+"\x00"+strings.ToLower(hash)]
 		} else {
 			remove = !certHashes[strings.ToLower(hash)]
 		}

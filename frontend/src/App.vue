@@ -11,6 +11,8 @@ import LicensingView from './components/LicensingView.vue'
 import HostnamesView from './components/HostnamesView.vue'
 import EventsView from './components/EventsView.vue'
 import SettingsView from './components/SettingsView.vue'
+import GroupsView from './components/GroupsView.vue'
+import PoliciesView from './components/PoliciesView.vue'
 
 const session = ref(null)
 const checking = ref(true)
@@ -24,13 +26,16 @@ let expiryTimer = null
 const nav = [
   { id: 'overview', label: 'Обзор', hint: 'Сводка' },
   { id: 'machines', label: 'Машины', hint: 'Агенты и профили' },
+  { id: 'groups', label: 'Группы машин', hint: 'Состав групп' },
+  { id: 'policies', label: 'Политики папок', hint: 'Правила и назначения' },
   { id: 'certificates', label: 'Сертификаты', hint: 'Наблюдения' },
-  { id: 'licensing', label: 'Лицензии', hint: 'CSP client/server' },
+  { id: 'licensing', label: 'Лицензии', hint: 'КриптоПро CSP' },
   { id: 'hostnames', label: 'Hostname', hint: 'Конфликты' },
   { id: 'events', label: 'События', hint: 'Диагностика' },
   { id: 'settings', label: 'Настройки', hint: 'Сбор' }
 ]
 const titles = {
+  groups: 'Группы машин', policies: 'Политики папок',
   overview: 'Обзор', machines: 'Рабочие машины', machine: 'Карточка машины',
   certificates: 'Сертификаты', certificate: 'Карточка сертификата', licensing: 'Лицензирование',
   hostnames: 'Hostname и конфликты', events: 'События', settings: 'Настройки сбора'
@@ -131,6 +136,8 @@ onUnmounted(() => {
         <LicensingView v-else-if="view === 'licensing'" />
         <HostnamesView v-else-if="view === 'hostnames'" @open-machine="openMachine" />
         <EventsView v-else-if="view === 'events'" />
+        <GroupsView v-else-if="view === 'groups'" />
+        <PoliciesView v-else-if="view === 'policies'" />
         <SettingsView v-else-if="view === 'settings'" />
       </div>
       <footer class="app-footer">Telehack 2026 · только авторизованный административный доступ</footer>

@@ -5,7 +5,7 @@ import "fmt"
 
 // Version is the product version. It is independent of any installed
 // CryptoPro CSP version and of the protocol version.
-const Version = "0.3.0"
+const Version = "0.4.0"
 
 // Commit and BuildDate are injected at build time:
 //

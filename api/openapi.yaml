@@ -212,7 +212,23 @@ components:
       properties:
         version: { type: integer, minimum: 1 }
         scan_interval_days: { type: integer, minimum: 1, maximum: 365 }
-        cert_directories: { type: array, items: { type: string } }
+        cert_directories:
+          type: array
+          deprecated: true
+          maxItems: 0
+          description: Legacy field, always empty in effective agent configurations. Use folder_policies.
+          items: { type: string }
+        folder_policies:
+          type: array
+          maxItems: 128
+          items:
+            type: object
+            required: [id, name, rules, level]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string, maxLength: 200 }
+              rules: { type: string, description: 'Absolute folder patterns; positive include, ! exclude, last matching rule wins.' }
+              level: { type: string, enum: [machine, group] }
         recursive: { type: boolean }
         max_files: { type: integer, minimum: 1, maximum: 10000 }
         max_file_bytes: { type: integer, minimum: 1024, maximum: 10485760 }

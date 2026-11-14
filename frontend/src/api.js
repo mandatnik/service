@@ -71,6 +71,12 @@ function query(params) {
 }
 
 export const api = {
+  inventorySettings: () => request('/inventory-settings'),
+  saveGroup: (group) => request(group.id ? `/groups/${encodeURIComponent(group.id)}` : '/groups', { method: group.id ? 'PUT' : 'POST', body: group }),
+  addGroupMembers: (id, machine_ids) => request(`/groups/${encodeURIComponent(id)}/members`, { method: 'POST', body: { machine_ids } }),
+  deleteGroup: (id) => request(`/groups/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  savePolicy: (policy) => request(policy.id ? `/folder-policies/${encodeURIComponent(policy.id)}` : '/folder-policies', { method: policy.id ? 'PUT' : 'POST', body: policy }),
+  deletePolicy: (id) => request(`/folder-policies/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   login: (username, password) => request('/login', { method: 'POST', body: { username, password } }),
   session: () => request('/session'),
   logout: () => request('/logout', { method: 'POST', body: {} }),

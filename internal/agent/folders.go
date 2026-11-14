@@ -11,115 +11,123 @@ import (
 	"strings"
 
 	"telehack2026/internal/certparse"
+	"telehack2026/internal/folderpolicy"
 	"telehack2026/internal/protocol"
 )
 
 const maxFolderDepth = 64
 
-var certificateExtensions = map[string]bool{
-	".cer": true,
-	".crt": true,
-	".pem": true,
-}
-
-// ScanFolders scans every configured directory independently. A malformed
-// file or an unreadable subtree makes only that folder source partial; the
-// remaining folders and profiles continue.
+// ScanFolders evaluates assigned policies into one folder observation scope.
+// A partial traversal never authorizes removal of previously known files.
 func ScanFolders(ctx context.Context, cfg protocol.AgentConfig, logger *Logger) []protocol.SourceResult {
-	out := make([]protocol.SourceResult, 0, len(cfg.CertDirectories))
-	for _, configured := range cfg.CertDirectories {
-		if ctx.Err() != nil {
+	// A stable aggregate scope allows revoked policies and exclusions to remove
+	// old observations on a successful scan, including when no policy is assigned.
+	source := protocol.SourceResult{SourceType: "folder", SourceKey: "folder-policies", DisplayName: "Политики папок", Path: "folder-policies", Complete: true, Certificates: []protocol.ObservedCertificate{}}
+	type compiled struct {
+		policy *folderpolicy.Policy
+		level  string
+	}
+	policies := []compiled{}
+	for _, assignment := range cfg.FolderPolicies {
+		p, err := folderpolicy.Compile(assignment.Rules)
+		if err != nil {
+			source.Complete = false
+			appendSourceError(&source, err.Error())
+			continue
+		}
+		policies = append(policies, compiled{p, assignment.Level})
+	}
+	seenFiles := map[string]bool{}
+	seenCerts := map[string]int{}
+	count := 0
+	stop := errors.New("file limit reached")
+	for _, assignment := range policies {
+		for _, root := range assignment.policy.Roots {
+			clean := filepath.Clean(filepath.FromSlash(root))
+			err := filepath.WalkDir(clean, func(file string, entry fs.DirEntry, walkErr error) error {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if walkErr != nil {
+					source.Complete = false
+					appendSourceError(&source, fmt.Sprintf("walk %s: %v", file, walkErr))
+					if entry != nil && entry.IsDir() {
+						return fs.SkipDir
+					}
+					return nil
+				}
+				if entry.Type()&os.ModeSymlink != 0 {
+					return nil
+				}
+				if entry.IsDir() {
+					if assignment.level == "group" {
+						for _, direct := range policies {
+							if direct.level == "machine" && direct.policy.Excludes(filepath.ToSlash(file)) && !direct.policy.MayContain(filepath.ToSlash(file)) {
+								return fs.SkipDir
+							}
+						}
+					}
+					if !assignment.policy.MayContain(filepath.ToSlash(file)) {
+						return fs.SkipDir
+					}
+					if pathDepth(clean, file) > maxFolderDepth {
+						source.Complete = false
+						appendSourceError(&source, "directory depth limit reached")
+						return fs.SkipDir
+					}
+					return nil
+				}
+				if !strings.EqualFold(filepath.Ext(file), ".cer") || !assignment.policy.Includes(filepath.ToSlash(file)) {
+					return nil
+				}
+				if assignment.level == "group" {
+					for _, direct := range policies {
+						if direct.level == "machine" && direct.policy.Excludes(filepath.ToSlash(file)) {
+							return nil
+						}
+					}
+				}
+				key := strings.ToLower(file)
+				if seenFiles[key] {
+					return nil
+				}
+				seenFiles[key] = true
+				count++
+				if count > cfg.MaxFiles {
+					source.Complete = false
+					appendSourceError(&source, fmt.Sprintf("file limit %d reached", cfg.MaxFiles))
+					return stop
+				}
+				scanCertificateFile(ctx, &source, file, cfg.MaxFileBytes, seenCerts, logger)
+				return nil
+			})
+			if err != nil {
+				source.Complete = false
+				appendSourceError(&source, err.Error())
+			}
+			if ctx.Err() != nil || errors.Is(err, stop) {
+				break
+			}
+		}
+		if ctx.Err() != nil || count > cfg.MaxFiles {
 			break
 		}
-		out = append(out, scanFolder(ctx, configured, cfg, logger))
 	}
-	return out
-}
-
-func scanFolder(ctx context.Context, configured string, cfg protocol.AgentConfig, logger *Logger) protocol.SourceResult {
-	clean := filepath.Clean(configured)
-	source := protocol.SourceResult{
-		SourceType:   "folder",
-		SourceKey:    clean,
-		DisplayName:  clean,
-		Path:         clean,
-		Complete:     true,
-		Certificates: []protocol.ObservedCertificate{},
-	}
-	info, err := os.Stat(clean)
-	if err != nil {
+	if ctx.Err() != nil {
 		source.Complete = false
-		source.Error = boundError(fmt.Sprintf("stat folder: %v", err))
-		logSourceError(logger, clean, source.Error)
-		return source
+		appendSourceError(&source, ctx.Err().Error())
 	}
-	if !info.IsDir() {
-		source.Complete = false
-		source.Error = "configured path is not a directory"
-		logSourceError(logger, clean, source.Error)
-		return source
-	}
-
-	seen := make(map[string]int)
-	fileCount := 0
-	stop := errors.New("folder file limit reached")
-	err = filepath.WalkDir(clean, func(path string, entry fs.DirEntry, walkErr error) error {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if walkErr != nil {
-			source.Complete = false
-			appendSourceError(&source, fmt.Sprintf("walk %s: %v", path, walkErr))
-			if entry != nil && entry.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if path != clean {
-			if depth := pathDepth(clean, path); depth > maxFolderDepth {
-				source.Complete = false
-				appendSourceError(&source, fmt.Sprintf("directory depth limit reached at %s", path))
-				if entry.IsDir() {
-					return fs.SkipDir
-				}
-				return nil
-			}
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			if entry.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if !certificateExtensions[strings.ToLower(filepath.Ext(path))] {
-			return nil
-		}
-		fileCount++
-		if fileCount > cfg.MaxFiles {
-			source.Complete = false
-			appendSourceError(&source, fmt.Sprintf("file limit %d reached", cfg.MaxFiles))
-			return stop
-		}
-		scanCertificateFile(ctx, &source, path, cfg.MaxFileBytes, seen, logger)
-		return nil
-	})
-	if err != nil && !errors.Is(err, stop) && ctx.Err() == nil {
-		source.Complete = false
-		appendSourceError(&source, fmt.Sprintf("walk folder: %v", err))
-	}
-	sort.Slice(source.Certificates, func(i, j int) bool {
-		return source.Certificates[i].SHA256 < source.Certificates[j].SHA256
-	})
 	sort.Slice(source.Files, func(i, j int) bool {
 		if source.Files[i].Path == source.Files[j].Path {
 			return source.Files[i].SHA256 < source.Files[j].SHA256
 		}
 		return source.Files[i].Path < source.Files[j].Path
 	})
-	return source
+	sort.Slice(source.Certificates, func(i, j int) bool { return source.Certificates[i].SHA256 < source.Certificates[j].SHA256 })
+	if !source.Complete {
+		logSourceError(logger, source.SourceKey, source.Error)
+	}
+	return []protocol.SourceResult{source}
 }
 
 func scanCertificateFile(ctx context.Context, source *protocol.SourceResult, path string, maxBytes int64, seen map[string]int, logger *Logger) {

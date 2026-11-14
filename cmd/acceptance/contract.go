@@ -198,7 +198,7 @@ func (c *contract) run(ctx context.Context) error {
 
 	changedConfig := originalConfig
 	changedConfig.ScanIntervalDays = 2
-	changedConfig.CertDirectories = []string{`C:\Acceptance\certs`}
+	changedConfig.CertDirectories = []string{}
 	updatedConfig, updatedHash, err := c.store.SetConfig(ctx, changedConfig, "acceptance")
 	if !c.check("update configuration", err, map[string]any{"new_hash": updatedHash, "version": updatedConfig.Version}) {
 		return err
@@ -280,6 +280,8 @@ func (c *contract) run(ctx context.Context) error {
 	c.expectStatus("submit delayed older report", resultDelayed, err, 200, "", nil)
 	c.check("delayed report does not roll back a newer source", nilIf(delayedResponse.Applied, "older report was applied"), map[string]any{"applied": delayedResponse.Applied, "reason": delayedResponse.Reason})
 	c.check("delayed certificate is not active", c.observationAllInactive(idD.MachineID, []string{folderCert.SHA256}), nil)
+
+	c.policyReportTransitions(ctx, idD, folderCert, ipCert)
 
 	// Job acknowledgement.
 	ackResponse, resultAck, err := c.client.ack(ctx, idA, jobID, "completed", fullA.ReportID, "acceptance complete")
@@ -487,7 +489,10 @@ func setStandConfig(ctx context.Context, cfg acceptanceConfig, interval int, dir
 		}
 	}
 	current.ScanIntervalDays = interval
-	current.CertDirectories = clean
+	if len(clean) > 0 {
+		return fmt.Errorf("global folders are no longer supported; assign folder policies through the admin API")
+	}
+	current.CertDirectories = []string{}
 	current.Recursive = recursive
 	updated, hash, err := storeInstance.SetConfig(ctx, current, "stand-config")
 	if err != nil {

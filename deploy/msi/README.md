@@ -33,9 +33,9 @@ go build -trimpath -ldflags "-s -w" -o bin\telehack-agent.exe .\cmd\agent
 ```powershell
 .\deploy\msi\build-msi.ps1 `
   -AgentExe .\bin\telehack-agent.exe `
-  -ProductVersion 0.3.0 `
-  -ProductCode '{64E20BF5-DDF6-4704-9374-E175CA30152F}' `
-  -Output .\artifacts\TelehackAgent-0.3.0.msi
+  -ProductVersion 0.4.0 `
+  -ProductCode '{35F44613-8F88-4599-8D86-C901BB368F47}' `
+  -Output .\artifacts\TelehackAgent-0.4.0.msi
 ```
 
 `UpgradeCode` зафиксирован в WXS:
@@ -46,7 +46,8 @@ go build -trimpath -ldflags "-s -w" -o bin\telehack-agent.exe .\cmd\agent
 | Версия | ProductCode |
 | --- | --- |
 | 0.2.0 (базовая для проверки upgrade) | `{F32AB857-DFF9-4FE9-8694-E5858ED51316}` |
-| 0.3.0 (текущая) | `{64E20BF5-DDF6-4704-9374-E175CA30152F}` |
+| 0.4.0 (текущая) | `{35F44613-8F88-4599-8D86-C901BB368F47}` |
+| 0.3.0 | `{64E20BF5-DDF6-4704-9374-E175CA30152F}` |
 
 ## Что устанавливает MSI
 
@@ -65,7 +66,7 @@ go build -trimpath -ldflags "-s -w" -o bin\telehack-agent.exe .\cmd\agent
 
 ```powershell
 # молчаливая установка/обновление
-msiexec /i .\TelehackAgent-0.3.0.msi /qn /norestart /l*v install.log
+msiexec /i .\TelehackAgent-0.4.0.msi /qn /norestart /l*v install.log
 
 # repair (источник MSI должен быть доступен)
 msiexec /f {64E20BF5-DDF6-4704-9374-E175CA30152F} /qn /norestart /l*v repair.log

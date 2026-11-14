@@ -1,0 +1,17 @@
+?   	telehack2026/cmd/acceptance	[no test files]
+?   	telehack2026/cmd/agent	[no test files]
+?   	telehack2026/cmd/backend	[no test files]
+ok  	telehack2026/internal/agent	(cached)
+ok  	telehack2026/internal/backend	(cached)
+?   	telehack2026/internal/backend/api	[no test files]
+?   	telehack2026/internal/backend/config	[no test files]
+?   	telehack2026/internal/backend/db	[no test files]
+?   	telehack2026/internal/backend/migrations	[no test files]
+ok  	telehack2026/internal/backend/store	0.735s
+?   	telehack2026/internal/backend/web	[no test files]
+ok  	telehack2026/internal/certparse	(cached)
+ok  	telehack2026/internal/folderpolicy	(cached)
+ok  	telehack2026/internal/licenseclass	(cached)
+?   	telehack2026/internal/platform	[no test files]
+ok  	telehack2026/internal/protocol	0.430s
+?   	telehack2026/internal/version	[no test files]

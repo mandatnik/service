@@ -1,0 +1,14 @@
+{
+  "app.js": {
+    "matches_local_bundle": true,
+    "sha256": "c0d8370aa309d8c9719119154cdd268253d2e07de8c9be5a0e443c815999570d"
+  },
+  "app.css": {
+    "matches_local_bundle": true,
+    "sha256": "ff75da40cfb64ad5d874d701d1697f78a58e0bc23531aaec7a64970a56842391"
+  },
+  "admin_health": {
+    "status": "ok",
+    "time": "2026-11-14T09:23:47.5666075Z"
+  }
+}

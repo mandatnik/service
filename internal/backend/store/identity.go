@@ -152,7 +152,7 @@ WHERE registration_id=@p8`,
 		if _, err := tx.ExecContext(ctx, `UPDATE dbo.hostnames SET last_seen_at=@p1 WHERE hostname_norm=@p2`, now, hostnameNorm); err != nil {
 			return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "update hostname reservation"}
 		}
-		config, configErr := loadConfigTx(ctx, tx)
+		config, configErr := effectiveConfigTx(ctx, tx, uuidString(existing.MachineID))
 		if configErr != nil {
 			return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: configErr.Error()}
 		}
@@ -225,7 +225,7 @@ VALUES (@p1,@p2,@p3,@p4,@p5,@p6,N'active',@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14)`
 		_ = insertEvent(ctx, tx, machineID, registrationID, nil, request.Data.RequestID,
 			"dns_unverified", "warning", "hostname does not resolve to the source IP", map[string]any{"dns_status": dnsStatus}, now)
 	}
-	config, configErr := loadConfigTx(ctx, tx)
+	config, configErr := effectiveConfigTx(ctx, tx, machineID)
 	if configErr != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: configErr.Error()}
 	}
@@ -430,7 +430,7 @@ UPDATE dbo.registrations SET state=N'renamed', revoked_at=@p1, replaced_by_regis
 		map[string]any{"old_uuid": oldUUID, "old_hostname": old.Hostname, "new_uuid": newUUID, "new_hostname": newHostname}, now); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "record rename event"}
 	}
-	config, configErr := loadConfigTx(ctx, tx)
+	config, configErr := effectiveConfigTx(ctx, tx, machineID)
 	if configErr != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: configErr.Error()}
 	}

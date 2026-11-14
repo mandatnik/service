@@ -186,6 +186,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case parts[0] == "inventory-settings" || parts[0] == "groups" || parts[0] == "folder-policies":
+		s.adminInventory(w, r, session, parts)
 	case path == "session" && r.Method == http.MethodGet:
 		writeAdminJSON(w, http.StatusOK, map[string]any{"username": session.Username, "expires_at": session.ExpiresAt, "csrf_token": csrf})
 	case path == "logout" && r.Method == http.MethodPost:

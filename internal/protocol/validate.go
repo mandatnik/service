@@ -3,6 +3,7 @@ package protocol
 import (
 	"fmt"
 	"strings"
+	"telehack2026/internal/folderpolicy"
 	"time"
 
 	"github.com/google/uuid"
@@ -132,6 +133,23 @@ func ValidateConfig(cfg *AgentConfig) error {
 		}
 		seen[key] = struct{}{}
 		normalized = append(normalized, dir)
+	}
+	if len(cfg.FolderPolicies) > 128 {
+		return fmt.Errorf("too many folder policies")
+	}
+	policyIDs := map[string]bool{}
+	for _, p := range cfg.FolderPolicies {
+		if p.ID == "" || len(p.ID) > 128 || len([]rune(p.Name)) > 200 || (p.Level != "machine" && p.Level != "group") {
+			return fmt.Errorf("invalid folder policy")
+		}
+		key := p.ID + ":" + p.Level
+		if policyIDs[key] {
+			return fmt.Errorf("duplicate folder policy")
+		}
+		policyIDs[key] = true
+		if _, err := folderpolicy.Compile(p.Rules); err != nil {
+			return err
+		}
 	}
 	cfg.CertDirectories = normalized
 	return nil

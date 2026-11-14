@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
-import { formatDate, formatTime, licenseKindLabel, stateLabel } from '../format'
+import { formatDate, formatTime, licenseKindLabel, stateLabel, trialLabel } from '../format'
 import ErrorState from './ErrorState.vue'
 const props = defineProps({ machineId: { type: String, required: true } })
 const emit = defineEmits(['back', 'open-machine'])
@@ -105,7 +105,7 @@ onMounted(load)
             <dt>Срок</dt><dd>{{ data.csp?.valid_to_utc ? formatTime(data.csp.valid_to_utc) : (data.csp?.valid_to_raw || '—') }}</dd>
           </dl>
           <dl class="facts">
-            <dt>Пробность</dt><dd>{{ data.csp?.is_trial || 'unknown' }} <span class="muted">(не выводится из версии)</span></dd>
+            <dt>Пробность</dt><dd>{{ trialLabel(data.csp?.is_trial) }}</dd>
             <dt>Тип срока</dt><dd>{{ data.csp?.term_kind || '—' }}</dd>
             <dt>Основа времени</dt><dd>{{ data.csp?.time_basis || '—' }}</dd>
             <dt>Источник</dt><dd>{{ data.csp?.source || '—' }}</dd>

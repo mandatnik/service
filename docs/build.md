@@ -78,9 +78,9 @@ Vite настроен на `entryFileNames: app.js`, `assetFileNames: app.[ext]`
 ```powershell
 .\deploy\msi\build-msi.ps1 `
   -AgentExe .\bin\telehack-agent.exe `
-  -ProductVersion 0.3.0 `
-  -ProductCode '{64E20BF5-DDF6-4704-9374-E175CA30152F}' `
-  -Output .\artifacts\TelehackAgent-0.3.0.msi
+  -ProductVersion 0.4.0 `
+  -ProductCode '{35F44613-8F88-4599-8D86-C901BB368F47}' `
+  -Output .\artifacts\TelehackAgent-0.4.0.msi
 ```
 
 WiX 3.14.1:
