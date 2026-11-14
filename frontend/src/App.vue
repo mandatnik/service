@@ -29,6 +29,7 @@ const view = ref('overview')
 const menuOpen = ref(false)
 const machineId = ref('')
 const certificateSha = ref('')
+const groupFocusId = ref('')
 let expiryTimer = null
 
 const nav = [
@@ -86,6 +87,7 @@ function loggedIn(result) {
   view.value = 'overview'
   machineId.value = ''
   certificateSha.value = ''
+  groupFocusId.value = ''
   armExpiry(result)
 }
 async function logout() {
@@ -94,15 +96,18 @@ async function logout() {
   session.value = null
   sessionNotice.value = 'Вы вышли из админки.'
   view.value = 'overview'
+  groupFocusId.value = ''
 }
 function navigate(next) {
   menuOpen.value = false
   view.value = next
   machineId.value = ''
   certificateSha.value = ''
+  groupFocusId.value = ''
 }
 function openMachine(id) { machineId.value = id; view.value = 'machine' }
 function openCertificate(sha) { certificateSha.value = sha; view.value = 'certificate' }
+function openGroup(id) { groupFocusId.value = id; machineId.value = ''; certificateSha.value = ''; view.value = 'groups' }
 function unauthorized() {
   if (session.value) {
     if (expiryTimer) clearTimeout(expiryTimer)
@@ -148,7 +153,7 @@ onUnmounted(() => {
       </header>
       <div class="content-body">
         <OverviewView v-if="view === 'overview'" @navigate="navigate" />
-        <MachinesView v-else-if="view === 'machines'" @open-machine="openMachine" />
+        <MachinesView v-else-if="view === 'machines'" @open-machine="openMachine" @open-group="openGroup" />
         <MachineDetail v-else-if="view === 'machine'" :machine-id="machineId" @back="navigate('machines')" @open-machine="openMachine" />
         <CertificatesView v-else-if="view === 'certificates'" @open-certificate="openCertificate" />
         <CertificateDetail v-else-if="view === 'certificate'" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />
@@ -157,7 +162,7 @@ onUnmounted(() => {
         <TasksView v-else-if="view === 'tasks'" />
         <HostnamesView v-else-if="view === 'hostnames'" @open-machine="openMachine" />
         <EventsView v-else-if="view === 'events'" />
-        <GroupsView v-else-if="view === 'groups'" />
+        <GroupsView v-else-if="view === 'groups'" :focus-group-id="groupFocusId" @clear-focus="groupFocusId = ''" />
         <PoliciesView v-else-if="view === 'policies'" />
         <ApiKeysView v-else-if="view === 'api-keys'" />
         <SettingsView v-else-if="view === 'settings'" />

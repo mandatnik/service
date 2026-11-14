@@ -1,16 +1,21 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
-import { formatTime, licenseKindLabel, stateLabel, timeAgo } from '../format'
+import { badgeClass, machineRowView } from '../format'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
 import Pager from './Pager.vue'
 import ActivationModal from './ActivationModal.vue'
-const emit = defineEmits(['open-machine'])
+
+const emit = defineEmits(['open-machine', 'open-group'])
 const selected = ref([]), catalog = ref({ groups: [] }), targetGroup = ref(''), newGroup = ref(''), adding = ref(false), message = ref('')
 const activationVisible = ref(false), scanBusy = ref(false)
 const allSelected = computed(() => data.value.items.length > 0 && data.value.items.every(m => selected.value.includes(m.machine_id)))
-function selectPage(checked) { const ids = data.value.items.map(m => m.machine_id); selected.value = checked ? [...new Set([...selected.value, ...ids])] : selected.value.filter(id => !ids.includes(id)) }
+const rows = computed(() => data.value.items.map(machine => ({ machine, view: machineRowView(machine) })))
+function selectPage(checked) {
+  const ids = data.value.items.map(m => m.machine_id)
+  selected.value = checked ? [...new Set([...selected.value, ...ids])] : selected.value.filter(id => !ids.includes(id))
+}
 async function addToGroup() {
   adding.value = true; error.value = ''; message.value = ''
   try {
@@ -27,7 +32,6 @@ async function startScan() {
     message.value = `Задача scan создана: ${task.task.id}.`
   } catch (e) { error.value = e.message } finally { scanBusy.value = false }
 }
-const groupsFor = id => catalog.value.groups.filter(g => g.machine_ids.includes(id))
 const query = ref('')
 const status = ref('active')
 const page = ref(1)
@@ -48,12 +52,12 @@ onMounted(load)
 <template>
   <section>
     <div class="page-heading">
-      <div><p class="muted">Зарегистрированные агенты, профили, лицензии и полнота сбора.</p></div>
+      <div><p class="muted">Рабочие станции (РС): агенты, лицензии, сертификаты и состояние.</p></div>
       <button class="btn" @click="load">Обновить</button>
     </div>
     <div class="toolbar">
       <form class="search-form" @submit.prevent="apply">
-        <input aria-label="Поиск машин" v-model="query" placeholder="Имя, hostname или UUID" />
+        <input aria-label="Поиск машин" v-model="query" placeholder="Имя АРМ, hostname или UUID" />
         <select aria-label="Фильтр по состоянию" v-model="status" @change="apply">
           <option value="">Все</option>
           <option value="active">Текущие</option>
@@ -70,18 +74,59 @@ onMounted(load)
     <div v-else class="panel table-panel">
       <div v-if="loading" class="state">Загрузка…</div>
       <EmptyState v-else-if="!data.items.length" title="Машины не найдены" text="Проверьте фильтры или зарегистрируйте агент." />
-      <table v-else class="data-table">
-        <thead><tr><th class="selection-cell"><input type="checkbox" :checked="allSelected" :indeterminate="!allSelected && data.items.some(m => selected.includes(m.machine_id))" aria-label="Выбрать все машины на странице" @change="selectPage($event.target.checked)" /></th><th>Машина</th><th>Hostname / UUID</th><th>Связь</th><th>CSP</th><th>Лицензия</th><th>Сбор</th><th>Данные</th></tr></thead>
+      <table v-else class="data-table machines-table">
+        <thead>
+          <tr>
+            <th class="selection-cell"><input type="checkbox" :checked="allSelected" :indeterminate="!allSelected && data.items.some(m => selected.includes(m.machine_id))" aria-label="Выбрать все машины на странице" @change="selectPage($event.target.checked)" /></th>
+            <th>Название АРМ</th>
+            <th>Хост</th>
+            <th>Онлайн</th>
+            <th>CSP</th>
+            <th>Группы</th>
+            <th>Лицензия</th>
+            <th>Сертификаты</th>
+            <th>Статус</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr v-for="m in data.items" :key="m.machine_id" class="clickable" tabindex="0" @keydown.enter.self="emit('open-machine', m.machine_id)" @click="emit('open-machine', m.machine_id)">
-            <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="m.machine_id" :aria-label="`Выбрать ${m.display_name}`" /></td>
-            <td><strong>{{ m.display_name }}</strong><div v-if="m.registration_state !== 'active'" class="badge badge-neutral">Архивная запись</div><div class="machine-groups"><span v-for="group in groupsFor(m.machine_id)" :key="group.id" class="badge badge-neutral">{{ group.name }}</span></div><div v-if="m.hostname_conflict" class="badge badge-warning">hostname конфликт</div></td>
-            <td><div>{{ m.hostname || '—' }}</div><code class="small">{{ m.uuid || 'нет регистрации' }}</code></td>
-            <td><span class="badge" :class="m.offline ? 'badge-error' : 'badge-ok'">{{ m.offline ? 'Нет связи' : 'На связи' }}</span><div class="small muted">{{ m.last_seen_at ? timeAgo(m.last_seen_at) : 'нет связи' }}<br />{{ m.source_ip }}</div></td>
-            <td><div>Версия <code>{{ m.product_version || '—' }}</code></div><div class="small muted">Ядро <code>{{ m.core_version || '—' }}</code></div></td>
-            <td><span class="badge badge-license">{{ licenseKindLabel(m.license_kind, m.license_kind_raw) }}</span><div class="small muted">{{ stateLabel(m.license_state) }}</div></td>
-            <td><span class="badge" :class="m.last_report_status === 'complete' ? 'badge-ok' : (m.last_report_status ? 'badge-warning' : 'badge-neutral')">{{ stateLabel(m.last_report_status) }}</span><div class="small muted">{{ formatTime(m.last_report_at) }}</div></td>
-            <td><div>{{ m.users }} польз. · {{ m.active_certificates }} серт.</div><div class="small muted">источников: {{ m.applied_sources }}</div></td>
+          <tr v-for="row in rows" :key="row.machine.machine_id" class="clickable" tabindex="0" @keydown.enter.self="emit('open-machine', row.machine.machine_id)" @click="emit('open-machine', row.machine.machine_id)">
+            <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="row.machine.machine_id" :aria-label="`Выбрать ${row.view.name}`" /></td>
+            <td>
+              <strong>{{ row.view.name }}</strong>
+              <span v-if="row.machine.registration_state !== 'active'" class="badge badge-neutral archive-badge">Архивная запись</span>
+              <code class="small muted machine-uuid">{{ row.view.uuid }}</code>
+            </td>
+            <td>
+              <div>{{ row.view.hostname }} <span v-if="row.machine.hostname_conflict" class="badge badge-warning">конфликт</span></div>
+              <div class="small muted">{{ row.view.ip }}</div>
+            </td>
+            <td>
+              <span class="badge" :class="badgeClass(row.view.online.tone)">{{ row.view.online.label }}</span>
+              <div class="small muted">{{ row.view.online.subtext }}</div>
+            </td>
+            <td :class="{ 'cell-danger': row.view.csp.tone === 'danger' }">
+              <span v-if="!row.machine.csp_present" class="badge badge-error">Не найден</span>
+              <strong v-else>{{ row.view.csp.label }}</strong>
+              <div class="small muted">{{ row.view.csp.subtext }}</div>
+            </td>
+            <td>
+              <div class="machine-groups">
+                <button v-for="group in row.view.groups.visible" :key="group.id" type="button" class="badge badge-neutral group-badge" :title="group.name" :aria-label="`Открыть группу ${group.name}`" @click.stop="emit('open-group', group.id)">{{ group.name }}</button>
+                <span v-if="row.view.groups.overflow" class="badge badge-neutral group-overflow" :title="row.view.groups.tooltip">+{{ row.view.groups.overflow }}</span>
+                <span v-if="!row.view.groups.visible.length" class="small muted">—</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge" :class="badgeClass(row.view.license.tone)">{{ row.view.license.label }}</span>
+              <div v-if="row.view.license.lines.length" class="small muted license-terms">
+                <div v-for="(line, index) in row.view.license.lines" :key="index">{{ line }}</div>
+              </div>
+            </td>
+            <td>
+              <div>{{ row.view.certificates.primary }}</div>
+              <div class="small muted">{{ row.view.certificates.secondary }}</div>
+            </td>
+            <td><span class="badge" :class="badgeClass(row.view.status.tone)">{{ row.view.status.label }}</span></td>
           </tr>
         </tbody>
       </table>

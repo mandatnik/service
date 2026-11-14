@@ -140,31 +140,43 @@ VALUES (@p1, NULL, NULL, NULL, @p2, @p3, @p4, @p5, @p6)`,
 
 // Admin DTOs -------------------------------------------------------------------
 
+type MachineGroupRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type MachineSummary struct {
-	MachineID         string     `json:"machine_id"`
-	DisplayName       string     `json:"display_name"`
-	FirstSeen         *time.Time `json:"first_seen,omitempty"`
-	UUID              string     `json:"uuid,omitempty"`
-	Hostname          string     `json:"hostname,omitempty"`
-	RegistrationState string     `json:"registration_state"`
-	LastSeenAt        *time.Time `json:"last_seen_at,omitempty"`
-	SourceIP          string     `json:"source_ip,omitempty"`
-	DNSStatus         string     `json:"dns_status,omitempty"`
-	HostnameConflict  bool       `json:"hostname_conflict"`
-	ProductVersion    string     `json:"product_version,omitempty"`
-	CoreVersion       string     `json:"core_version,omitempty"`
-	LicenseKind       string     `json:"license_kind,omitempty"`
-	LicenseKindRaw    string     `json:"license_kind_raw,omitempty"`
-	LicenseState      string     `json:"license_state,omitempty"`
-	TermKind          string     `json:"term_kind,omitempty"`
-	IsTrial           string     `json:"is_trial,omitempty"`
-	LastReportID      string     `json:"last_report_id,omitempty"`
-	LastReportStatus  string     `json:"last_report_status,omitempty"`
-	LastReportAt      *time.Time `json:"last_report_at,omitempty"`
-	AppliedSources    int        `json:"applied_sources"`
-	Users             int        `json:"users"`
-	ActiveCerts       int        `json:"active_certificates"`
-	Offline           bool       `json:"offline"`
+	MachineID         string            `json:"machine_id"`
+	DisplayName       string            `json:"display_name"`
+	FirstSeen         *time.Time        `json:"first_seen,omitempty"`
+	UUID              string            `json:"uuid,omitempty"`
+	Hostname          string            `json:"hostname,omitempty"`
+	RegistrationState string            `json:"registration_state"`
+	LastSeenAt        *time.Time        `json:"last_seen_at,omitempty"`
+	SourceIP          string            `json:"source_ip,omitempty"`
+	DNSStatus         string            `json:"dns_status,omitempty"`
+	HostnameConflict  bool              `json:"hostname_conflict"`
+	CSPPresent        bool              `json:"csp_present"`
+	ProductVersion    string            `json:"product_version,omitempty"`
+	CoreVersion       string            `json:"core_version,omitempty"`
+	LicenseKind       string            `json:"license_kind,omitempty"`
+	LicenseKindRaw    string            `json:"license_kind_raw,omitempty"`
+	LicenseState      string            `json:"license_state,omitempty"`
+	TermKind          string            `json:"term_kind,omitempty"`
+	IsTrial           string            `json:"is_trial,omitempty"`
+	LicenseValidTo    *time.Time        `json:"license_valid_to,omitempty"`
+	LastReportID      string            `json:"last_report_id,omitempty"`
+	LastReportStatus  string            `json:"last_report_status,omitempty"`
+	LastReportAt      *time.Time        `json:"last_report_at,omitempty"`
+	AppliedSources    int               `json:"applied_sources"`
+	Users             int               `json:"users"`
+	ActiveCerts       int               `json:"active_certificates"`
+	RegistryCerts     int               `json:"registry_certificates"`
+	FileCerts         int               `json:"file_certificates"`
+	LicensedCerts     int               `json:"licensed_certificates"`
+	Groups            []MachineGroupRef `json:"groups"`
+	Status            string            `json:"status"`
+	Offline           bool              `json:"offline"`
 }
 
 type Page[T any] struct {
@@ -267,11 +279,14 @@ WHERE ` + strings.Join(where, " AND ")
 	query := `
 SELECT m.machine_id, m.display_name, m.created_at,
        r.uuid, r.hostname, r.state, r.last_seen_at, r.last_source_ip, r.last_dns_status,
-       c.product_version, c.core_version, c.license_kind, c.license_kind_raw, c.license_state, c.term_kind, c.is_trial,
+       c.present, c.product_version, c.core_version, c.license_kind, c.license_kind_raw, c.license_state, c.term_kind, c.is_trial, c.valid_to_utc,
        rp.report_id, rp.status, rp.collected_at, COALESCE(rp.applied_sources,0),
        (SELECT COUNT(*) FROM dbo.machine_users mu WHERE mu.machine_id=m.machine_id),
        (SELECT COUNT(*) FROM dbo.certificate_observations o WHERE o.machine_id=m.machine_id AND o.active=1),
-       CASE WHEN EXISTS (SELECT 1 FROM dbo.registrations r2 WHERE r2.hostname_norm=r.hostname_norm AND r2.state='active' AND r2.registration_id<>r.registration_id) THEN 1 ELSE 0 END
+       CASE WHEN EXISTS (SELECT 1 FROM dbo.registrations r2 WHERE r2.hostname_norm=r.hostname_norm AND r2.state='active' AND r2.registration_id<>r.registration_id) THEN 1 ELSE 0 END,
+       (SELECT COUNT(DISTINCT o.certificate_sha256) FROM dbo.certificate_observations o WHERE o.machine_id=m.machine_id AND o.active=1 AND o.source_type=N'user_store'),
+       (SELECT COUNT(DISTINCT o.certificate_sha256) FROM dbo.certificate_observations o WHERE o.machine_id=m.machine_id AND o.active=1 AND o.source_type=N'folder'),
+       (SELECT COUNT(DISTINCT o.certificate_sha256) FROM dbo.certificate_observations o JOIN dbo.certificates cert ON cert.sha256=o.certificate_sha256 WHERE o.machine_id=m.machine_id AND o.active=1 AND o.source_type=N'user_store' AND cert.embedded_license=N'present')
 ` + baseJoin + fmt.Sprintf(` ORDER BY m.display_name OFFSET @p%d ROWS FETCH NEXT @p%d ROWS ONLY`, len(args)+1, len(args)+2)
 	rows, err := s.DB.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
@@ -288,14 +303,16 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		var hostname, regState sql.NullString
 		var lastSeen sql.NullTime
 		var ip []byte
+		var cspPresent sql.NullBool
 		var dns, product, core, kind, raw, state, term, trial sql.NullString
+		var validTo sql.NullTime
 		var reportID mssql.NullUniqueIdentifier
 		var reportStatus sql.NullString
 		var collected sql.NullTime
-		var applied, users, certs, conflict int
+		var applied, users, certs, conflict, registryCerts, fileCerts, licensedCerts int
 		if err := rows.Scan(&id, &item.DisplayName, &created, &uuid, &hostname, &regState, &lastSeen, &ip, &dns,
-			&product, &core, &kind, &raw, &state, &term, &trial, &reportID, &reportStatus, &collected, &applied,
-			&users, &certs, &conflict); err != nil {
+			&cspPresent, &product, &core, &kind, &raw, &state, &term, &trial, &validTo, &reportID, &reportStatus, &collected, &applied,
+			&users, &certs, &conflict, &registryCerts, &fileCerts, &licensedCerts); err != nil {
 			return Page[MachineSummary]{}, err
 		}
 		item.MachineID = uuidString(id.UUID)
@@ -308,6 +325,7 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		item.SourceIP = ipString(ip)
 		item.DNSStatus = nullString(dns)
 		item.HostnameConflict = conflict != 0
+		item.CSPPresent = cspPresent.Valid && cspPresent.Bool
 		item.ProductVersion = nullString(product)
 		item.CoreVersion = nullString(core)
 		item.LicenseKind = nullString(kind)
@@ -315,6 +333,7 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		item.LicenseState = nullString(state)
 		item.TermKind = nullString(term)
 		item.IsTrial = nullString(trial)
+		item.LicenseValidTo = nullTime(validTo)
 		item.LastReportID = nullUUIDString(reportID)
 		item.LastReportStatus = nullString(reportStatus)
 		if collected.Valid {
@@ -324,13 +343,60 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		item.AppliedSources = applied
 		item.Users = users
 		item.ActiveCerts = certs
+		item.RegistryCerts = registryCerts
+		item.FileCerts = fileCerts
+		item.LicensedCerts = licensedCerts
+		item.Groups = []MachineGroupRef{}
 		item.Offline = item.LastSeenAt == nil || now.Sub(*item.LastSeenAt) > 20*time.Minute
+		item.DisplayName = machineDisplayName(item.DisplayName, item.UUID, item.MachineID)
+		item.Status = deriveMachineStatus(item.Offline, item.CSPPresent, item.LicenseState, item.IsTrial, item.RegistryCerts, item.LicensedCerts)
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
 		return Page[MachineSummary]{}, err
 	}
+	rows.Close()
+	if err := s.attachMachineGroups(ctx, items); err != nil {
+		return Page[MachineSummary]{}, err
+	}
 	return Page[MachineSummary]{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
+}
+
+// attachMachineGroups loads group badges for one page of machines in a single
+// query, keeping the machine list response self-contained.
+func (s *Store) attachMachineGroups(ctx context.Context, items []MachineSummary) error {
+	if len(items) == 0 {
+		return nil
+	}
+	index := make(map[string]int, len(items))
+	args := make([]any, len(items))
+	placeholders := make([]string, len(items))
+	for i := range items {
+		index[strings.ToLower(items[i].MachineID)] = i
+		args[i] = items[i].MachineID
+		placeholders[i] = fmt.Sprintf("@p%d", i+1)
+	}
+	rows, err := s.DB.QueryContext(ctx, `
+SELECT gm.machine_id, g.group_id, g.name
+FROM dbo.machine_group_members gm
+JOIN dbo.machine_groups g ON g.group_id=gm.group_id
+WHERE gm.machine_id IN (`+strings.Join(placeholders, ",")+`)
+ORDER BY g.name, g.group_id`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var machineID, groupID mssql.UniqueIdentifier
+		var name string
+		if err := rows.Scan(&machineID, &groupID, &name); err != nil {
+			return err
+		}
+		if i, ok := index[strings.ToLower(uuidString(machineID))]; ok {
+			items[i].Groups = append(items[i].Groups, MachineGroupRef{ID: uuidString(groupID), Name: name})
+		}
+	}
+	return rows.Err()
 }
 
 type RegistrationInfo struct {
