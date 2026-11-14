@@ -3,9 +3,9 @@ import { ref } from 'vue'
 import BrandLogo from './BrandLogo.vue'
 import ThemePicker from './ThemePicker.vue'
 import { api, setCSRF } from '../api'
-const props = defineProps({ notice: { type: String, default: '' } })
+defineProps({ notice: { type: String, default: '' } })
 const emit = defineEmits(['logged-in'])
-const username = ref('')
+const email = ref('')
 const password = ref('')
 const busy = ref(false)
 const error = ref('')
@@ -13,7 +13,7 @@ async function submit() {
   error.value = ''
   busy.value = true
   try {
-    const result = await api.login(username.value, password.value)
+    const result = await api.login(email.value, password.value)
     setCSRF(result.csrf_token)
     emit('logged-in', result)
   } catch (e) {
@@ -39,8 +39,8 @@ async function submit() {
       <div v-if="notice" class="alert alert-info">{{ notice }}</div>
       <div v-if="error" class="alert alert-error" role="alert">{{ error }}</div>
       <label class="field">
-        <span>Логин</span>
-        <input v-model="username" autocomplete="username" required autofocus />
+        <span>Электронная почта</span>
+        <input v-model="email" type="email" autocomplete="username" required autofocus />
       </label>
       <label class="field">
         <span>Пароль</span>

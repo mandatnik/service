@@ -50,7 +50,7 @@ func (s *Server) adminInventory(w http.ResponseWriter, r *http.Request, session 
 			fail(err)
 			return
 		}
-		if err := s.store.AddGroupMembers(ctx, parts[1], input.MachineIDs, session.Username); err != nil {
+		if err := s.store.AddGroupMembers(ctx, parts[1], input.MachineIDs, session.Email); err != nil {
 			fail(err)
 			return
 		}
@@ -68,7 +68,7 @@ func (s *Server) adminInventory(w http.ResponseWriter, r *http.Request, session 
 		if update {
 			input.ID = parts[1]
 		}
-		id, err := s.store.SaveGroup(ctx, input, create, session.Username)
+		id, err := s.store.SaveGroup(ctx, input, create, session.Email)
 		if err != nil {
 			fail(err)
 			return
@@ -85,7 +85,7 @@ func (s *Server) adminInventory(w http.ResponseWriter, r *http.Request, session 
 		if update {
 			input.ID = parts[1]
 		}
-		id, err := s.store.SaveFolderPolicy(ctx, input, create, session.Username)
+		id, err := s.store.SaveFolderPolicy(ctx, input, create, session.Email)
 		if err != nil {
 			fail(err)
 			return
@@ -94,7 +94,7 @@ func (s *Server) adminInventory(w http.ResponseWriter, r *http.Request, session 
 		return
 	}
 	if len(parts) == 2 && r.Method == http.MethodDelete && (parts[0] == "groups" || parts[0] == "folder-policies") {
-		if err := s.store.DeleteInventoryItem(ctx, parts[0], parts[1], session.Username); err != nil {
+		if err := s.store.DeleteInventoryItem(ctx, parts[0], parts[1], session.Email); err != nil {
 			fail(err)
 			return
 		}

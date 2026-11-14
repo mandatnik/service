@@ -10,35 +10,100 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"strings"
 	"telehack2026/internal/certparse"
 	"time"
+	"unicode/utf8"
 
 	mssql "github.com/microsoft/go-mssqldb"
 	"telehack2026/internal/protocol"
 )
 
+// Administrator roles. The superadmin role is the extension point for the
+// future administrator-management section; no such routes exist yet.
+const (
+	AdminRoleAdmin      = "admin"
+	AdminRoleSuperAdmin = "superadmin"
+
+	adminEmailMaxLength       = 320
+	adminDisplayNameMaxLength = 255
+)
+
+// NormalizeAdminEmail trims and lowercases an administrator login. Only a bare
+// RFC 5322 address is accepted; display-name forms such as "Name <a@b>" are
+// rejected so the database always stores a single canonical value.
+func NormalizeAdminEmail(value string) (string, error) {
+	email := strings.ToLower(strings.TrimSpace(value))
+	if email == "" {
+		return "", fmt.Errorf("administrator email is required")
+	}
+	if len(email) > adminEmailMaxLength {
+		return "", fmt.Errorf("administrator email must be at most %d characters", adminEmailMaxLength)
+	}
+	address, err := mail.ParseAddress(email)
+	if err != nil || address.Name != "" || address.Address != email {
+		return "", fmt.Errorf("administrator email is invalid")
+	}
+	return email, nil
+}
+
+// NormalizeAdminDisplayName trims the human-readable name shown in the admin
+// interface. It must be non-empty and fit the database column.
+func NormalizeAdminDisplayName(value string) (string, error) {
+	name := strings.TrimSpace(value)
+	if name == "" {
+		return "", fmt.Errorf("administrator display name is required")
+	}
+	if utf8.RuneCountInString(name) > adminDisplayNameMaxLength {
+		return "", fmt.Errorf("administrator display name must be at most %d characters", adminDisplayNameMaxLength)
+	}
+	return name, nil
+}
+
+// NormalizeAdminRole accepts only the two roles understood by the session and
+// future authorization checks.
+func NormalizeAdminRole(value string) (string, error) {
+	role := strings.ToLower(strings.TrimSpace(value))
+	switch role {
+	case AdminRoleAdmin, AdminRoleSuperAdmin:
+		return role, nil
+	default:
+		return "", fmt.Errorf("administrator role must be %q or %q", AdminRoleAdmin, AdminRoleSuperAdmin)
+	}
+}
+
 // AdminAccount is the credential record used by the local admin login.
 type AdminAccount struct {
 	ID           int64
-	Username     string
+	Email        string
+	DisplayName  string
+	Role         string
 	PasswordHash string
 	Disabled     bool
 }
 
 // AdminSession is an authenticated browser session.
 type AdminSession struct {
-	SessionID string
-	AdminID   int64
-	Username  string
-	ExpiresAt time.Time
+	SessionID   string
+	AdminID     int64
+	Email       string
+	DisplayName string
+	Role        string
+	ExpiresAt   time.Time
 }
 
-func (s *Store) AdminByUsername(ctx context.Context, username string) (*AdminAccount, error) {
+// AdminByEmail resolves a canonical email login. Lookups are case-insensitive
+// by normalizing the input before the query.
+func (s *Store) AdminByEmail(ctx context.Context, email string) (*AdminAccount, error) {
+	email, err := NormalizeAdminEmail(email)
+	if err != nil {
+		return nil, err
+	}
 	var account AdminAccount
-	err := s.DB.QueryRowContext(ctx, `
-SELECT admin_id, username, password_hash, disabled FROM dbo.administrators WHERE username=@p1`, username).
-		Scan(&account.ID, &account.Username, &account.PasswordHash, &account.Disabled)
+	err = s.DB.QueryRowContext(ctx, `
+SELECT admin_id, email, display_name, role, password_hash, disabled FROM dbo.administrators WHERE email=@p1`, email).
+		Scan(&account.ID, &account.Email, &account.DisplayName, &account.Role, &account.PasswordHash, &account.Disabled)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, sql.ErrNoRows
 	}
@@ -48,21 +113,34 @@ SELECT admin_id, username, password_hash, disabled FROM dbo.administrators WHERE
 	return &account, nil
 }
 
-// UpsertAdmin creates or replaces a local administrator. The password hash
-// must already be a bcrypt hash; the plaintext password never reaches SQL.
-func (s *Store) UpsertAdmin(ctx context.Context, username, passwordHash string) (int64, error) {
-	username = strings.TrimSpace(username)
-	if len(username) < 3 || len(username) > 128 {
-		return 0, fmt.Errorf("username must be between 3 and 128 characters")
+// UpsertAdmin creates or replaces a local administrator identified by email.
+// The password hash must already be a bcrypt hash; the plaintext password
+// never reaches SQL. The legacy username column is populated for old tooling
+// only and is not used for lookup.
+func (s *Store) UpsertAdmin(ctx context.Context, email, displayName, role, passwordHash string) (int64, error) {
+	email, err := NormalizeAdminEmail(email)
+	if err != nil {
+		return 0, err
+	}
+	displayName, err = NormalizeAdminDisplayName(displayName)
+	if err != nil {
+		return 0, err
+	}
+	role, err = NormalizeAdminRole(role)
+	if err != nil {
+		return 0, err
+	}
+	if strings.TrimSpace(passwordHash) == "" {
+		return 0, fmt.Errorf("administrator password hash is required")
 	}
 	var id int64
-	err := s.DB.QueryRowContext(ctx, `
+	err = s.DB.QueryRowContext(ctx, `
 MERGE dbo.administrators WITH (HOLDLOCK) AS target
-USING (SELECT @p1 AS username) AS source ON target.username=source.username
-WHEN MATCHED THEN UPDATE SET password_hash=@p2, disabled=0
-WHEN NOT MATCHED THEN INSERT (username, password_hash, disabled, created_at)
-VALUES (@p1, @p2, 0, @p3)
-OUTPUT INSERTED.admin_id;`, username, passwordHash, s.now()).Scan(&id)
+USING (SELECT @p1 AS email) AS source ON target.email=source.email
+WHEN MATCHED THEN UPDATE SET display_name=@p2, role=@p3, password_hash=@p4, disabled=0
+WHEN NOT MATCHED THEN INSERT (username, email, display_name, role, password_hash, disabled, created_at)
+VALUES (LEFT(@p1,128), @p1, @p2, @p3, @p4, 0, @p5)
+OUTPUT INSERTED.admin_id;`, email, displayName, role, passwordHash, s.now()).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("upsert administrator: %w", err)
 	}
@@ -87,10 +165,10 @@ func (s *Store) ValidateAdminSession(ctx context.Context, tokenHash string) (*Ad
 	var id mssql.UniqueIdentifier
 	var expires time.Time
 	err := s.DB.QueryRowContext(ctx, `
-SELECT s.session_id, s.admin_id, a.username, s.expires_at
+SELECT s.session_id, s.admin_id, a.email, a.display_name, a.role, s.expires_at
 FROM dbo.admin_sessions s JOIN dbo.administrators a ON a.admin_id=s.admin_id
 WHERE s.token_hash=@p1 AND s.revoked_at IS NULL AND s.expires_at > @p2 AND a.disabled=0`,
-		tokenHash, s.now()).Scan(&id, &session.AdminID, &session.Username, &expires)
+		tokenHash, s.now()).Scan(&id, &session.AdminID, &session.Email, &session.DisplayName, &session.Role, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, sql.ErrNoRows
 	}

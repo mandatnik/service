@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, setCSRF } from './api'
+import { adminDisplayName, adminInitial, adminRoleLabel } from './identity'
 import AppFooter from './components/AppFooter.vue'
 import BrandLogo from './components/BrandLogo.vue'
 import ThemePicker from './components/ThemePicker.vue'
@@ -55,6 +56,9 @@ const titles = {
   settings: 'Настройки сбора'
 }
 const title = computed(() => titles[view.value] || 'Админка')
+const adminName = computed(() => adminDisplayName(session.value))
+const adminLetter = computed(() => adminInitial(session.value))
+const adminRole = computed(() => adminRoleLabel(session.value?.role))
 
 async function checkSession() {
   checking.value = true
@@ -142,7 +146,7 @@ onUnmounted(() => {
         </button>
       </nav>
       <div class="sidebar-footer">
-        <div class="user-chip"><span class="avatar">{{ session.username?.slice(0, 1).toUpperCase() }}</span><div><strong>{{ session.username }}</strong><small>администратор</small></div></div>
+        <div class="user-chip"><span class="avatar">{{ adminLetter }}</span><div><strong>{{ adminName }}</strong><small>{{ adminRole }}</small></div></div>
         <button class="btn btn-quiet btn-wide" @click="logout">Выйти</button>
       </div>
     </aside>

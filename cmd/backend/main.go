@@ -39,14 +39,16 @@ func main() {
 		args := os.Args[2:]
 		fs := flag.NewFlagSet("admin-create", flag.ExitOnError)
 		configPath := fs.String("config", "", "path to backend.json (default: ProgramData)")
-		username := fs.String("username", "", "administrator login")
+		email := fs.String("email", "", "administrator email address")
+		name := fs.String("name", "", "administrator display name")
+		role := fs.String("role", "admin", "administrator role (admin or superadmin)")
 		_ = fs.Parse(args)
 		password := os.Getenv("TELEHACK_ADMIN_PASSWORD")
 		if password == "" {
 			fmt.Fprintln(os.Stderr, "admin-create: TELEHACK_ADMIN_PASSWORD is not set")
 			os.Exit(2)
 		}
-		if err := backend.CreateOrUpdateAdmin(*configPath, *username, password); err != nil {
+		if err := backend.CreateOrUpdateAdmin(*configPath, *email, *name, *role, password); err != nil {
 			fmt.Fprintln(os.Stderr, "admin-create:", err)
 			os.Exit(1)
 		}
@@ -105,7 +107,7 @@ Usage:
   telehack-backend.exe bootstrap [-config PATH]
   telehack-backend.exe migrate [-config PATH]
   telehack-backend.exe health [-config PATH]
-  telehack-backend.exe admin-create -config PATH -username NAME
+  telehack-backend.exe admin-create -config PATH -email EMAIL -name "DISPLAY NAME" [-role admin|superadmin]
   telehack-backend.exe hash-password
   telehack-backend.exe license-init [-config PATH]
   telehack-backend.exe license-keyring-rotate [-config PATH]

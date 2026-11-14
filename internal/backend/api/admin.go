@@ -111,10 +111,7 @@ func setAdminSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 	w.Header().Set("Strict-Transport-Security", "max-age=31536000")
-	// The embedded index.html contains a tiny theme bootstrap before Vue
-	// mounts. Allow exactly that script by hash; all other inline scripts stay
-	// blocked.
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'sha256-XFxDL19M6USwsTa57cBRf5jDzMzK0Q5PpyJllAdRZdg='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 }
 
 func (s *Server) adminHealth(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +193,7 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 	case parts[0] == "license-pools" || parts[0] == "licenses" || parts[0] == "tasks" || parts[0] == "task-items":
 		s.adminLicensesAndTasks(w, r, session, parts)
 	case path == "session" && r.Method == http.MethodGet:
-		writeAdminJSON(w, http.StatusOK, map[string]any{"username": session.Username, "expires_at": session.ExpiresAt, "csrf_token": csrf})
+		writeAdminJSON(w, http.StatusOK, adminIdentityResponse(session.Email, session.DisplayName, session.Role, session.ExpiresAt, csrf))
 	case path == "logout" && r.Method == http.MethodPost:
 		s.adminLogout(w, r, session, csrf)
 	case path == "overview" && r.Method == http.MethodGet:
@@ -271,22 +268,46 @@ func validAdminCSRF(r *http.Request, cookieValue string) bool {
 	return subtle.ConstantTimeCompare([]byte(cookieValue), []byte(header)) == 1
 }
 
+func adminIdentityResponse(email, displayName, role string, expires time.Time, csrf string) map[string]any {
+	return map[string]any{
+		"email":        email,
+		"display_name": displayName,
+		"role":         role,
+		"expires_at":   expires,
+		"csrf_token":   csrf,
+	}
+}
+
+// requireAdminRole is the authorization extension point for future
+// superadmin-only administrator management endpoints. No such routes are
+// registered yet; new handlers should call this helper with
+// store.AdminRoleSuperAdmin before mutating administrator accounts.
+func (s *Server) requireAdminRole(w http.ResponseWriter, session *store.AdminSession, roles ...string) bool {
+	for _, role := range roles {
+		if session.Role == role {
+			return true
+		}
+	}
+	writeAdminError(w, http.StatusForbidden, "forbidden", "administrator role is not allowed")
+	return false
+}
+
 func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
 		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, "Content-Type must be application/json")
 		return
 	}
 	var input struct {
-		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 	if err := readAdminJSON(w, r, &input); err != nil {
 		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
 		return
 	}
-	input.Username = strings.TrimSpace(input.Username)
-	if input.Username == "" || input.Password == "" {
-		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid username or password")
+	input.Email = strings.TrimSpace(input.Email)
+	if input.Email == "" || input.Password == "" {
+		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
 	}
 	key := remoteHost(r)
@@ -297,19 +318,23 @@ func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
-	account, err := s.store.AdminByUsername(ctx, input.Username)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.logf("admin login lookup failed: %v", err)
+	var account *store.AdminAccount
+	var lookupErr error = sql.ErrNoRows
+	if normalizedEmail, normalizeErr := store.NormalizeAdminEmail(input.Email); normalizeErr == nil {
+		account, lookupErr = s.store.AdminByEmail(ctx, normalizedEmail)
+	}
+	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+		s.logf("admin login lookup failed: %v", lookupErr)
 		writeAdminError(w, http.StatusServiceUnavailable, protocol.CodeDatabase, "could not query administrator")
 		return
 	}
 	hash := dummyPasswordHash
-	if err == nil && !account.Disabled {
+	if lookupErr == nil && account != nil && !account.Disabled {
 		hash = []byte(account.PasswordHash)
 	}
-	if bcrypt.CompareHashAndPassword(hash, []byte(input.Password)) != nil || err != nil || account.Disabled {
+	if bcrypt.CompareHashAndPassword(hash, []byte(input.Password)) != nil || lookupErr != nil || account == nil || account.Disabled {
 		s.adminLimiter.fail(key, now)
-		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid username or password")
+		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
 	}
 	s.adminLimiter.reset(key)
@@ -341,7 +366,7 @@ func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 		Name: adminCSRFCookie, Value: csrf, Path: "/", HttpOnly: false, Secure: true,
 		SameSite: http.SameSiteStrictMode, MaxAge: int(ttl.Seconds()),
 	})
-	writeAdminJSON(w, http.StatusOK, map[string]any{"username": account.Username, "expires_at": expires, "csrf_token": csrf})
+	writeAdminJSON(w, http.StatusOK, adminIdentityResponse(account.Email, account.DisplayName, account.Role, expires, csrf))
 }
 
 func (s *Server) adminLogout(w http.ResponseWriter, r *http.Request, session *store.AdminSession, csrf string) {
@@ -427,7 +452,7 @@ func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request, session 
 	}
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
-	jobID, err := s.store.AddAdminJob(ctx, id, session.Username)
+	jobID, err := s.store.AddAdminJob(ctx, id, session.Email)
 	if err != nil {
 		s.logf("admin create job failed: %v", err)
 		writeAdminError(w, http.StatusServiceUnavailable, protocol.CodeDatabase, "could not create scan job")
@@ -535,13 +560,13 @@ func (s *Server) adminPutConfig(w http.ResponseWriter, r *http.Request, session 
 	defer cancel()
 	_, oldHash, _ := s.store.Config(ctx)
 	cfg = cfg.WithScheduleDefaults()
-	updated, hash, err := s.store.SetConfig(ctx, cfg, session.Username)
+	updated, hash, err := s.store.SetConfig(ctx, cfg, session.Email)
 	if err != nil {
 		writeAdminError(w, http.StatusUnprocessableEntity, protocol.CodeConfigInvalid, err.Error())
 		return
 	}
 	s.store.InsertAdminEvent(ctx, nil, "config_changed", "warning", "administrator changed collection configuration", map[string]any{
-		"admin": session.Username, "old_hash": oldHash, "new_hash": hash,
+		"admin": session.Email, "old_hash": oldHash, "new_hash": hash,
 		"scan_interval_days": updated.ScanIntervalDays, "cert_directories": updated.CertDirectories,
 	})
 	writeAdminJSON(w, http.StatusOK, map[string]any{"config": updated, "config_hash": hash})
@@ -574,7 +599,7 @@ func (s *Server) adminAssignHostname(w http.ResponseWriter, r *http.Request, ses
 	}
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
-	if err := s.store.AssignHostname(ctx, hostname, input.RegistrationID, session.Username); err != nil {
+	if err := s.store.AssignHostname(ctx, hostname, input.RegistrationID, session.Email); err != nil {
 		writeAdminError(w, http.StatusUnprocessableEntity, "hostname_assign_failed", err.Error())
 		return
 	}
@@ -589,7 +614,7 @@ func (s *Server) adminRevokeRegistration(w http.ResponseWriter, r *http.Request,
 	}
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
-	if err := s.store.RevokeRegistration(ctx, registrationID, session.Username); err != nil {
+	if err := s.store.RevokeRegistration(ctx, registrationID, session.Email); err != nil {
 		writeAdminError(w, http.StatusUnprocessableEntity, "revoke_failed", err.Error())
 		return
 	}
@@ -617,7 +642,7 @@ func (s *Server) adminRebind(w http.ResponseWriter, r *http.Request, session *st
 	}
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
-	fingerprint, err := s.store.RebindRegistrationKey(ctx, machineID, registrationID, input.PublicKeyPEM, session.Username)
+	fingerprint, err := s.store.RebindRegistrationKey(ctx, machineID, registrationID, input.PublicKeyPEM, session.Email)
 	if err != nil {
 		writeAdminError(w, http.StatusUnprocessableEntity, "rebind_failed", err.Error())
 		return

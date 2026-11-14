@@ -61,17 +61,17 @@ func (s *Server) adminAPIKeys(w http.ResponseWriter, r *http.Request, session *s
 			return
 		}
 		keyID := protocol.NewUUID()
-		if err := s.store.CreateIntegrationKey(ctx, keyID, name, store.TokenHash(token), prefix, allowed, session.Username); err != nil {
+		if err := s.store.CreateIntegrationKey(ctx, keyID, name, store.TokenHash(token), prefix, allowed, session.Email); err != nil {
 			s.logf("admin API key create failed: %v", err)
 			writeAdminError(w, http.StatusServiceUnavailable, "database_error", "Не удалось сохранить API-ключ")
 			return
 		}
 		s.store.InsertAdminEvent(ctx, nil, "api_key_created", "info", "administrator created an integration API key", map[string]any{
-			"key_id": keyID, "name": name, "allowed_ips": allowed, "admin": session.Username,
+			"key_id": keyID, "name": name, "allowed_ips": allowed, "admin": session.Email,
 		})
 		writeAdminJSON(w, http.StatusCreated, map[string]any{
 			"key_id": keyID, "name": name, "token": token, "token_prefix": prefix,
-			"allowed_ips": allowed, "status": "active", "created_by": session.Username,
+			"allowed_ips": allowed, "status": "active", "created_by": session.Email,
 			"created_at": time.Now().UTC().Format(time.RFC3339Nano),
 		})
 	case len(parts) == 2 && (r.Method == http.MethodPut || r.Method == http.MethodDelete):
@@ -81,7 +81,7 @@ func (s *Server) adminAPIKeys(w http.ResponseWriter, r *http.Request, session *s
 			return
 		}
 		if r.Method == http.MethodDelete {
-			if err := s.store.RevokeIntegrationKey(ctx, keyID, session.Username); err != nil {
+			if err := s.store.RevokeIntegrationKey(ctx, keyID, session.Email); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					writeAdminError(w, http.StatusNotFound, "not_found", "API-ключ не найден")
 					return
@@ -91,7 +91,7 @@ func (s *Server) adminAPIKeys(w http.ResponseWriter, r *http.Request, session *s
 				return
 			}
 			s.store.InsertAdminEvent(ctx, nil, "api_key_revoked", "warning", "administrator revoked an integration API key", map[string]any{
-				"key_id": keyID, "admin": session.Username,
+				"key_id": keyID, "admin": session.Email,
 			})
 			writeAdminJSON(w, http.StatusOK, map[string]bool{"ok": true})
 			return
@@ -146,7 +146,7 @@ func (s *Server) adminAPIKeys(w http.ResponseWriter, r *http.Request, session *s
 			return
 		}
 		s.store.InsertAdminEvent(ctx, nil, "api_key_updated", "info", "administrator updated an integration API key", map[string]any{
-			"key_id": keyID, "name": name, "allowed_ips": allowed, "allowed_ips_changed": allowedChanged, "admin": session.Username,
+			"key_id": keyID, "name": name, "allowed_ips": allowed, "allowed_ips_changed": allowedChanged, "admin": session.Email,
 		})
 		writeAdminJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	default:

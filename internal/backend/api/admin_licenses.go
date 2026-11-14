@@ -26,7 +26,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 			writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
 			return
 		}
-		pool, apiErr := s.store.CreatePool(ctx, input, session.Username)
+		pool, apiErr := s.store.CreatePool(ctx, input, session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
@@ -55,7 +55,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 		updated, apiErr := s.store.UpdatePool(ctx, pool.ID, store.PoolInput{
 			Name: input.Name, CSPMajorVersion: pool.CSPMajorVersion,
 			LicenseKind: pool.LicenseKind, Term: pool.Term,
-		}, session.Username)
+		}, session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
@@ -69,7 +69,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 			writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
 			return
 		}
-		pool, apiErr := s.store.SetPoolArchived(ctx, parts[1], input.Archived, session.Username)
+		pool, apiErr := s.store.SetPoolArchived(ctx, parts[1], input.Archived, session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
@@ -100,7 +100,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 			return
 		}
 		// The request body is intentionally never logged or audited.
-		result, apiErr := s.store.ImportLicenses(ctx, parts[1], input.Serials, session.Username)
+		result, apiErr := s.store.ImportLicenses(ctx, parts[1], input.Serials, session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
@@ -118,7 +118,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 			writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
 			return
 		}
-		if apiErr := s.store.BlockLicense(ctx, parts[1], input.Reason, session.Username); apiErr != nil {
+		if apiErr := s.store.BlockLicense(ctx, parts[1], input.Reason, session.Email); apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
 		}
@@ -129,7 +129,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 			writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
 			return
 		}
-		response, apiErr := s.store.BuildActivationPreview(ctx, input, session.Username)
+		response, apiErr := s.store.BuildActivationPreview(ctx, input, session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
@@ -164,7 +164,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 		case protocol.TaskKindScan:
 			detail, apiErr := s.store.CreateScanTask(ctx, store.CreateScanTaskInput{
 				MachineIDs: input.MachineIDs, GroupIDs: input.GroupIDs, IdempotencyKey: input.IdempotencyKey,
-			}, session.Username)
+			}, session.Email)
 			if apiErr != nil {
 				writeStoreAPIError(w, apiErr)
 				return
@@ -174,7 +174,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 			detail, apiErr := s.store.CreateInstallTask(ctx, store.CreateInstallTaskInput{
 				PoolID: input.PoolID, PreviewID: input.PreviewID, MachineIDs: input.MachineIDs,
 				IdempotencyKey: input.IdempotencyKey,
-			}, session.Username)
+			}, session.Email)
 			if apiErr != nil {
 				writeStoreAPIError(w, apiErr)
 				return
@@ -198,7 +198,7 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 		}
 		writeAdminJSON(w, http.StatusOK, map[string]any{"items": detail.Items, "next_after": nil})
 	case parts[0] == "tasks" && len(parts) == 3 && parts[2] == "cancel" && r.Method == http.MethodPost:
-		detail, apiErr := s.store.CancelTask(ctx, parts[1], session.Username)
+		detail, apiErr := s.store.CancelTask(ctx, parts[1], session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
@@ -212,14 +212,14 @@ func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, s
 		}
 		writeAdminJSON(w, http.StatusOK, map[string]any{"items": events})
 	case parts[0] == "task-items" && len(parts) == 3 && parts[2] == "cancel" && r.Method == http.MethodPost:
-		detail, apiErr := s.store.CancelTaskItem(ctx, parts[1], session.Username)
+		detail, apiErr := s.store.CancelTaskItem(ctx, parts[1], session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return
 		}
 		writeAdminJSON(w, http.StatusOK, detail)
 	case parts[0] == "task-items" && len(parts) == 3 && parts[2] == "reconcile" && r.Method == http.MethodPost:
-		detail, apiErr := s.store.RequestReconcile(ctx, parts[1], session.Username)
+		detail, apiErr := s.store.RequestReconcile(ctx, parts[1], session.Email)
 		if apiErr != nil {
 			writeStoreAPIError(w, apiErr)
 			return

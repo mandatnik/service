@@ -30,11 +30,16 @@ dist/app.js
 Пароль не хранится в исходниках и не принимается аргументом командной
 строки. Хеш — bcrypt cost 12.
 
+Вход выполняется по электронной почте. У каждой учётной записи есть
+отображаемое имя (например, `Малыгин А. Е.`) и роль `admin` или
+`superadmin`.
+
 Создание/смена пароля через backend:
 
 ```powershell
 $env:TELEHACK_ADMIN_PASSWORD = '<сильный пароль>'
-telehack-backend.exe admin-create -config C:\ProgramData\Telehack2026\Backend\backend.json -username admin
+telehack-backend.exe admin-create -config C:\ProgramData\Telehack2026\Backend\backend.json `
+  -email admin@example.com -name "Малыгин А. Е." -role superadmin
 Remove-Item Env:TELEHACK_ADMIN_PASSWORD
 ```
 
@@ -48,17 +53,39 @@ Remove-Item Env:TELEHACK_ADMIN_PASSWORD
 ```
 
 ```sql
-INSERT INTO dbo.administrators (username, password_hash, disabled, created_at)
-VALUES (N'admin', N'<bcrypt-$2a$12-хеш>', 0, SYSUTCDATETIME());
+INSERT INTO dbo.administrators
+  (username, email, display_name, role, password_hash, disabled, created_at)
+VALUES
+  (N'admin', N'admin@example.com', N'Малыгин А. Е.', N'superadmin',
+   N'<bcrypt-$2a$12-хеш>', 0, SYSUTCDATETIME());
 ```
+
+Колонка `username` оставлена только для совместимости со старыми
+инструментами; приложение её больше не читает и не показывает. Уникальность
+входа обеспечивает `email`.
 
 Публичной регистрации администраторов нет.
 
+## Роли
+
+- `admin` — обычный администратор.
+- `superadmin` — администратор с правом будущего управления учётными
+  записями (создание, удаление, заморозка, смена почты/пароля/имени).
+
+Миграция `0007_admin_identity.sql` переводит существующие записи на почту и
+отображаемое имя и назначает самого старого администратора (`MIN(admin_id)`)
+ролью `superadmin`. Раздел управления администраторами пока не реализован;
+точка расширения на backend — `requireAdminRole`.
+
+
 ## Сессии и защита
 
-- Вход: `POST /api/admin/v1/login` (JSON, HTTPS).
-- Пароль проверяется bcrypt; при неверном пароле/неизвестном логине
+- Вход: `POST /api/admin/v1/login` с JSON `{"email": "...", "password": "..."}`
+  (HTTPS).
+- Пароль проверяется bcrypt; при неверном пароле/неизвестной почте
   возвращается одинаковый ответ.
+- `POST /login` и `GET /session` возвращают `email`, `display_name`, `role`,
+  `expires_at` и `csrf_token`; устаревший `username` не отдаётся.
 - Сервер создаёт случайный 32-байтовый токен; в SQL хранится только
   SHA-256 токена. Сессия живёт `admin_session_hours` (по умолчанию 12 ч).
 - Cookie `telehack_admin` — `HttpOnly`, `Secure`, `SameSite=Strict`.

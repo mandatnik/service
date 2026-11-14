@@ -3,7 +3,6 @@ package backend
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -28,10 +27,18 @@ func HashAdminPassword(password string) (string, error) {
 // CreateOrUpdateAdmin is the supported local bootstrap path. It connects with
 // the runtime SQL login and writes only a bcrypt hash. Administrators can also
 // be inserted directly with the documented SQL and hash-password command.
-func CreateOrUpdateAdmin(configPath, username, password string) error {
-	username = strings.TrimSpace(username)
-	if len(username) < 3 {
-		return fmt.Errorf("username must contain at least 3 characters")
+func CreateOrUpdateAdmin(configPath, email, displayName, role, password string) error {
+	email, err := store.NormalizeAdminEmail(email)
+	if err != nil {
+		return err
+	}
+	displayName, err = store.NormalizeAdminDisplayName(displayName)
+	if err != nil {
+		return err
+	}
+	role, err = store.NormalizeAdminRole(role)
+	if err != nil {
+		return err
 	}
 	hash, err := HashAdminPassword(password)
 	if err != nil {
@@ -49,10 +56,10 @@ func CreateOrUpdateAdmin(configPath, username, password string) error {
 	}
 	defer pool.Close()
 	persistence := store.New(pool)
-	id, err := persistence.UpsertAdmin(ctx, username, hash)
+	id, err := persistence.UpsertAdmin(ctx, email, displayName, role, hash)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("administrator %q is ready (id=%d)\n", username, id)
+	fmt.Printf("administrator %q (%s, %s) is ready (id=%d)\n", displayName, email, role, id)
 	return nil
 }
