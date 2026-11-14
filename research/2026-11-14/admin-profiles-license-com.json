@@ -1,0 +1,14 @@
+[
+  {
+    "ip": "192.168.189.136",
+    "code": 0,
+    "stdout": "{\"Host\":\"WORKSTATION-1\",\"Admin\":true,\"Profiles\":[{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1113\",\"Path\":\"C:\\\\Users\\\\agent\",\"Loaded\":true,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1106\",\"Path\":\"C:\\\\Users\\\\user1\",\"Loaded\":false,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1105\",\"Path\":\"C:\\\\Users\\\\mimbol\",\"Loaded\":true,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1104\",\"Path\":\"C:\\\\Users\\\\magickman.HACK\",\"Loaded\":true,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-1727000066-743076230-1560906353-1001\",\"Path\":\"C:\\\\Users\\\\MagickMan\",\"Loaded\":false,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true}],\"LicenseCOM\":[{\"Product\":\"{407E5BA7-6406-40BF-A4DC-3654B8F584C1}\",\"Error\":\"Exception from HRESULT: 0xFFFFFFFF\"},{\"Product\":\"{50F91F80-D397-437C-B0C8-62128DE3B55E}\",\"Type\":0,\"Install\":\"2026-11-13T13:41:50.0000000\",\"Expire\":\"2027-02-14T18:59:59.0000000\"}]}\n",
+    "stderr": ""
+  },
+  {
+    "ip": "192.168.189.137",
+    "code": 0,
+    "stdout": "{\"Host\":\"WORKSTATION-2\",\"Admin\":true,\"Profiles\":[{\"SID\":\"S-1-5-21-3886529005-82156080-351106946-1001\",\"Path\":\"C:\\\\Users\\\\MagickMan\",\"Loaded\":false,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1113\",\"Path\":\"C:\\\\Users\\\\agent\",\"Loaded\":true,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1107\",\"Path\":\"C:\\\\Users\\\\user2\",\"Loaded\":false,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1105\",\"Path\":\"C:\\\\Users\\\\mimbol\",\"Loaded\":false,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true},{\"SID\":\"S-1-5-21-2458881001-951638917-3945708937-1104\",\"Path\":\"C:\\\\Users\\\\magickman.HACK\",\"Loaded\":true,\"LoadedStoreExists\":false,\"LoadedCertificateCount\":null,\"HiveExists\":true}],\"LicenseCOM\":[{\"Product\":\"{407E5BA7-6406-40BF-A4DC-3654B8F584C1}\",\"Type\":1,\"Install\":\"2026-11-13T13:42:12.0000000\",\"Expire\":\"2027-02-14T18:59:59.0000000\"},{\"Product\":\"{50F91F80-D397-437C-B0C8-62128DE3B55E}\",\"Error\":\"Exception from HRESULT: 0xFFFFFFFF\"}]}\n",
+    "stderr": ""
+  }
+]

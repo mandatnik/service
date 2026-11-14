@@ -1,0 +1,27 @@
+node_modules/
+.idea/
+.env
+.DS_Store
+.secrets/
+
+# WireGuard configs contain private keys
+*-wg*.conf
+
+# Rutoken control SSH key
+rutoken/rutoken_key
+rutoken/
+
+# build artifacts and stand evidence containing environment specifics
+/bin/
+/dist/
+/build/
+*.exe
+*.msi
+*.pfx
+*.p12
+*.key
+*.pem
+!test-data/**/*.pem
+!internal/**/testdata/**/*.pem
+evidence/local/
+.deploy/

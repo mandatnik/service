@@ -1,0 +1,388 @@
+openapi: 3.0.3
+info:
+  title: Telehack 2026 agent API
+  version: "1"
+  description: |
+    Версионированный REST/HTTPS контракт агента. Все тела запросов —
+    конверт {data, sign, host}; data канонизируется JCS (RFC 8785) и
+    подписывается ECDSA P-256/SHA-256/ASN.1 DER/Base64. Подробности:
+    docs/protocol.md.
+servers:
+  - url: https://backend.example:8443
+paths:
+  /api/agent/v1/register:
+    post:
+      summary: Первичная регистрация или повтор с прежним ключом
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterEnvelope' }
+      responses:
+        '200':
+          description: Зарегистрировано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/agent/v1/rename:
+    post:
+      summary: Подписанный переход при переименовании
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RenameEnvelope' }
+      responses:
+        '200':
+          description: Переход выполнен
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/agent/v1/sync:
+    post:
+      summary: Конфигурация по хешу и задания
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SyncEnvelope' }
+      responses:
+        '200':
+          description: Конфигурация и задания
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/agent/v1/report:
+    post:
+      summary: Идемпотентная доставка отчёта
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReportEnvelope' }
+      responses:
+        '200':
+          description: Отчёт принят или уже был принят
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReportResponse' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Invalid' }
+  /api/agent/v1/jobs/ack:
+    post:
+      summary: Подтверждение состояния задания
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobAckEnvelope' }
+      responses:
+        '200':
+          description: Подтверждение принято
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobAckResponse' }
+components:
+  responses:
+    Conflict:
+      description: Конфликт идентичности/повтора/отчёта
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Unauthorized:
+      description: Идентичность не авторизована
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    Invalid:
+      description: Семантическая ошибка
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    Host:
+      type: object
+      required: [uuid, hostname]
+      properties:
+        uuid: { type: string, format: uuid }
+        hostname: { type: string, maxLength: 253 }
+    BaseData:
+      type: object
+      required: [protocol_version, operation, request_id, uuid, hostname, method, path, issued_at, agent_version]
+      properties:
+        protocol_version: { type: string, enum: ["1"] }
+        operation: { type: string, enum: [register, rename, sync, report, job_ack] }
+        request_id: { type: string, format: uuid }
+        uuid: { type: string, format: uuid }
+        hostname: { type: string, maxLength: 253 }
+        method: { type: string, enum: [POST] }
+        path: { type: string }
+        issued_at: { type: string, format: date-time }
+        agent_version: { type: string }
+        os_version: { type: string }
+        architecture: { type: string }
+      additionalProperties: true
+    RegisterData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [public_key]
+          properties:
+            public_key: { type: string }
+    RenameData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [new_uuid, new_hostname, new_public_key]
+          properties:
+            new_uuid: { type: string, format: uuid }
+            new_hostname: { type: string, maxLength: 253 }
+            new_public_key: { type: string }
+    SyncData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          properties:
+            config_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+    ReportData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [report_id, scan_seq, collected_at, report]
+          properties:
+            report_id: { type: string, format: uuid }
+            scan_seq: { type: integer, minimum: 0 }
+            collected_at: { type: string, format: date-time }
+            report: { $ref: '#/components/schemas/Report' }
+    JobAckData:
+      allOf:
+        - $ref: '#/components/schemas/BaseData'
+        - type: object
+          required: [job_id, job_status]
+          properties:
+            job_id: { type: string, format: uuid }
+            job_status: { type: string, enum: [completed, failed, report_evicted] }
+            job_report_id: { type: string, format: uuid }
+            job_message: { type: string, maxLength: 1024 }
+    BaseEnvelope:
+      type: object
+      required: [data, sign, host]
+      properties:
+        data: { type: object }
+        sign: { type: string, description: Base64 ASN.1 DER ECDSA signature }
+        host: { $ref: '#/components/schemas/Host' }
+      additionalProperties: false
+    RegisterEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/RegisterData' }
+    RenameEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/RenameData' }
+    SyncEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/SyncData' }
+    ReportEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/ReportData' }
+    JobAckEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/BaseEnvelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/JobAckData' }
+    AgentConfig:
+      type: object
+      required: [version, scan_interval_days, cert_directories, recursive, max_files, max_file_bytes]
+      properties:
+        version: { type: integer, minimum: 1 }
+        scan_interval_days: { type: integer, minimum: 1, maximum: 365 }
+        cert_directories: { type: array, items: { type: string } }
+        recursive: { type: boolean }
+        max_files: { type: integer, minimum: 1, maximum: 10000 }
+        max_file_bytes: { type: integer, minimum: 1024, maximum: 10485760 }
+    RegisterResponse:
+      type: object
+      required: [machine_id, uuid, hostname, registered_at, config, config_hash, server_time]
+      properties:
+        machine_id: { type: string, format: uuid }
+        uuid: { type: string, format: uuid }
+        hostname: { type: string }
+        registered_at: { type: string, format: date-time }
+        config: { $ref: '#/components/schemas/AgentConfig' }
+        config_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        server_time: { type: string, format: date-time }
+        warnings: { type: array, items: { type: string } }
+    SyncResponse:
+      type: object
+      required: [server_time, config_hash, jobs]
+      properties:
+        server_time: { type: string, format: date-time }
+        config: { $ref: '#/components/schemas/AgentConfig' }
+        config_hash: { type: string, pattern: '^[0-9a-f]{64}$' }
+        jobs:
+          type: array
+          items:
+            type: object
+            required: [job_id, kind, created_at]
+            properties:
+              job_id: { type: string, format: uuid }
+              kind: { type: string, enum: [scan] }
+              created_at: { type: string, format: date-time }
+        warnings: { type: array, items: { type: string } }
+    ReportResponse:
+      type: object
+      required: [accepted, duplicate, applied, report_id, received_at]
+      properties:
+        accepted: { type: boolean }
+        duplicate: { type: boolean }
+        applied: { type: boolean }
+        report_id: { type: string, format: uuid }
+        received_at: { type: string, format: date-time }
+        reason: { type: string }
+        warnings: { type: array, items: { type: string } }
+    JobAckResponse:
+      type: object
+      required: [accepted, job_id, state]
+      properties:
+        accepted: { type: boolean }
+        job_id: { type: string, format: uuid }
+        state: { type: string }
+        duplicate: { type: boolean }
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+    ProfileResult:
+      type: object
+      required: [sid, name, profile_path, loaded, store_present, complete]
+      properties:
+        sid: { type: string }
+        name: { type: string }
+        profile_path: { type: string }
+        loaded: { type: boolean }
+        store_present: { type: boolean }
+        complete: { type: boolean }
+        error: { type: string }
+    ObservedCertificate:
+      type: object
+      required: [sha256, der_base64]
+      properties:
+        sha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        der_base64: { type: string }
+        serial_hex: { type: string }
+        serial_number: { type: string }
+        subject: { type: string }
+        issuer: { type: string }
+        not_before: { type: string, format: date-time }
+        not_after: { type: string, format: date-time }
+        owner_cn: { type: string }
+        inn: { type: string }
+        snils: { type: string }
+        public_key_bits: { type: integer }
+        signature_algorithm: { type: string }
+        embedded_license: { type: string, enum: [present, absent, unknown] }
+        parse_error: { type: string }
+    SourceResult:
+      type: object
+      required: [source_type, source_key, complete, certificates]
+      properties:
+        source_type: { type: string, enum: [user_store, folder] }
+        source_key: { type: string }
+        display_name: { type: string }
+        user_sid: { type: string }
+        path: { type: string }
+        complete: { type: boolean }
+        error: { type: string }
+        certificates:
+          type: array
+          items: { $ref: '#/components/schemas/ObservedCertificate' }
+        files:
+          type: array
+          items:
+            type: object
+            required: [path]
+            properties:
+              path: { type: string }
+              sha256: { type: string }
+              error: { type: string }
+    LicenseInfo:
+      type: object
+      required: [kind, state]
+      properties:
+        kind: { type: string, enum: [client, server, unknown] }
+        kind_raw: { type: string }
+        kind_source: { type: string }
+        state: { type: string, enum: [active, expired, not_installed, unknown, error] }
+        valid_to_raw: { type: string }
+        valid_to_utc: { type: string }
+        time_basis: { type: string }
+        term_kind: { type: string, enum: [trial, time_limited, perpetual, unknown] }
+        is_trial: { type: string, enum: ['true', 'false', unknown] }
+        source: { type: string }
+        error: { type: string }
+    CSPResult:
+      type: object
+      required: [scanned, complete, present, license]
+      properties:
+        scanned: { type: boolean }
+        complete: { type: boolean }
+        present: { type: boolean }
+        product_version: { type: string }
+        core_version: { type: string }
+        products:
+          type: array
+          items:
+            type: object
+            properties:
+              product_guid: { type: string }
+              display_name: { type: string }
+              display_version: { type: string }
+              branch: { type: string }
+        license: { $ref: '#/components/schemas/LicenseInfo' }
+        error: { type: string }
+    Report:
+      type: object
+      required: [report_id, scan_seq, collected_at, started_at, finished_at, hostname, status, profiles_complete, profiles, sources, csp]
+      properties:
+        report_id: { type: string, format: uuid }
+        scan_seq: { type: integer, minimum: 0 }
+        collected_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        agent_version: { type: string }
+        hostname: { type: string }
+        status: { type: string, enum: [complete, partial] }
+        profiles_complete: { type: boolean }
+        profiles:
+          type: array
+          items: { $ref: '#/components/schemas/ProfileResult' }
+        sources:
+          type: array
+          items: { $ref: '#/components/schemas/SourceResult' }
+        csp: { $ref: '#/components/schemas/CSPResult' }
+        errors:
+          type: array
+          items: { type: string }

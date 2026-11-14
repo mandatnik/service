@@ -1,0 +1,12 @@
+[
+  {
+    "ip": "138",
+    "stdout": "{\"Client\":\"SERVER-WINDOWS\",\"Endpoint\":\"192.168.189.138:1433\",\"Connected\":true,\"Encrypted\":true,\"ServerCertificateValidation\":\"bypassed for diagnostic only\",\"ResultSets\":[[{\"server_name\":\"SERVER-WINDOWS\",\"product_version\":\"15.0.2000.5\",\"product_level\":\"RTM\",\"edition\":\"Express Edition (64-bit)\",\"update_level\":null,\"login_name\":\"sa\",\"is_sysadmin\":1}],[{\"name\":\"master\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150},{\"name\":\"tempdb\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150},{\"name\":\"model\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150},{\"name\":\"msdb\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150}],[{\"net_transport\":\"TCP\",\"protocol_type\":\"TSQL\",\"encrypt_option\":\"TRUE\",\"auth_scheme\":\"SQL\",\"local_tcp_port\":1433}]]}\n",
+    "stderr": ""
+  },
+  {
+    "ip": "136",
+    "stdout": "{\"Client\":\"WORKSTATION-1\",\"Endpoint\":\"192.168.189.138:1433\",\"Connected\":true,\"Encrypted\":true,\"ServerCertificateValidation\":\"bypassed for diagnostic only\",\"ResultSets\":[[{\"server_name\":\"SERVER-WINDOWS\",\"product_version\":\"15.0.2000.5\",\"product_level\":\"RTM\",\"edition\":\"Express Edition (64-bit)\",\"update_level\":null,\"login_name\":\"sa\",\"is_sysadmin\":1}],[{\"name\":\"master\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150},{\"name\":\"tempdb\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150},{\"name\":\"model\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150},{\"name\":\"msdb\",\"state_desc\":\"ONLINE\",\"compatibility_level\":150}],[{\"net_transport\":\"TCP\",\"protocol_type\":\"TSQL\",\"encrypt_option\":\"TRUE\",\"auth_scheme\":\"SQL\",\"local_tcp_port\":1433}]]}\n",
+    "stderr": ""
+  }
+]

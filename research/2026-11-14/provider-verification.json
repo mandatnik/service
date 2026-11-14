@@ -1,0 +1,14 @@
+[
+  {
+    "ip": "136",
+    "code": 0,
+    "stdout": "{\"Host\":\"WORKSTATION-1\",\"LicenseCOMServer\":\"C:\\\\Program Files\\\\Common Files\\\\Crypto Pro\\\\Shared\\\\cplicmgmt.dll\",\"COMFileVersion\":\"2.0.13833.0\",\"COMProductVersion\":\"2.0.13833.0\"}\nCSP (Type:80) v5.0.10013 KC1 Release Ver:5.0.13003 OS:Windows CPU:AMD64 FastCode:READY:AVX,AVX2.\nAcquireContext: OK. HCRYPTPROV: 2251189152\nGetProvParam(PP_NAME): Crypto-Pro GOST R 34.10-2012 Cryptographic Service Provider\nTotal: SYS: 0.031 sec USR: 0.000 sec UTC: 0.016 sec\n[ErrorCode: 0x00000000]\n",
+    "stderr": ""
+  },
+  {
+    "ip": "137",
+    "code": 0,
+    "stdout": "{\"Host\":\"WORKSTATION-2\",\"LicenseCOMServer\":\"C:\\\\Program Files\\\\Common Files\\\\Crypto Pro\\\\Shared\\\\cplicmgmt.dll\",\"COMFileVersion\":\"1.3.1627.0\",\"COMProductVersion\":\"1.3.1627.0\"}\nCSP (Type:80) v4.0.9019 KC1 Release Ver:4.0.9963 OS:Windows CPU:AMD64 FastCode:READY:AVX.\nAcquireContext: OK. HCRYPTPROV: 17655824\nGetProvParam(PP_NAME): Crypto-Pro GOST R 34.10-2012 Cryptographic Service Provider\nTotal: SYS: 0.000 sec USR: 0.000 sec UTC: 0.000 sec\n[ErrorCode: 0x00000000]\n",
+    "stderr": ""
+  }
+]

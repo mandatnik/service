@@ -1,0 +1,6 @@
+{
+  "canonical_utf8": "{\"hostname\":\"WORKSTATION-1\",\"request_id\":\"a0b1c2d3-e4f5-4a6b-8c9d-0e1f2a3b4c5d\",\"protocol_version\":\"1\",\"uuid\":\"5b0f1c4e-8a4c-4d1e-9f0a-3f0a5d6e7c8b\",\"имя\":\"Тест\"}",
+  "description": "Protocol-1 ECDSA P-256/SHA-256/ASN.1-DER signature verification vector. The private key was discarded after generation.",
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEA+1xaqDt3oxPtpgh66a1kXbQHu7o\nRmFagceRqMy5vL7LwpckA1K07LWoVcK9QlSHFqJYUg3/fjZfOaIfv22+LA==\n-----END PUBLIC KEY-----\n",
+  "signature_base64": "MEYCIQDZyuCu0gvgEHcowdiomGZYohS8zqrptkYzSZ+pz8sxigIhAP9u6C7+zHwSjSVP6sjTB/IIyd/zuAw5oQMhgtN/7EWS"
+}

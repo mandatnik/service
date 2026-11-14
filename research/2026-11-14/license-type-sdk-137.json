@@ -1,0 +1,19 @@
+{
+  "Host": "WORKSTATION-2",
+  "Identity": "HACK\\agent",
+  "ProductVersion": "4.0.9963",
+  "COMType": 1,
+  "COMExpire": "2027-02-14T18:59:59.0000000",
+  "sdk_check_error": "0x00000000",
+  "sdk_platform": "local macOS libcsplicense; offline read-only check",
+  "sdk_validity": -1,
+  "sdk_type": 2,
+  "sdk_restrictions": 464,
+  "sdk_extra": 2,
+  "sdk_server_flag": true,
+  "sdk_demo_flag": false,
+  "sdk_days_to_expire": 0,
+  "sdk_unix_end": 1577836800,
+  "license_identifier_saved": false,
+  "license_kind_from_sdk": "server"
+}

@@ -1,0 +1,91 @@
+{
+  "root_and_leaf_files_read_by_cryptopro": 21,
+  "platform": "macOS, CryptoPro CSP certmgr 5.0",
+  "signature_checks": "21 signatures verified by software backend during generation; certmgr checks here are file parsing, not chain trust verification",
+  "checks": [
+    {
+      "file": "root/root-ca.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/01-individual-valid.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/02-individual-expired.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/03-individual-future.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/04-individual-expires-soon.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/05-individual-no-inn.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/06-individual-email-profile.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/07-individual-expired-no-email.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/08-individual-gost512.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/09-ip-valid.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/10-ip-expired.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/11-ip-future.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/12-ip-expires-soon.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/13-ip-gost512.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/14-ip-client-auth.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/15-company-director-valid.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/16-company-expired.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/17-company-gost512.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/18-company-expires-soon.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/19-company-long-name-expired.cer",
+      "cryptopro_certmgr_readable": true
+    },
+    {
+      "file": "certificates/20-company-expired-no-email.cer",
+      "cryptopro_certmgr_readable": true
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+github.com/deatil/go-cryptobin v1.1.1021 h1:wN8mLruymL9+eWV40Dr0QoR/ByC13rdn5vMKJLGMVdk=
+github.com/deatil/go-cryptobin v1.1.1021/go.mod h1:VBJc1G04Ds5ru6WceKbuJbyQCpFfg+yYJzXTut41ro4=
+golang.org/x/crypto v0.53.0 h1:QZ4Muo8THX6CizN2vPPd5fBGHyogrdK9fG4wLPFUsto=
+golang.org/x/crypto v0.53.0/go.mod h1:DNLU434OwVakk9PzuwV8w62mAJpRJL3vsgcfp4Qnsio=

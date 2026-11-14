@@ -1,0 +1,185 @@
+{
+    "Host":  "WORKSTATION-1",
+    "StartedUTC":  "2026-11-13T22:49:10.4480971Z",
+    "Identity":  "NT AUTHORITY\\SYSTEM",
+    "SID":  "S-1-5-18",
+    "SessionID":  0,
+    "Errors":  [
+
+               ],
+    "PrivilegesEnabled":  [
+                              "SeBackupPrivilege",
+                              "SeRestorePrivilege"
+                          ],
+    "Timezone":  "Ekaterinburg Standard Time",
+    "LocalTime":  "2026-11-14T03:49:10.5727133+05:00",
+    "OS":  {
+               "ProductName":  "Windows 10 Enterprise",
+               "CurrentBuild":  "19045",
+               "UBR":  7807
+           },
+    "Products":  [
+                     {
+                         "Name":  "CryptoPro CSP",
+                         "Version":  "5.0.13003",
+                         "Product":  "{50F91F80-D397-437C-B0C8-62128DE3B55E}"
+                     }
+                 ],
+    "Licenses":  [
+                     {
+                         "Product":  "{50F91F80-D397-437C-B0C8-62128DE3B55E}",
+                         "TypeCode":  0,
+                         "InstallRaw":  "2026-11-13T13:41:50.0000000",
+                         "ExpireRaw":  "2027-02-14T18:59:59.0000000",
+                         "DateTimeKind":  "Unspecified",
+                         "ExpireInterpretedUTC":  "2027-02-14T13:59:59.0000000Z",
+                         "ExpiredByLocalClock":  false
+                     }
+                 ],
+    "CurrentSystemMy":  [
+
+                        ],
+    "ProfilesBefore":  [
+                           {
+                               "SID":  "S-1-5-21-2458881001-951638917-3945708937-1113",
+                               "LocalPath":  "C:\\Users\\agent",
+                               "Loaded":  true
+                           },
+                           {
+                               "SID":  "S-1-5-21-2458881001-951638917-3945708937-1106",
+                               "LocalPath":  "C:\\Users\\user1",
+                               "Loaded":  false
+                           },
+                           {
+                               "SID":  "S-1-5-21-2458881001-951638917-3945708937-1105",
+                               "LocalPath":  "C:\\Users\\mimbol",
+                               "Loaded":  true
+                           },
+                           {
+                               "SID":  "S-1-5-21-2458881001-951638917-3945708937-1104",
+                               "LocalPath":  "C:\\Users\\magickman.HACK",
+                               "Loaded":  true
+                           },
+                           {
+                               "SID":  "S-1-5-21-1727000066-743076230-1560906353-1001",
+                               "LocalPath":  "C:\\Users\\MagickMan",
+                               "Loaded":  false
+                           }
+                       ],
+    "LoadedProfileReads":  [
+                               {
+                                   "SID":  "S-1-5-21-2458881001-951638917-3945708937-1113",
+                                   "Path":  "C:\\Users\\agent",
+                                   "Result":  {
+                                                  "Exists":  false,
+                                                  "Certificates":  [
+
+                                                                   ]
+                                              }
+                               },
+                               {
+                                   "SID":  "S-1-5-21-2458881001-951638917-3945708937-1105",
+                                   "Path":  "C:\\Users\\mimbol",
+                                   "Result":  {
+                                                  "Exists":  true,
+                                                  "Certificates":  [
+
+                                                                   ]
+                                              }
+                               },
+                               {
+                                   "SID":  "S-1-5-21-2458881001-951638917-3945708937-1104",
+                                   "Path":  "C:\\Users\\magickman.HACK",
+                                   "Result":  {
+                                                  "Exists":  true,
+                                                  "Certificates":  [
+
+                                                                   ]
+                                              }
+                               }
+                           ],
+    "OfflineTest":  {
+                        "SID":  "S-1-5-21-2458881001-951638917-3945708937-1106",
+                        "Path":  "C:\\Users\\user1",
+                        "LoadedBefore":  false,
+                        "Mount":  "TelehackResearch_742dcf77e95a4999a75c82d1be49974b",
+                        "Seeded":  true,
+                        "ReadSucceeded":  true,
+                        "FixtureCleaned":  true,
+                        "Unmounted":  true,
+                        "Expected":  [
+                                         {
+                                             "File":  "01-individual-valid.cer",
+                                             "Thumbprint":  "91334BE4CD27A8F17C100184EF6741F5BF94A47A",
+                                             "SHA256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d"
+                                         },
+                                         {
+                                             "File":  "02-individual-expired.cer",
+                                             "Thumbprint":  "86CABD2F047D2B3A5E6CD690DF30A7C74769FC19",
+                                             "SHA256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6"
+                                         },
+                                         {
+                                             "File":  "03-individual-future.cer",
+                                             "Thumbprint":  "2A9DBC63F1EB7D8130F92802D5195CADB63E4ADB",
+                                             "SHA256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9"
+                                         }
+                                     ],
+                        "Baseline":  {
+                                         "Exists":  true,
+                                         "Certificates":  [
+
+                                                          ]
+                                     },
+                        "ParentExisted":  true,
+                        "UnmountedAfterSeed":  true,
+                        "LoadedBetween":  false,
+                        "Collected":  {
+                                          "Exists":  true,
+                                          "Certificates":  [
+                                                               {
+                                                                   "SHA256":  "686e89cb4235914d9e48c68fc1dca73b248e349493df781c3b8de3510ac6868d",
+                                                                   "Thumbprint":  "91334BE4CD27A8F17C100184EF6741F5BF94A47A",
+                                                                   "Serial":  "02",
+                                                                   "Subject":  "SNILS=00000000001, INN=000000000001, E=fixture-01@example.test, CN=Тестов Иван Иванович, L=Екатеринбург, S=Свердловская область, C=RU",
+                                                                   "Issuer":  "CN=Telehack 2026 TEST ONLY Root CA, O=Telehack 2026 — тестовая инфраструктура, C=RU",
+                                                                   "NotBeforeUTC":  "2026-10-15T07:00:00.0000000Z",
+                                                                   "NotAfterUTC":  "2027-11-14T07:00:00.0000000Z"
+                                                               },
+                                                               {
+                                                                   "SHA256":  "88f4d4178d3304170c59cf9a17dc2f11447b3ea1dee52a081dd5d10a32f010a6",
+                                                                   "Thumbprint":  "86CABD2F047D2B3A5E6CD690DF30A7C74769FC19",
+                                                                   "Serial":  "03",
+                                                                   "Subject":  "SNILS=00000000002, INN=000000000002, E=fixture-02@example.test, CN=Тестова Анна Петровна, L=Екатеринбург, S=Свердловская область, C=RU",
+                                                                   "Issuer":  "CN=Telehack 2026 TEST ONLY Root CA, O=Telehack 2026 — тестовая инфраструктура, C=RU",
+                                                                   "NotBeforeUTC":  "2024-11-14T07:00:00.0000000Z",
+                                                                   "NotAfterUTC":  "2026-10-15T07:00:00.0000000Z"
+                                                               },
+                                                               {
+                                                                   "SHA256":  "dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9",
+                                                                   "Thumbprint":  "2A9DBC63F1EB7D8130F92802D5195CADB63E4ADB",
+                                                                   "Serial":  "04",
+                                                                   "Subject":  "SNILS=00000000003, INN=000000000003, E=fixture-03@example.test, CN=Образцов Петр Сергеевич, L=Екатеринбург, S=Свердловская область, C=RU",
+                                                                   "Issuer":  "CN=Telehack 2026 TEST ONLY Root CA, O=Telehack 2026 — тестовая инфраструктура, C=RU",
+                                                                   "NotBeforeUTC":  "2026-12-14T07:00:00.0000000Z",
+                                                                   "NotAfterUTC":  "2027-12-14T07:00:00.0000000Z"
+                                                               }
+                                                           ]
+                                      },
+                        "MatchedFixtures":  3,
+                        "AfterCleanup":  {
+                                             "Exists":  true,
+                                             "Certificates":  [
+
+                                                              ]
+                                         }
+                    },
+    "ProfilesAfter":  {
+                          "SID":  "S-1-5-21-2458881001-951638917-3945708937-1106",
+                          "LocalPath":  "C:\\Users\\user1",
+                          "Loaded":  false
+                      },
+    "RemainingResearchMounts":  [
+
+                                ],
+    "FinishedUTC":  "2026-11-13T22:49:11.6045936Z"
+}

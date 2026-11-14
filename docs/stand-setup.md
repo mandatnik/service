@@ -1,0 +1,89 @@
+# Стенд: развёртывание и проверка
+
+Стенд: Ubuntu `192.168.189.140`, Windows Server 2022 `192.168.189.138`
+(SQL Server 2019 Express), Windows 10 `192.168.189.136` (CSP 5.0.13003),
+Windows 10 `192.168.189.137` (CSP 4.0.9963). SSH-пользователь Windows —
+`agent` с административными правами; секреты — только в `.secrets/`.
+
+## 1. TLS
+
+Для стенда выпускается отдельный RSA TLS-УЦ (не ГОСТ-УЦ тестовых
+сертификатов):
+
+- корневой сертификат `tls-ca.crt` устанавливается в
+  `LocalMachine\Root` на `.136`, `.137` и `.138` (необходимо для HTTPS
+  агента и административного API);
+- серверный сертификат бэкенда: SAN `192.168.189.138`,
+  `SERVER-WINDOWS`, `backend.telehack.test`;
+- серверный сертификат SQL Server: SAN `192.168.189.138`,
+  `SERVER-WINDOWS`, `sql.telehack.test`; закрытый ключ получает право чтения
+  для `NT SERVICE\MSSQL$SQLEXPRESS`; отпечаток прописывается в
+  `SuperSocketNetLib\Certificate`, служба SQL перезапускается.
+
+Бэкенд проверяет SQL TLS по `db.ca_file` и `db.server_name`, без
+`TrustServerCertificate`. Корень TLS-УЦ является частью рабочего
+развёртывания стенда; тестовый ГОСТ-корень в доверенные не устанавливается.
+
+## 2. База данных
+
+```powershell
+$env:TELEHACK_SA_PASSWORD = '<sa-password>'
+telehack-backend.exe bootstrap -config C:\ProgramData\Telehack2026\Backend\backend.json
+```
+
+Создаётся отдельная БД `Telehack2026` и runtime-логин `telehack_app`.
+Приложение не использует `master` для таблиц.
+
+## 3. Бэкенд
+
+`backend.json` размещается в
+`C:\ProgramData\Telehack2026\Backend\backend.json` с ACL только для SYSTEM и
+Administrators. Пароль БД — в переменной окружения службы
+`TELEHACK_DB_PASSWORD`. Бэкенд регистрируется как служба:
+
+```powershell
+sc.exe create TelehackBackend binPath= "C:\ProgramData\Telehack2026\Backend\telehack-backend.exe run -config C:\ProgramData\Telehack2026\Backend\backend.json" start= auto obj= LocalSystem
+sc.exe failure TelehackBackend reset= 86400 actions= restart/5000/restart/15000/restart/60000
+Start-Service TelehackBackend
+```
+
+Порты 8443/8444 открываются в firewall только на сервере. На рабочих
+станциях входящие порты агента не создаются.
+
+## 4. Агент
+
+```powershell
+telehack-agent.exe install -config C:\ProgramData\Telehack2026\agent-config.json
+Start-Service TelehackAgent
+telehack-agent.exe status
+```
+
+Служба работает как LocalSystem. Первый сбор запускается сразу после
+регистрации. Диагностика: `telehack-agent.exe diag`, логи —
+`C:\ProgramData\Telehack2026\Agent\logs`.
+
+## 5. Тестовые фикстуры
+
+1. Войти в `C:\Users\user1` (`.136`) / `C:\Users\user2` (`.137`) нельзя;
+   сертификаты добавляются временной SYSTEM-задачей с `reg load` и
+   `CertAddEncodedCertificateToStore`.
+2. В личное хранилище вошедшего `agent` импортируются выбранные `.cer` через
+   `Import-Certificate -CertStoreLocation Cert:\CurrentUser\My`.
+3. В `C:\ProgramData\Telehack2026\test-certs` копируются DER/PEM-файлы.
+4. Перед импортом фиксируется исходный список; после приёмки удаляются только
+   добавленные SHA-256, проверяется восстановление списка, hive выгружается.
+
+Скрипты: `tools/stand/` (диагностические, не входят в продуктовый агент).
+
+## 6. Приёмочный сценарий
+
+```bash
+go run ./cmd/acceptance contract -config acceptance.json -evidence evidence/
+```
+
+`acceptance.json` (не коммитится) содержит URL бэкенда, путь к TLS-корню и
+параметры SQL для проверок. Сценарий создаёт синтетические идентичности,
+проверяет регистрацию/переименование/конфликты, replay, report_id,
+полный/частичный/пустой/запоздавший отчёт, конфигурацию и задания, затем
+удаляет только свои записи. Реальные `.136/.137` проверяются отдельным
+сценарием и SQL-запросами из `docs/acceptance/P07.md`.

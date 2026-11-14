@@ -1,0 +1,12 @@
+{
+  "Host": "WORKSTATION-1",
+  "ServiceExists": false,
+  "ResearchDirectories": [],
+  "ResearchHives": [],
+  "OfflineTarget": [
+    {
+      "LocalPath": "C:\\Users\\user1",
+      "Loaded": false
+    }
+  ]
+}
