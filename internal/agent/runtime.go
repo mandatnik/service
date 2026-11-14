@@ -3,8 +3,12 @@ package agent
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"net/http"
 	"os"
 	"runtime/debug"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"telehack2026/internal/platform"
@@ -25,12 +29,21 @@ type agentRuntime struct {
 	state      *State
 	jobs       *Jobs
 	queue      *Queue
+	journal    *TaskJournal
+	tasks      *taskRuntime
+	encryption *EncryptionIdentity
+	localMu    sync.Mutex
+	stateMu    sync.Mutex
 
-	registered          bool
-	lastRegisterAttempt time.Time
-	lastSync            time.Time
-	lastScanAttempt     time.Time
-	lastDeliveryAttempt time.Time
+	registered            bool
+	lastRegisterAttempt   time.Time
+	lastCapabilityAttempt time.Time
+	lastSync              time.Time
+	lastScanAttempt       time.Time
+	lastDeliveryAttempt   time.Time
+	scanRunning           atomic.Bool
+	deliveryRunning       atomic.Bool
+	pollWake              chan struct{}
 }
 
 func runAgentRuntime(ctx context.Context, configPath string) error {
@@ -96,6 +109,14 @@ func newAgentRuntime(configPath string) (*agentRuntime, error) {
 		logger.Close()
 		return nil, err
 	}
+	encryption, encryptionErr := LoadOrCreateEncryptionIdentity(identity)
+	if encryptionErr != nil {
+		logger.Logf("task encryption key unavailable; remote install disabled: %v", encryptionErr)
+	}
+	journal, journalErr := LoadTaskJournal(logger)
+	if journalErr != nil {
+		logger.Logf("task journal unavailable; remote install disabled: %v", journalErr)
+	}
 	evicted, err := queue.trim()
 	if err != nil {
 		logger.Logf("queue trim failed: %v", err)
@@ -121,6 +142,15 @@ func newAgentRuntime(configPath string) (*agentRuntime, error) {
 		state:      state,
 		jobs:       jobs,
 		queue:      queue,
+		journal:    journal,
+		encryption: encryption,
+		pollWake:   make(chan struct{}, 1),
+	}
+	if encryption != nil && journal != nil {
+		runtime.tasks = newTaskRuntime(runtime, journal, encryption)
+		for _, reportID := range evicted {
+			runtime.tasks.reportEvicted(reportID)
+		}
 	}
 	logger.Logf("agent runtime starting: %s", version.String())
 	if system, err := currentSystemIdentity(); err == nil {
@@ -134,24 +164,74 @@ func newAgentRuntime(configPath string) (*agentRuntime, error) {
 func (r *agentRuntime) Run(ctx context.Context) error {
 	r.logger.Logf("agent cycle started")
 	r.ensureRegistered(ctx)
+	r.ensureCapabilities(ctx)
 	r.syncNow(ctx)
+	r.pollTasks(ctx)
 	r.work(ctx)
-	pollTicker := time.NewTicker(protocol.AgentPollInterval)
-	defer pollTicker.Stop()
-	workTicker := time.NewTicker(30 * time.Second)
+	timer := time.NewTimer(r.pollInterval())
+	defer timer.Stop()
+	workTicker := time.NewTicker(3 * time.Second)
 	defer workTicker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			r.logger.Logf("agent cycle stopping")
 			return nil
-		case <-pollTicker.C:
+		case <-timer.C:
 			r.reloadFileConfig()
 			r.ensureRegistered(ctx)
+			r.ensureCapabilities(ctx)
 			r.syncNow(ctx)
+			r.pollTasks(ctx)
+			r.work(ctx)
+			r.resetTimer(timer)
+		case <-r.pollWake:
+			r.resetTimer(timer)
 		case <-workTicker.C:
 			r.work(ctx)
 		}
+	}
+}
+
+func (r *agentRuntime) resetTimer(timer *time.Timer) {
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(r.pollInterval())
+}
+
+func (r *agentRuntime) pollInterval() time.Duration {
+	seconds := protocol.DefaultPollIntervalSeconds
+	if r.state != nil {
+		r.stateMu.Lock()
+		seconds = r.state.EffectiveConfig().WithScheduleDefaults().PollIntervalSeconds
+		r.stateMu.Unlock()
+	}
+	if seconds < protocol.MinPollIntervalSeconds || seconds > protocol.MaxPollIntervalSeconds {
+		seconds = protocol.DefaultPollIntervalSeconds
+	}
+	base := time.Duration(seconds) * time.Second
+	// Up to +/-10% jitter, still bounded by the agreed range.
+	jitter := time.Duration(rand.Int63n(int64(base/5)+1)) - base/10
+	value := base + jitter
+	min := time.Duration(protocol.MinPollIntervalSeconds) * time.Second
+	max := time.Duration(protocol.MaxPollIntervalSeconds) * time.Second
+	if value < min {
+		value = min
+	}
+	if value > max {
+		value = max
+	}
+	return value
+}
+
+func (r *agentRuntime) signalPoll() {
+	select {
+	case r.pollWake <- struct{}{}:
+	default:
 	}
 }
 
@@ -173,29 +253,44 @@ func (r *agentRuntime) work(ctx context.Context) {
 		}
 	}
 	if r.registered {
-		if r.lastSync.IsZero() || time.Since(r.lastSync) >= protocol.AgentPollInterval {
-			r.syncNow(ctx)
+		if r.deliveryRunning.CompareAndSwap(false, true) {
+			go func() {
+				defer r.deliveryRunning.Store(false)
+				r.deliverOnce(ctx)
+				r.sendAcks(ctx)
+			}()
 		}
-		r.deliverOnce(ctx)
-		r.sendAcks(ctx)
 	}
 	now := time.Now().UTC()
-	if r.scanWanted(now) {
-		r.scanNow(ctx)
+	if r.scanWanted(now) && r.scanRunning.CompareAndSwap(false, true) {
+		r.lastScanAttempt = now
+		go func() {
+			defer r.scanRunning.Store(false)
+			r.scanNow(ctx)
+		}()
+	}
+	if r.tasks != nil {
+		go r.tasks.RunDue(ctx)
 	}
 }
 
 func (r *agentRuntime) scanWanted(now time.Time) bool {
-	if r.lastScanAttempt.IsZero() || now.Sub(r.lastScanAttempt) >= 10*time.Minute {
-		if r.jobs.hasPending() {
-			return true
-		}
-		if r.lastScanAttempt.IsZero() {
-			return r.state.scanDue(now)
-		}
-		return r.state.scanDue(now)
+	if !r.lastScanAttempt.IsZero() && now.Sub(r.lastScanAttempt) < 30*time.Second {
+		return false
 	}
-	return false
+	if r.jobs.hasPending() {
+		return true
+	}
+	r.stateMu.Lock()
+	defer r.stateMu.Unlock()
+	return r.state.scanDue(now)
+}
+
+func (r *agentRuntime) pollTasks(ctx context.Context) {
+	if r.tasks == nil || !r.registered {
+		return
+	}
+	r.tasks.Poll(ctx)
 }
 
 func (r *agentRuntime) ensureRegistered(ctx context.Context) bool {
@@ -212,15 +307,71 @@ func (r *agentRuntime) ensureRegistered(ctx context.Context) bool {
 		return false
 	}
 	r.registered = true
+	r.stateMu.Lock()
 	r.state.MachineID = response.MachineID
 	if response.ConfigHash != "" {
 		r.state.SetConfig(response.Config, response.ConfigHash)
 	}
-	if err := r.state.save(); err != nil {
-		r.logger.Logf("save state after registration: %v", err)
+	saveErr := r.state.save()
+	r.stateMu.Unlock()
+	if saveErr != nil {
+		r.logger.Logf("save state after registration: %v", saveErr)
 	}
 	secureAgentState(r.logger)
 	r.logger.Logf("registration ok: machine_id=%s uuid=%s hostname=%s warnings=%v", response.MachineID, response.UUID, response.Hostname, response.Warnings)
+	return true
+}
+
+func (r *agentRuntime) ensureCapabilities(ctx context.Context) bool {
+	if r.encryption == nil || !r.registered {
+		return false
+	}
+	r.stateMu.Lock()
+	keyChanged := r.state.EncryptionKeyID != r.encryption.ActiveID()
+	registered := r.state.CapabilitiesRegistered
+	r.stateMu.Unlock()
+	if registered && !keyChanged {
+		return true
+	}
+	if !r.lastCapabilityAttempt.IsZero() && time.Since(r.lastCapabilityAttempt) < time.Minute {
+		return false
+	}
+	r.lastCapabilityAttempt = time.Now()
+	response, result := r.client.capabilities(ctx, r.identity, r.encryption, keyChanged, agentOSVersion())
+	if result.Error != nil {
+		if result.Status == http.StatusNotFound || result.Error.Code == protocol.CodeUnsupported {
+			r.logger.Logf("server does not support capability registration; remote install disabled")
+			r.stateMu.Lock()
+			r.state.CapabilitiesRegistered = false
+			_ = r.state.save()
+			r.stateMu.Unlock()
+			return false
+		}
+		r.logger.Logf("capability registration failed: status=%d code=%s message=%s", result.Status, result.Error.Code, result.Error.Message)
+		return false
+	}
+	r.stateMu.Lock()
+	r.state.CapabilitiesRegistered = true
+	r.state.EncryptionKeyID = response.EncryptionKeyID
+	if r.state.EncryptionKeyID == "" {
+		r.state.EncryptionKeyID = r.encryption.ActiveID()
+	}
+	changed := false
+	if response.Config != nil {
+		r.state.SetConfig(*response.Config, response.ConfigHash)
+		changed = true
+	}
+	keyID := r.state.EncryptionKeyID
+	saveErr := r.state.save()
+	r.stateMu.Unlock()
+	if saveErr != nil {
+		r.logger.Logf("save state after capability registration: %v", saveErr)
+	}
+	secureAgentState(r.logger)
+	r.logger.Logf("capabilities registered: key_id=%s tasks=true config_changed=%t", keyID, changed)
+	if changed {
+		r.signalPoll()
+	}
 	return true
 }
 
@@ -229,7 +380,10 @@ func (r *agentRuntime) syncNow(ctx context.Context) {
 		return
 	}
 	r.lastSync = time.Now()
-	response, result := r.client.sync(ctx, r.identity, r.state.ConfigHash, agentOSVersion())
+	r.stateMu.Lock()
+	configHash := r.state.ConfigHash
+	r.stateMu.Unlock()
+	response, result := r.client.sync(ctx, r.identity, configHash, agentOSVersion())
 	if result.Error != nil {
 		r.logger.Logf("sync failed: status=%d code=%s message=%s", result.Status, result.Error.Code, result.Error.Message)
 		if result.Error.Code == protocol.CodeUnknownIdentity || result.Error.Code == protocol.CodeIdentityRevoked {
@@ -239,10 +393,12 @@ func (r *agentRuntime) syncNow(ctx context.Context) {
 	}
 	changed := false
 	if response.Config != nil {
+		r.stateMu.Lock()
 		r.state.SetConfig(*response.Config, response.ConfigHash)
+		r.stateMu.Unlock()
 		changed = true
-	} else if response.ConfigHash != "" && response.ConfigHash != r.state.ConfigHash {
-		r.logger.Logf("server config_hash changed without a config body: local=%s remote=%s", r.state.ConfigHash, response.ConfigHash)
+	} else if response.ConfigHash != "" && response.ConfigHash != configHash {
+		r.logger.Logf("server config_hash changed without a config body: local=%s remote=%s", configHash, response.ConfigHash)
 	}
 	if r.jobs.merge(response.Jobs) {
 		if err := r.jobs.save(); err != nil {
@@ -250,15 +406,21 @@ func (r *agentRuntime) syncNow(ctx context.Context) {
 		}
 	}
 	if changed {
-		if err := r.state.save(); err != nil {
+		r.stateMu.Lock()
+		err := r.state.save()
+		r.stateMu.Unlock()
+		if err != nil {
 			r.logger.Logf("save state after config sync: %v", err)
 		}
 		secureAgentState(r.logger)
+		r.signalPoll()
 	}
 	if len(response.Warnings) > 0 {
 		r.logger.Logf("sync warnings: %v", response.Warnings)
 	}
-	r.logger.Logf("sync ok: config_hash=%s config_received=%t jobs=%d", response.ConfigHash, response.Config != nil, len(response.Jobs))
+	if changed || len(response.Jobs) > 0 {
+		r.logger.Logf("sync ok: config_hash=%s config_received=%t jobs=%d", response.ConfigHash, response.Config != nil, len(response.Jobs))
+	}
 }
 
 func (r *agentRuntime) refreshPending() {
@@ -288,6 +450,7 @@ func (r *agentRuntime) refreshPending() {
 		r.logger.Logf("prepare rename identity: %v", err)
 		return
 	}
+	pending.InstallationID = r.identity.InstallationID
 	if err := saveIdentity(platform.AgentPendingRenamePath(), pending); err != nil {
 		r.logger.Logf("save pending rename: %v", err)
 		return
@@ -317,12 +480,15 @@ func (r *agentRuntime) attemptRename(ctx context.Context) bool {
 	_ = os.Remove(platform.AgentPendingRenameAcceptedPath())
 	r.identity = next
 	r.pending = nil
+	r.stateMu.Lock()
 	r.state.MachineID = response.MachineID
 	if response.ConfigHash != "" {
 		r.state.SetConfig(response.Config, response.ConfigHash)
 	}
-	if err := r.state.save(); err != nil {
-		r.logger.Logf("save state after rename: %v", err)
+	saveErr := r.state.save()
+	r.stateMu.Unlock()
+	if saveErr != nil {
+		r.logger.Logf("save state after rename: %v", saveErr)
 	}
 	secureAgentState(r.logger)
 	r.logger.Logf("rename committed: machine_id=%s uuid=%s hostname=%s warnings=%v", response.MachineID, response.UUID, response.Hostname, response.Warnings)
@@ -352,6 +518,9 @@ func (r *agentRuntime) deliverOnce(ctx context.Context) {
 			if r.jobs.markFailed(item.JobIDs, "report rejected: "+result.Error.Message) {
 				_ = r.jobs.save()
 			}
+			if r.tasks != nil {
+				r.tasks.reportRejected(item.ReportID, result.Error.Message)
+			}
 			if err := r.queue.Remove(item.ReportID); err != nil {
 				r.logger.Logf("remove rejected report: %v", err)
 			}
@@ -368,6 +537,9 @@ func (r *agentRuntime) deliverOnce(ctx context.Context) {
 	if err := r.queue.Remove(item.ReportID); err != nil {
 		r.logger.Logf("remove delivered report: %v", err)
 		return
+	}
+	if r.tasks != nil {
+		r.tasks.reportAccepted(item.ReportID, item.TaskItemIDs)
 	}
 	r.logger.Logf("report %s accepted duplicate=%t applied=%t", item.ReportID, response.Duplicate, response.Applied)
 }
@@ -397,14 +569,18 @@ func (r *agentRuntime) sendAcks(ctx context.Context) {
 }
 
 func (r *agentRuntime) scanNow(ctx context.Context) {
-	r.lastScanAttempt = time.Now().UTC()
+	r.localMu.Lock()
+	defer r.localMu.Unlock()
+	r.stateMu.Lock()
 	seq := r.state.ScanSeq + 1
 	r.state.ScanSeq = seq
 	r.state.LastScanStartedAt = time.Now().UTC().Format(time.RFC3339Nano)
-	if err := r.state.save(); err != nil {
-		r.logger.Logf("save scan start state: %v", err)
-	}
+	startErr := r.state.save()
 	cfg := r.state.EffectiveConfig()
+	r.stateMu.Unlock()
+	if startErr != nil {
+		r.logger.Logf("save scan start state: %v", startErr)
+	}
 	started := time.Now()
 	collection, err := r.collector.Collect(ctx, cfg)
 	if err != nil {
@@ -443,14 +619,20 @@ func (r *agentRuntime) scanNow(ctx context.Context) {
 		if r.jobs.markReportEvicted(reportID) {
 			_ = r.jobs.save()
 		}
+		if r.tasks != nil {
+			r.tasks.reportEvicted(reportID)
+		}
 	}
 	if r.jobs.markCompleted(report.ReportID, jobIDs) {
 		_ = r.jobs.save()
 	}
+	r.stateMu.Lock()
 	r.state.LastScanSuccessAt = report.FinishedAt
 	r.state.LastReportID = report.ReportID
-	if err := r.state.save(); err != nil {
-		r.logger.Logf("save scan success state: %v", err)
+	saveErr := r.state.save()
+	r.stateMu.Unlock()
+	if saveErr != nil {
+		r.logger.Logf("save scan success state: %v", saveErr)
 	}
 	secureAgentState(r.logger)
 	certCount := 0

@@ -18,7 +18,16 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 	"telehack2026/internal/certparse"
+	"telehack2026/internal/protocol"
 )
+
+// CertificateRecord is one certificate context plus the provider facts read
+// before the context is released. The same DER can occur in multiple records
+// with different bindings; they are merged only after observation.
+type CertificateRecord struct {
+	DER      []byte
+	Bindings []protocol.ProviderBinding
+}
 
 const (
 	certStoreProvReg          = 4
@@ -43,13 +52,13 @@ var cryptENotFound = syscall.Errno(0x80092004)
 //
 // present=false with err=nil means the store key does not exist (a successful
 // empty result). Any non-nil error means the source is incomplete.
-func ReadUserStore(profile Profile) (present bool, certificates [][]byte, err error) {
+func ReadUserStore(profile Profile) (present bool, certificates []CertificateRecord, err error) {
 	if profile.Path == "" {
 		return false, nil, errors.New("profile path is empty")
 	}
 	if profile.Loaded {
 		if available, present, certs, logicalErr := readLogicalUserStore(profile); available {
-			return present, deduplicateDER(certs), logicalErr
+			return present, deduplicateRecords(certs), logicalErr
 		}
 		return readStoreFromUserKey(profile.SID, profile.Path)
 	}
@@ -74,8 +83,8 @@ func ReadUserStore(profile Profile) (present bool, certificates [][]byte, err er
 	return readStoreFromUserKey(mount, profile.Path)
 }
 
-func readStoreFromUserKey(keyName, profilePath string) (bool, [][]byte, error) {
-	var certificates [][]byte
+func readStoreFromUserKey(keyName, profilePath string) (bool, []CertificateRecord, error) {
+	var certificates []CertificateRecord
 	var problems []error
 	present := false
 	key, err := registry.OpenKey(registry.USERS, keyName+`\`+certStoreSuffix, registry.READ)
@@ -89,7 +98,7 @@ func readStoreFromUserKey(keyName, profilePath string) (bool, [][]byte, error) {
 			_ = key.Close()
 		} else {
 			present = true
-			certs, enumErr := enumerateCertificates(store)
+			certs, enumErr := enumerateCertificateRecords(store)
 			certificates = append(certificates, certs...)
 			if enumErr != nil {
 				problems = append(problems, enumErr)
@@ -111,7 +120,7 @@ func readStoreFromUserKey(keyName, profilePath string) (bool, [][]byte, error) {
 	if fileErr != nil {
 		problems = append(problems, fileErr)
 	}
-	certificates = deduplicateDER(certificates)
+	certificates = deduplicateRecords(certificates)
 	return present, certificates, errors.Join(problems...)
 }
 
@@ -165,7 +174,7 @@ func expandWindowsEnvironment(value, profilePath string) string {
 // readFileStore reads the roaming physical MY store. Windows writes one file
 // per certificate with a 40-byte header followed by the DER; raw DER files are
 // also accepted for robustness.
-func readFileStore(profilePath, appDataPath string) ([][]byte, bool, error) {
+func readFileStore(profilePath, appDataPath string) ([]CertificateRecord, bool, error) {
 	var roots []string
 	if appDataPath != "" {
 		roots = append(roots, filepath.Join(appDataPath, "Microsoft", "SystemCertificates", "My", "Certificates"))
@@ -180,7 +189,7 @@ func readFileStore(profilePath, appDataPath string) ([][]byte, bool, error) {
 			roots = append(roots, fallback)
 		}
 	}
-	var certs [][]byte
+	var certs []CertificateRecord
 	present := false
 	var problems []error
 	seenRoots := make(map[string]bool)
@@ -213,7 +222,7 @@ func readFileStore(profilePath, appDataPath string) ([][]byte, bool, error) {
 				problems = append(problems, fmt.Errorf("decode %s: %w", path, err))
 				continue
 			}
-			certs = append(certs, der)
+			certs = append(certs, CertificateRecord{DER: der})
 		}
 	}
 	return certs, present, errors.Join(problems...)
@@ -264,18 +273,41 @@ func looksLikeSHA1Name(name string) bool {
 	return true
 }
 
-func deduplicateDER(certs [][]byte) [][]byte {
-	seen := make(map[[32]byte]bool, len(certs))
+func deduplicateRecords(certs []CertificateRecord) []CertificateRecord {
+	type merged struct {
+		index    int
+		seenBind map[string]bool
+	}
+	seen := make(map[[32]byte]*merged, len(certs))
 	out := certs[:0]
-	for _, der := range certs {
-		sum := sha256.Sum256(der)
-		if seen[sum] {
+	for _, record := range certs {
+		sum := sha256.Sum256(record.DER)
+		if existing, ok := seen[sum]; ok {
+			entry := &out[existing.index]
+			for _, binding := range record.Bindings {
+				key := bindingKey(binding)
+				if existing.seenBind[key] {
+					continue
+				}
+				existing.seenBind[key] = true
+				entry.Bindings = append(entry.Bindings, binding)
+			}
 			continue
 		}
-		seen[sum] = true
-		out = append(out, der)
+		copyRecord := CertificateRecord{DER: record.DER}
+		copyRecord.Bindings = append(copyRecord.Bindings, record.Bindings...)
+		seen[sum] = &merged{index: len(out), seenBind: map[string]bool{}}
+		for _, binding := range copyRecord.Bindings {
+			seen[sum].seenBind[bindingKey(binding)] = true
+		}
+		out = append(out, copyRecord)
 	}
 	return out
+}
+
+func bindingKey(binding protocol.ProviderBinding) string {
+	return fmt.Sprintf("%s\x00%s\x00%d\x00%d\x00%s\x00%s", binding.ProviderName, binding.ProviderAPI,
+		binding.ProviderType, binding.KeySpec, binding.BindingState, binding.ProviderOwner)
 }
 
 func openStoreFromKey(key registry.Key) (uintptr, error) {
@@ -297,7 +329,16 @@ func openStoreFromKey(key registry.Key) (uintptr, error) {
 }
 
 func enumerateCertificates(store uintptr) ([][]byte, error) {
-	var certificates [][]byte
+	records, err := enumerateCertificateRecords(store)
+	certificates := make([][]byte, 0, len(records))
+	for _, record := range records {
+		certificates = append(certificates, record.DER)
+	}
+	return certificates, err
+}
+
+func enumerateCertificateRecords(store uintptr) ([]CertificateRecord, error) {
+	var certificates []CertificateRecord
 	var current *windows.CertContext
 	for {
 		next, lastErr := windows.CertEnumCertificatesInStore(windows.Handle(store), current)
@@ -319,6 +360,7 @@ func enumerateCertificates(store uintptr) ([][]byte, error) {
 			return certificates, fmt.Errorf("certificate DER exceeds %d bytes", maxCertificateDER)
 		}
 		der := append([]byte(nil), unsafe.Slice(ctx.EncodedCert, int(ctx.Length))...)
-		certificates = append(certificates, der)
+		binding := readProviderBindings(ctx)
+		certificates = append(certificates, CertificateRecord{DER: der, Bindings: []protocol.ProviderBinding{binding}})
 	}
 }

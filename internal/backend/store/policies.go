@@ -38,6 +38,20 @@ func effectiveConfigTx(ctx context.Context, tx *sql.Tx, machineID string) (confi
 	if err != nil {
 		return row, err
 	}
+	var scheduleV2 bool
+	err = tx.QueryRowContext(ctx, `
+SELECT CASE WHEN EXISTS(
+  SELECT 1 FROM dbo.agent_capabilities c
+  JOIN dbo.registrations r ON r.registration_id=c.registration_id
+  WHERE r.machine_id=@p1 AND r.state=N'active' AND c.schedule_v2=1) THEN 1 ELSE 0 END`, machineID).Scan(&scheduleV2)
+	if err != nil {
+		return row, err
+	}
+	if scheduleV2 {
+		row.Config = row.Config.WithScheduleDefaults()
+	} else {
+		row.Config = row.Config.LegacyProjection()
+	}
 	row.Config.CertDirectories = []string{} // legacy global paths never reach an agent
 	rows, err := tx.QueryContext(ctx, `SELECT p.policy_id,p.name,p.rules,
  CASE WHEN EXISTS(SELECT 1 FROM dbo.folder_policy_machines pm WHERE pm.policy_id=p.policy_id AND pm.machine_id=@p1) THEN 'machine' ELSE 'group' END

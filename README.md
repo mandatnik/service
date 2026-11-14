@@ -33,6 +33,12 @@ EXE. MSI/GPO/upgrade/repair/uninstall описаны в `deploy/msi` и
 [docs/folder-policies.md](docs/folder-policies.md); проверка на стенде:
 [docs/acceptance/POLICIES-0.4.0.md](docs/acceptance/POLICIES-0.4.0.md).
 
+Версия **0.5.0** добавляет пулы лицензий КриптоПро, зашифрованные конверты
+параметров задач, удалённую установку без окон и единый журнал задач:
+[планирование](docs/plans/remote-activation-and-tasks.md),
+[протокол](docs/protocol.md), [конфигурация](docs/configuration.md),
+[админка](docs/admin.md), [приёмка](docs/acceptance/REMOTE-ACTIVATION-0.5.0.md).
+
 ## Сборка
 
 Кроссплатформенные команды `make`, установка инструментов Windows/Linux и

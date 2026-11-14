@@ -110,6 +110,18 @@ func queryLicense(dispatch *ole.IDispatch, product CSPProduct) (protocol.License
 		info.State = "error"
 		return info, fmt.Errorf("GetExpireDate(%s): %w", product.GUID, err)
 	}
+	if licenseclass.IsOLEZeroDate(wallClock) {
+		// CSP 5 returns the OLE zero date for a perpetual license. Do not
+		// convert it to a 1899 UTC timestamp and do not mark it expired.
+		info.TimeBasis = "ole_automation_zero"
+		info.TermKind = "perpetual"
+		if info.Kind == "unknown" {
+			info.State = "unknown"
+		} else {
+			info.State = "active"
+		}
+		return info, nil
+	}
 	rawText := wallClock.Format("2006-01-02T15:04:05")
 	localWall := time.Date(wallClock.Year(), wallClock.Month(), wallClock.Day(), wallClock.Hour(), wallClock.Minute(), wallClock.Second(), 0, time.Local)
 	info.ValidToRaw = rawText
@@ -166,10 +178,11 @@ func variantTime(variant *ole.VARIANT) (time.Time, error) {
 func CollectCSP() protocol.CSPResult {
 	products := DiscoverCSPProducts()
 	result := protocol.CSPResult{
-		Scanned:  true,
-		Complete: true,
-		Present:  len(products) > 0,
-		Products: make([]protocol.CSPProduct, 0, len(products)),
+		Scanned:     true,
+		Complete:    true,
+		Present:     len(products) > 0,
+		Environment: DiscoverEnvironment(),
+		Products:    make([]protocol.CSPProduct, 0, len(products)),
 		License: protocol.LicenseInfo{
 			Kind:       "unknown",
 			State:      "unknown",

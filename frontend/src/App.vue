@@ -8,6 +8,8 @@ import MachineDetail from './components/MachineDetail.vue'
 import CertificatesView from './components/CertificatesView.vue'
 import CertificateDetail from './components/CertificateDetail.vue'
 import LicensingView from './components/LicensingView.vue'
+import LicensePoolsView from './components/LicensePoolsView.vue'
+import TasksView from './components/TasksView.vue'
 import HostnamesView from './components/HostnamesView.vue'
 import EventsView from './components/EventsView.vue'
 import SettingsView from './components/SettingsView.vue'
@@ -30,6 +32,8 @@ const nav = [
   { id: 'policies', label: 'Политики папок', hint: 'Правила и назначения' },
   { id: 'certificates', label: 'Сертификаты', hint: 'Наблюдения' },
   { id: 'licensing', label: 'Лицензии', hint: 'КриптоПро CSP' },
+  { id: 'license-pools', label: 'Пулы лицензий', hint: 'Ключи и резервы' },
+  { id: 'tasks', label: 'Задачи', hint: 'Scan и установка' },
   { id: 'hostnames', label: 'Hostname', hint: 'Конфликты' },
   { id: 'events', label: 'События', hint: 'Диагностика' },
   { id: 'settings', label: 'Настройки', hint: 'Сбор' }
@@ -38,6 +42,7 @@ const titles = {
   groups: 'Группы машин', policies: 'Политики папок',
   overview: 'Обзор', machines: 'Рабочие машины', machine: 'Карточка машины',
   certificates: 'Сертификаты', certificate: 'Карточка сертификата', licensing: 'Лицензирование',
+  'license-pools': 'Пулы лицензий', tasks: 'Задачи',
   hostnames: 'Hostname и конфликты', events: 'События', settings: 'Настройки сбора'
 }
 const title = computed(() => titles[view.value] || 'Админка')
@@ -134,6 +139,8 @@ onUnmounted(() => {
         <CertificatesView v-else-if="view === 'certificates'" @open-certificate="openCertificate" />
         <CertificateDetail v-else-if="view === 'certificate'" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />
         <LicensingView v-else-if="view === 'licensing'" />
+        <LicensePoolsView v-else-if="view === 'license-pools'" />
+        <TasksView v-else-if="view === 'tasks'" />
         <HostnamesView v-else-if="view === 'hostnames'" @open-machine="openMachine" />
         <EventsView v-else-if="view === 'events'" />
         <GroupsView v-else-if="view === 'groups'" />

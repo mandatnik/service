@@ -58,6 +58,21 @@ type SignedData struct {
 	JobStatus   string `json:"job_status,omitempty"`
 	JobMessage  string `json:"job_message,omitempty"`
 	JobReportID string `json:"job_report_id,omitempty"`
+
+	// Task capability registration and encrypted task channel. These fields
+	// are only emitted by agents that understand the task protocol.
+	Capabilities        []string        `json:"capabilities,omitempty"`
+	EncryptionKeyID     string          `json:"encryption_key_id,omitempty"`
+	EncryptionPublicKey string          `json:"encryption_public_key,omitempty"`
+	EncryptionAlgorithm string          `json:"encryption_algorithm,omitempty"`
+	EncryptionBits      int             `json:"encryption_bits,omitempty"`
+	EncryptionKeyRotate bool            `json:"encryption_key_rotate,omitempty"`
+	TaskItemID          string          `json:"task_item_id,omitempty"`
+	TaskDeliveryVersion int             `json:"task_delivery_version,omitempty"`
+	TaskResult          json.RawMessage `json:"task_result,omitempty"`
+	TaskEvent           json.RawMessage `json:"task_event,omitempty"`
+	TaskDiagnostic      json.RawMessage `json:"task_diagnostic,omitempty"`
+	TaskQueue           json.RawMessage `json:"task_queue,omitempty"`
 }
 
 // SignedRequest is a verified, decoded request. Canonical and DataHash are
@@ -89,6 +104,13 @@ type AgentConfig struct {
 	Recursive        bool           `json:"recursive"`
 	MaxFiles         int            `json:"max_files"`
 	MaxFileBytes     int64          `json:"max_file_bytes"`
+
+	// Schedule settings are only sent to agents that registered schedule_v2.
+	// Omitted fields keep the legacy wire shape and hash byte-for-byte
+	// compatible with protocol version 1 agents.
+	PollIntervalSeconds       int `json:"poll_interval_seconds,omitempty"`
+	InventoryFreshnessSeconds int `json:"inventory_freshness_seconds,omitempty"`
+	TaskTTLSeconds            int `json:"task_ttl_seconds,omitempty"`
 }
 
 // DefaultAgentConfig returns the agreed defaults. The server stores the same
@@ -103,6 +125,36 @@ func DefaultAgentConfig() AgentConfig {
 		MaxFiles:         2000,
 		MaxFileBytes:     int64(MaxDERBytes * 10),
 	}
+}
+
+// DefaultCapableAgentConfig returns the protocol-1 configuration plus the
+// server-controlled schedule defaults used before the first sync.
+func DefaultCapableAgentConfig() AgentConfig {
+	return DefaultAgentConfig().WithScheduleDefaults()
+}
+
+// WithScheduleDefaults fills missing schedule settings without changing
+// legacy fields. It is used for administrator responses and capable agents.
+func (cfg AgentConfig) WithScheduleDefaults() AgentConfig {
+	if cfg.PollIntervalSeconds == 0 {
+		cfg.PollIntervalSeconds = DefaultPollIntervalSeconds
+	}
+	if cfg.InventoryFreshnessSeconds == 0 {
+		cfg.InventoryFreshnessSeconds = DefaultInventoryFreshnessSeconds
+	}
+	if cfg.TaskTTLSeconds == 0 {
+		cfg.TaskTTLSeconds = DefaultTaskTTLSeconds
+	}
+	return cfg
+}
+
+// LegacyProjection removes task-era fields so old agents and their cached
+// hashes stay compatible. The legacy config hash is computed over this value.
+func (cfg AgentConfig) LegacyProjection() AgentConfig {
+	cfg.PollIntervalSeconds = 0
+	cfg.InventoryFreshnessSeconds = 0
+	cfg.TaskTTLSeconds = 0
+	return cfg
 }
 
 // APIError is the stable error body.

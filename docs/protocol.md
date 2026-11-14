@@ -228,6 +228,11 @@ Base64 (standard padded). `host` не входит в подпись, но ег�
 | 409 | `replay` | `request_id` уже использован |
 | 409 | `report_conflict` | тот же `report_id`, другое содержимое |
 | 409 | `key_conflict`, `uuid_conflict`, `hostname_mismatch` | конфликт идентичности |
+| 409 | `license_deficit` | свободных ключей меньше выбранных получателей |
+| 409 | `preview_stale`, `preview_invalid` | снимок preview истёк/изменился/уже использован |
+| 409 | `idempotency_conflict`, `task_conflict`, `machine_busy` | конфликт идемпотентности/состояния/активной установки |
+| 422 | `machine_not_eligible` | выбранная машина не входит в разрешённый список |
+| 503 | `license_key_unavailable`, `agent_encryption_key_missing` | нет keyring или ключа РС |
 | 413 | `payload_too_large` | превышен лимит |
 | 422 | `report_invalid`, `config_invalid` | семантическая ошибка |
 | 500 | `internal_error`, `database_error` | внутренняя ошибка; повтор допустим |
@@ -241,3 +246,117 @@ Base64 (standard padded). `host` не входит в подпись, но ег�
 - Один сертификат в отчёте: DER ≤ 1 MiB, SHA-256 сверяется сервером.
 - Очередь агента: ровно 2 последних отчёта; вытеснение старого явное.
 - Логи: `current.txt`/`previous.txt` по 10 MiB, TXT, без сжатия.
+
+## 10. Задачи, возможности агента и шифрование параметров
+
+Протокол версии 1 расширен добавочными операциями. Старые агенты продолжают
+использовать `/sync`, `/report` и `/jobs/ack` с прежними DTO; новые поля им не
+отправляются. Новый агент после регистрации вызывает `/capabilities`, затем
+получает задания через `/tasks/*`. Это позволяет не ломать
+`DisallowUnknownFields` у старых клиентов.
+
+### 10.1. Возможности и ключ шифрования
+
+`POST /api/agent/v1/capabilities`, `operation=capabilities`, подписывается
+существующей ECDSA P-256 идентичностью.
+
+```json
+{
+  "capabilities": ["task_v1", "schedule_v2", "install_license_v1", "scan_v1", "rsa_oaep_sha256_aes_256_gcm_v1"],
+  "encryption_key_id": "64-char-lower-hex",
+  "encryption_public_key": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----\n",
+  "encryption_algorithm": "RSA-OAEP-SHA256+AES-256-GCM",
+  "encryption_bits": 3072,
+  "encryption_key_rotate": false
+}
+```
+
+- RSA-ключ 3072 бита, отдельный от ECDSA-подписи; `key_id` — SHA-256 SPKI.
+- Первый ключ регистрируется без ротации. Другой ключ при уже активном
+  принимается только с `encryption_key_rotate=true`; запрос всё равно подписан
+  старой идентичностью. Старые ключи остаются в истории для незавершённых
+  конвертов.
+- Ответ содержит `accepted`, `server_time`, полную конфигурацию с
+  `poll_interval_seconds`, `inventory_freshness_seconds`, `task_ttl_seconds`,
+  `config_hash`, `task_ttl_seconds`.
+- Агент без `task_v1`/`install_license_v1` не получает задание установки.
+
+### 10.2. Конверт параметров
+
+Каждый `task_item.parameters`, включая scan options, передаётся только как:
+
+```json
+{
+  "version": 1,
+  "algorithm": "RSA-OAEP-SHA256+AES-256-GCM",
+  "recipient_key_id": "64-hex",
+  "wrapped_key": "base64",
+  "nonce": "base64(12 bytes)",
+  "ciphertext": "base64"
+}
+```
+
+`RSA-OAEP-SHA256` упаковывает случайный AES-256 content key; AES-256-GCM
+шифрует JSON параметров. OAEP label и AEAD AAD — один и тот же канонический
+JSON (RFC 8785) со всеми полями:
+
+```json
+{
+  "protocol": "telehack2026/task-parameters/v1",
+  "purpose": "task_item_parameters",
+  "task_id": "uuid",
+  "item_id": "uuid",
+  "machine_id": "uuid",
+  "registration_id": 42,
+  "kind": "scan|install_license",
+  "parameters_version": 1,
+  "recipient_key_id": "64-hex",
+  "expires_at": "RFC3339Nano"
+}
+```
+
+Перестановка ciphertext между задачами, машинами, видами, ключами или сроками
+отклоняется. Номер лицензии находится только внутри ciphertext; сервер
+расшифровывает его из защищённого keyring на время назначения, а агент — своим
+RSA-ключом. В HTTP-ответах и логах номера нет.
+
+### 10.3. Доставка, ACK, claim, progress, result
+
+| Метод | Путь | Назначение |
+| --- | --- | --- |
+| POST | `/api/agent/v1/tasks/sync` | элементы задач с конвертами |
+| POST | `/api/agent/v1/tasks/ack` | durable delivery ACK |
+| POST | `/api/agent/v1/tasks/claim` | разрешение на начало (5 минут) |
+| POST | `/api/agent/v1/tasks/progress` | allowlist-события попытки |
+| POST | `/api/agent/v1/tasks/result` | финальный/промежуточный результат |
+| POST | `/api/agent/v1/tasks/diagnostic` | повреждение локального журнала |
+
+`tasks/sync` возвращает только публичные поля: `task_id`, `item_id`,
+`machine_id`, `registration_id`, `kind`, `state`, `delivery_version`,
+`encryption_key_id`, конверт, `created_at`, `expires_at`, `cancel_requested`,
+`reconcile_requested`, `attempt_count`. Состояние `delivered` после ACK не
+означает выполнение. До `claim` изменяющая операция запрещена. `claim`
+атомарно проверяет владельца, назначение, отмену, срок, попытки и резерв
+лицензии; после истечения claim разрешены только чтение и сохранение
+результата.
+
+`tasks/result` содержит только разрешённые поля (`state`, `reason_code`,
+`modified`, `serial_match`, `report_id`, санитизированное состояние CSP).
+`modified` — `no|maybe|yes`; сервер по нему решает, можно ли вернуть ключ в
+`available`. `outcome_unknown` удерживает ключ и допускает только read-only
+согласование. Повтор результата с тем же `result_version` идемпотентен;
+финальный `succeeded` не перезаписывается поздним отрицательным событием.
+
+### 10.4. Настройки и совместимость
+
+`poll_interval_seconds` (60, 10–3600), `inventory_freshness_seconds`
+(86400, 60–2592000), `task_ttl_seconds` (604800, 60–2592000) участвуют в
+`config_hash` только для агентов с `schedule_v2`. Для старого агента сервер
+отдаёт прежнюю проекцию конфигурации и прежний хеш; поля с `omitempty` не
+появляются в его JSON. `scan_interval_days` остаётся отдельной настройкой
+планового сбора.
+
+Исторические `jobs` мигрируются в `tasks` с `legacy_job_id`. Старый агент
+продолжает получать их через `/sync`; агент с `task_v1` получает тот же item
+через `/tasks/sync`, а старый jobs-канал для него исключается. Двойная выдача
+одного scan исключена.

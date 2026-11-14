@@ -396,6 +396,27 @@ UPDATE dbo.registrations SET state=N'renamed', revoked_at=@p1, replaced_by_regis
 		now, newRegistrationID, old.RegistrationID); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "retire old registration"}
 	}
+	// A rename is a confirmed transition of the same machine. Preserve
+	// capabilities and the active encryption key while deactivating the old
+	// registration's key row, so unfinished item envelopes remain decryptable.
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO dbo.agent_capabilities(registration_id,capabilities_json,schedule_v2,tasks_v1,install_v1,updated_at)
+SELECT @p1,capabilities_json,schedule_v2,tasks_v1,install_v1,@p2
+FROM dbo.agent_capabilities WHERE registration_id=@p3`, newRegistrationID, now, old.RegistrationID); err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "copy agent capabilities on rename"}
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.agent_encryption_keys SET active=0 WHERE registration_id=@p1 AND revoked_at IS NULL`, old.RegistrationID); err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "deactivate old encryption key"}
+	}
+	if _, err := tx.ExecContext(ctx, `
+INSERT INTO dbo.agent_encryption_keys(key_id,machine_id,registration_id,public_key_pem,algorithm,bits,active,created_at)
+SELECT key_id,machine_id,@p1,public_key_pem,algorithm,bits,1,@p2
+FROM dbo.agent_encryption_keys WHERE registration_id=@p3 AND active=0 AND revoked_at IS NULL
+  AND NOT EXISTS(SELECT 1 FROM dbo.agent_encryption_keys k2 WHERE k2.registration_id=@p1 AND k2.key_id=dbo.agent_encryption_keys.key_id)`,
+		newRegistrationID, now, old.RegistrationID); err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "copy encryption key on rename"}
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE dbo.machines SET display_name=@p1, updated_at=@p2 WHERE machine_id=@p3`, newHostname, now, machineID); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "update machine name"}
 	}

@@ -46,12 +46,6 @@ func DiscoverCSPProducts() []CSPProduct {
 		names, _ := key.ReadSubKeyNames(-1)
 		for _, name := range names {
 			branch, known := knownCSPProducts[strings.ToUpper(name)]
-			if !known {
-				continue
-			}
-			if seen[branch] {
-				continue
-			}
 			sub, err := registry.OpenKey(key, name, registry.READ|registry.WOW64_64KEY)
 			if err != nil {
 				continue
@@ -59,6 +53,19 @@ func DiscoverCSPProducts() []CSPProduct {
 			displayName, _, _ := sub.GetStringValue("DisplayName")
 			displayVersion, _, _ := sub.GetStringValue("DisplayVersion")
 			_ = sub.Close()
+			if !known {
+				if !looksLikeCryptoProCSP(displayName) {
+					continue
+				}
+				major := versionMajor(displayVersion)
+				if major != 4 && major != 5 {
+					continue
+				}
+				branch = fmt.Sprintf("%d", major)
+			}
+			if seen[branch] {
+				continue
+			}
 			seen[branch] = true
 			products = append(products, CSPProduct{
 				GUID:           strings.ToUpper(name),
@@ -135,6 +142,27 @@ func runCSPTest(path string) (string, error) {
 		return string(output), fmt.Errorf("csptest: %w", err)
 	}
 	return string(output), nil
+}
+
+// DiscoverEnvironment distinguishes a workstation from Windows Server using
+// the same stable registry source as OSVersionString. Unknown is explicit.
+func DiscoverEnvironment() string {
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.READ|registry.WOW64_64KEY)
+	if err != nil {
+		return "unknown"
+	}
+	defer key.Close()
+	product, _, _ := key.GetStringValue("ProductName")
+	installation, _, _ := key.GetStringValue("InstallationType")
+	text := strings.ToLower(product + " " + installation)
+	switch {
+	case strings.Contains(text, "server"):
+		return "server"
+	case strings.TrimSpace(product) != "":
+		return "workstation"
+	default:
+		return "unknown"
+	}
 }
 
 // OSVersionString returns ProductName/CurrentBuild/UBR from the registry,

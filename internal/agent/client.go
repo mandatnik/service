@@ -177,3 +177,117 @@ func (c *APIClient) ack(ctx context.Context, identity *Identity, ack jobAck, osV
 	}
 	return decoded, result
 }
+
+func (c *APIClient) capabilities(ctx context.Context, identity *Identity, encryption *EncryptionIdentity, rotate bool, osVersion string) (protocol.CapabilitiesResponse, response) {
+	publicPEM, err := encryption.PublicKey()
+	if err != nil {
+		return protocol.CapabilitiesResponse{}, response{Error: &protocol.APIError{Code: "client_build", Message: err.Error()}}
+	}
+	data := signedData(protocol.OpCapabilities, protocol.PathCapabilities, identity)
+	data.Capabilities = []string{
+		protocol.TaskCapabilityV1, protocol.TaskCapabilityScheduleV2,
+		protocol.TaskCapabilityInstallV1, protocol.TaskCapabilityScanV1,
+		protocol.TaskCapabilityEnvelopeV1,
+	}
+	data.EncryptionKeyID = encryption.ActiveID()
+	data.EncryptionPublicKey = publicPEM
+	data.EncryptionAlgorithm = protocol.EncryptionAlgorithmV1
+	data.EncryptionBits = protocol.RSAEncryptionBits
+	data.EncryptionKeyRotate = rotate
+	data.OSVersion = osVersion
+	result := c.post(ctx, protocol.PathCapabilities, data, identity.Key)
+	var decoded protocol.CapabilitiesResponse
+	if result.Error == nil {
+		if err := json.Unmarshal(result.Body, &decoded); err != nil {
+			result.Error = &protocol.APIError{Code: "client_decode", Message: err.Error()}
+		}
+	}
+	return decoded, result
+}
+
+func (c *APIClient) taskSync(ctx context.Context, identity *Identity, status protocol.TaskQueueStatus, osVersion string) (protocol.TaskSyncResponse, response) {
+	data := signedData(protocol.OpTaskSync, protocol.PathTaskSync, identity)
+	queue, _ := json.Marshal(status)
+	data.TaskQueue = queue
+	data.OSVersion = osVersion
+	result := c.post(ctx, protocol.PathTaskSync, data, identity.Key)
+	var decoded protocol.TaskSyncResponse
+	if result.Error == nil {
+		if err := json.Unmarshal(result.Body, &decoded); err != nil {
+			result.Error = &protocol.APIError{Code: "client_decode", Message: err.Error()}
+		}
+	}
+	return decoded, result
+}
+
+func (c *APIClient) taskAck(ctx context.Context, identity *Identity, itemID string, version int, osVersion string) (protocol.TaskDeliveryAckResponse, response) {
+	data := signedData(protocol.OpTaskAck, protocol.PathTaskAck, identity)
+	data.TaskItemID = itemID
+	data.TaskDeliveryVersion = version
+	data.OSVersion = osVersion
+	result := c.post(ctx, protocol.PathTaskAck, data, identity.Key)
+	var decoded protocol.TaskDeliveryAckResponse
+	if result.Error == nil {
+		if err := json.Unmarshal(result.Body, &decoded); err != nil {
+			result.Error = &protocol.APIError{Code: "client_decode", Message: err.Error()}
+		}
+	}
+	return decoded, result
+}
+
+func (c *APIClient) taskClaim(ctx context.Context, identity *Identity, itemID string, version int, osVersion string) (protocol.TaskClaimResponse, response) {
+	data := signedData(protocol.OpTaskClaim, protocol.PathTaskClaim, identity)
+	data.TaskItemID = itemID
+	data.TaskDeliveryVersion = version
+	data.OSVersion = osVersion
+	result := c.post(ctx, protocol.PathTaskClaim, data, identity.Key)
+	var decoded protocol.TaskClaimResponse
+	if result.Error == nil {
+		if err := json.Unmarshal(result.Body, &decoded); err != nil {
+			result.Error = &protocol.APIError{Code: "client_decode", Message: err.Error()}
+		}
+	}
+	return decoded, result
+}
+
+func (c *APIClient) taskProgress(ctx context.Context, identity *Identity, event protocol.TaskProgressEvent, osVersion string) response {
+	raw, err := json.Marshal(event)
+	if err != nil {
+		return response{Error: &protocol.APIError{Code: "client_build", Message: err.Error()}}
+	}
+	data := signedData(protocol.OpTaskProgress, protocol.PathTaskProgress, identity)
+	data.TaskItemID = event.ItemID
+	data.TaskEvent = raw
+	data.OSVersion = osVersion
+	return c.post(ctx, protocol.PathTaskProgress, data, identity.Key)
+}
+
+func (c *APIClient) taskResult(ctx context.Context, identity *Identity, result protocol.TaskResult, osVersion string) (protocol.TaskResultResponse, response) {
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return protocol.TaskResultResponse{}, response{Error: &protocol.APIError{Code: "client_build", Message: err.Error()}}
+	}
+	data := signedData(protocol.OpTaskResult, protocol.PathTaskResult, identity)
+	data.TaskItemID = result.ItemID
+	data.TaskResult = raw
+	data.OSVersion = osVersion
+	response := c.post(ctx, protocol.PathTaskResult, data, identity.Key)
+	var decoded protocol.TaskResultResponse
+	if response.Error == nil {
+		if err := json.Unmarshal(response.Body, &decoded); err != nil {
+			response.Error = &protocol.APIError{Code: "client_decode", Message: err.Error()}
+		}
+	}
+	return decoded, response
+}
+
+func (c *APIClient) taskDiagnostic(ctx context.Context, identity *Identity, diagnostic protocol.TaskDiagnostic, osVersion string) response {
+	raw, err := json.Marshal(diagnostic)
+	if err != nil {
+		return response{Error: &protocol.APIError{Code: "client_build", Message: err.Error()}}
+	}
+	data := signedData(protocol.OpTaskDiagnostic, protocol.PathTaskDiagnostic, identity)
+	data.TaskDiagnostic = raw
+	data.OSVersion = osVersion
+	return c.post(ctx, protocol.PathTaskDiagnostic, data, identity.Key)
+}

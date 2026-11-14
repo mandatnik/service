@@ -187,6 +187,23 @@ button.metric-card:hover { border-color: #aac7d2; transform: translateY(-1px); }
 
 /* Inventory policies and readable summary cells. */
 .selection-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:16px; }
+
+.modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); z-index: 80; display: flex; align-items: flex-start; justify-content: center; padding: 4vh 16px; overflow: auto; }
+.modal { background: #fff; border-radius: 16px; box-shadow: 0 24px 80px rgba(15, 23, 42, .3); width: min(1120px, 100%); max-height: 92vh; overflow: auto; padding: 22px; }
+.modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:14px; }
+.modal-head h2 { margin: 0 0 4px; }
+.modal-section { border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.modal-section h3 { margin: 0 0 8px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.modal-list { max-height: 240px; overflow:auto; border-top: 1px solid #eef2f7; }
+.modal-row { display:grid; grid-template-columns: 28px 1.4fr 1fr 1fr; gap:8px; align-items:center; padding:8px 4px; border-bottom:1px solid #f1f5f9; font-size:13px; }
+.modal-row.disabled { opacity:.62; background:#fafafa; }
+.modal-summary { display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between; margin: 12px 0; }
+.modal-actions { display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+.badge-count { display:inline-flex; min-width:22px; height:22px; align-items:center; justify-content:center; border-radius:11px; background:#eef2f7; color:#334155; font-size:12px; padding:0 7px; }
+.import-area { width:100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border:1px solid #cbd5e1; border-radius:10px; padding:10px; margin-bottom:10px; }
+.import-results { max-height:180px; overflow:auto; margin-top:8px; }
+.ok-text { color:#05603a; }
+.event-row { padding:8px 0; border-bottom:1px solid #f1f5f9; }
 .selection-cell { width:42px; min-width:42px; text-align:center; }
 input[type="checkbox"] { width:16px; height:16px; min-width:16px; accent-color:var(--primary, #2563eb); cursor:pointer; }
 .machine-groups { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }

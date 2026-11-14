@@ -154,7 +154,9 @@ func validateShape(data *SignedData) error {
 		return fmt.Errorf("unsupported protocol_version %q", data.ProtocolVersion)
 	}
 	switch data.Operation {
-	case OpRegister, OpRename, OpSync, OpReport, OpJobAck:
+	case OpRegister, OpRename, OpSync, OpReport, OpJobAck,
+		OpCapabilities, OpTaskSync, OpTaskAck, OpTaskClaim, OpTaskProgress,
+		OpTaskResult, OpTaskDiagnostic:
 	default:
 		return fmt.Errorf("unsupported operation %q", data.Operation)
 	}
@@ -238,6 +240,74 @@ func validateShape(data *SignedData) error {
 			if _, err := NormalizeUUID(data.JobReportID); err != nil {
 				return fmt.Errorf("job_report_id: %w", err)
 			}
+		}
+	case OpCapabilities:
+		if len(data.Capabilities) == 0 || len(data.Capabilities) > 32 {
+			return errors.New("capabilities registration requires a bounded capability list")
+		}
+		for _, capability := range data.Capabilities {
+			if capability == "" || len(capability) > 64 {
+				return errors.New("invalid capability")
+			}
+		}
+		if data.EncryptionKeyID == "" || data.EncryptionPublicKey == "" || data.EncryptionAlgorithm == "" {
+			return errors.New("capabilities registration requires encryption key metadata")
+		}
+		if !isHexSHA256(data.EncryptionKeyID) {
+			return errors.New("encryption_key_id must be 64 lower-case hex characters")
+		}
+		if data.EncryptionAlgorithm != EncryptionAlgorithmV1 {
+			return errors.New("unsupported encryption algorithm")
+		}
+		if data.EncryptionBits != 3072 {
+			return errors.New("encryption key must be RSA-3072")
+		}
+	case OpTaskSync:
+		if data.TaskQueue != nil {
+			if len(data.TaskQueue) > 4096 {
+				return errors.New("task_queue is too large")
+			}
+		}
+	case OpTaskAck:
+		if _, err := NormalizeUUID(data.TaskItemID); err != nil {
+			return fmt.Errorf("task_item_id: %w", err)
+		}
+		if data.TaskDeliveryVersion < 1 {
+			return errors.New("task_delivery_version must be positive")
+		}
+	case OpTaskClaim:
+		if _, err := NormalizeUUID(data.TaskItemID); err != nil {
+			return fmt.Errorf("task_item_id: %w", err)
+		}
+		if data.TaskDeliveryVersion < 1 {
+			return errors.New("task_delivery_version must be positive")
+		}
+	case OpTaskProgress:
+		if _, err := NormalizeUUID(data.TaskItemID); err != nil {
+			return fmt.Errorf("task_item_id: %w", err)
+		}
+		if data.TaskEvent == nil {
+			return errors.New("task progress requires task_event")
+		}
+		if len(data.TaskEvent) > 8192 {
+			return errors.New("task_event is too large")
+		}
+	case OpTaskResult:
+		if _, err := NormalizeUUID(data.TaskItemID); err != nil {
+			return fmt.Errorf("task_item_id: %w", err)
+		}
+		if data.TaskResult == nil {
+			return errors.New("task result requires task_result")
+		}
+		if len(data.TaskResult) > 64*1024 {
+			return errors.New("task_result is too large")
+		}
+	case OpTaskDiagnostic:
+		if data.TaskDiagnostic == nil {
+			return errors.New("task diagnostic requires task_diagnostic")
+		}
+		if len(data.TaskDiagnostic) > 4096 {
+			return errors.New("task_diagnostic is too large")
 		}
 	}
 	return nil

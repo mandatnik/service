@@ -60,7 +60,7 @@ func (c *windowsCollector) Collect(ctx context.Context, cfg protocol.AgentConfig
 			Complete:     true,
 			Certificates: []protocol.ObservedCertificate{},
 		}
-		present, ders, readErr := winapi.ReadUserStore(profile)
+		present, records, readErr := winapi.ReadUserStore(profile)
 		if readErr != nil {
 			profileResult.Complete = false
 			profileResult.Error = boundError(readErr.Error())
@@ -69,8 +69,9 @@ func (c *windowsCollector) Collect(ctx context.Context, cfg protocol.AgentConfig
 			collection.Errors = append(collection.Errors, fmt.Sprintf("%s: %s", profile.SID, boundError(readErr.Error())))
 		} else {
 			profileResult.StorePresent = present
-			for _, der := range ders {
-				observation, observationErr := observeDER(der)
+			for _, record := range records {
+				observation, observationErr := observeDER(record.DER)
+				observation.ProviderBindings = record.Bindings
 				if observationErr != nil {
 					profileResult.Complete = false
 					source.Complete = false

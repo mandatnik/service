@@ -211,3 +211,21 @@ Linux-демон, токены, CRL/OCSP, интеграционный API и с
 
 Спецификация: [docs/folder-policies.md](docs/folder-policies.md).
 Результаты приёмки: [docs/acceptance/POLICIES-0.4.0.md](docs/acceptance/POLICIES-0.4.0.md).
+
+## Дополнение после P10: версия 0.5.0
+
+1. SQL-миграция 0004: пулы/ключи, резервы/история закреплений, задачи/выполнения/
+   события, preview, capabilities, RSA-ключи РС, bindings провайдера; исторические
+   jobs сохранены как singleton-задачи с `legacy_job_id`.
+2. Сервер: AES-256-GCM keyring + отдельный HMAC дедупликации, атомарные резервы,
+   preview четырёх списков, идемпотентное создание, отмена/истечение/claim/reconcile.
+3. Агент: DPAPI RSA-3072 ring, зашифрованные параметры, durable journal,
+   независимый polling, нативный install_license, проверка/rollback, 3 попытки.
+4. UI: пулы лицензий, модалка активации, задачи/журнал, настройки poll/freshness/TTL.
+5. Проверки: unit/contracts, реальный SQL Server, Windows cross-build, frontend,
+   браузерный контрактный просмотр; реальные Windows/paid-key E2E требуют
+   отдельного согласованного стенда.
+
+Спецификация: [docs/plans/remote-activation-and-tasks.md](docs/plans/remote-activation-and-tasks.md).
+Статус: [docs/plans/implementation-status.md](docs/plans/implementation-status.md).
+Результаты приёмки: [docs/acceptance/REMOTE-ACTIVATION-0.5.0.md](docs/acceptance/REMOTE-ACTIVATION-0.5.0.md).

@@ -102,6 +102,15 @@ func ValidateConfig(cfg *AgentConfig) error {
 	if cfg.ScanIntervalDays < 1 || cfg.ScanIntervalDays > 365 {
 		return fmt.Errorf("scan_interval_days must be between 1 and 365")
 	}
+	if cfg.PollIntervalSeconds != 0 && (cfg.PollIntervalSeconds < MinPollIntervalSeconds || cfg.PollIntervalSeconds > MaxPollIntervalSeconds) {
+		return fmt.Errorf("poll_interval_seconds must be between %d and %d", MinPollIntervalSeconds, MaxPollIntervalSeconds)
+	}
+	if cfg.InventoryFreshnessSeconds != 0 && (cfg.InventoryFreshnessSeconds < MinScheduleSeconds || cfg.InventoryFreshnessSeconds > MaxScheduleSeconds) {
+		return fmt.Errorf("inventory_freshness_seconds must be between %d and %d", MinScheduleSeconds, MaxScheduleSeconds)
+	}
+	if cfg.TaskTTLSeconds != 0 && (cfg.TaskTTLSeconds < MinScheduleSeconds || cfg.TaskTTLSeconds > MaxScheduleSeconds) {
+		return fmt.Errorf("task_ttl_seconds must be between %d and %d", MinScheduleSeconds, MaxScheduleSeconds)
+	}
 	if cfg.MaxFiles < 1 || cfg.MaxFiles > MaxFilesPerFolder {
 		return fmt.Errorf("max_files must be between 1 and %d", MaxFilesPerFolder)
 	}

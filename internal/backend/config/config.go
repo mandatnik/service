@@ -34,15 +34,17 @@ type DB struct {
 
 // Config is the backend bootstrap configuration.
 type Config struct {
-	AgentListen           string `json:"agent_listen"`
-	AdminListen           string `json:"admin_listen"`
-	TLSCertFile           string `json:"tls_cert_file"`
-	TLSKeyFile            string `json:"tls_key_file"`
-	LogFile               string `json:"log_file"`
-	MaxConcurrentReports  int    `json:"max_concurrent_reports"`
-	MaxConcurrentRequests int    `json:"max_concurrent_requests"`
-	AdminSessionHours     int    `json:"admin_session_hours"`
-	DB                    DB     `json:"db"`
+	AgentListen               string `json:"agent_listen"`
+	AdminListen               string `json:"admin_listen"`
+	TLSCertFile               string `json:"tls_cert_file"`
+	TLSKeyFile                string `json:"tls_key_file"`
+	LogFile                   string `json:"log_file"`
+	MaxConcurrentReports      int    `json:"max_concurrent_reports"`
+	MaxConcurrentRequests     int    `json:"max_concurrent_requests"`
+	AdminSessionHours         int    `json:"admin_session_hours"`
+	LicenseKeyringFile        string `json:"license_keyring_file"`
+	LicenseFingerprintKeyFile string `json:"license_fingerprint_key_file"`
+	DB                        DB     `json:"db"`
 
 	// Path is filled by Load and is not part of the JSON schema.
 	Path string `json:"-"`
@@ -108,6 +110,15 @@ func (c *Config) Validate() error {
 	}
 	if c.AdminSessionHours < 1 || c.AdminSessionHours > 72 {
 		return fmt.Errorf("admin_session_hours must be between 1 and 72")
+	}
+	if c.LicenseKeyringFile == "" {
+		c.LicenseKeyringFile = filepath.Join(platform.BackendDir(), "license-keyring.json")
+	}
+	if c.LicenseFingerprintKeyFile == "" {
+		c.LicenseFingerprintKeyFile = filepath.Join(platform.BackendDir(), "license-fingerprint.key")
+	}
+	if c.LicenseKeyringFile == c.LicenseFingerprintKeyFile {
+		return fmt.Errorf("license_keyring_file and license_fingerprint_key_file must differ")
 	}
 	if err := c.DB.Validate(); err != nil {
 		return err

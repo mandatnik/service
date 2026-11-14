@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"telehack2026/internal/platform"
@@ -14,14 +15,16 @@ import (
 // State is durable agent scheduling and configuration state. It contains no
 // secrets and is written atomically.
 type State struct {
-	ScanSeq           int64                 `json:"scan_seq"`
-	LastScanStartedAt string                `json:"last_scan_started_at,omitempty"`
-	LastScanSuccessAt string                `json:"last_scan_success_at,omitempty"`
-	LastReportID      string                `json:"last_report_id,omitempty"`
-	MachineID         string                `json:"machine_id,omitempty"`
-	ConfigHash        string                `json:"config_hash,omitempty"`
-	Config            *protocol.AgentConfig `json:"config,omitempty"`
-	UpdatedAt         string                `json:"updated_at"`
+	ScanSeq                int64                 `json:"scan_seq"`
+	LastScanStartedAt      string                `json:"last_scan_started_at,omitempty"`
+	LastScanSuccessAt      string                `json:"last_scan_success_at,omitempty"`
+	LastReportID           string                `json:"last_report_id,omitempty"`
+	MachineID              string                `json:"machine_id,omitempty"`
+	ConfigHash             string                `json:"config_hash,omitempty"`
+	Config                 *protocol.AgentConfig `json:"config,omitempty"`
+	EncryptionKeyID        string                `json:"encryption_key_id,omitempty"`
+	CapabilitiesRegistered bool                  `json:"capabilities_registered,omitempty"`
+	UpdatedAt              string                `json:"updated_at"`
 }
 
 func loadState() (*State, error) {
@@ -107,6 +110,7 @@ func (s *State) lastScanSuccess() time.Time {
 
 // Jobs is the durable local job state, separate from the two-report queue.
 type Jobs struct {
+	mu   sync.Mutex
 	Jobs map[string]JobState `json:"jobs"`
 }
 
@@ -145,6 +149,8 @@ func loadJobs() (*Jobs, error) {
 }
 
 func (j *Jobs) save() error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	raw, err := json.MarshalIndent(j, "", "  ")
 	if err != nil {
 		return err
@@ -156,6 +162,8 @@ func (j *Jobs) save() error {
 }
 
 func (j *Jobs) merge(serverJobs []protocol.Job) bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	changed := false
 	for _, job := range serverJobs {
 		id := job.JobID
@@ -177,6 +185,12 @@ func (j *Jobs) merge(serverJobs []protocol.Job) bool {
 }
 
 func (j *Jobs) pendingIDs() []string {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.pendingIDsLocked()
+}
+
+func (j *Jobs) pendingIDsLocked() []string {
 	var ids []string
 	for id, state := range j.Jobs {
 		if state.State == "pending" {
@@ -187,10 +201,14 @@ func (j *Jobs) pendingIDs() []string {
 }
 
 func (j *Jobs) hasPending() bool {
-	return len(j.pendingIDs()) > 0
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return len(j.pendingIDsLocked()) > 0
 }
 
 func (j *Jobs) markCompleted(reportID string, jobIDs []string) bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	changed := false
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	for _, id := range jobIDs {
@@ -210,6 +228,8 @@ func (j *Jobs) markCompleted(reportID string, jobIDs []string) bool {
 }
 
 func (j *Jobs) markReportEvicted(reportID string) bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	changed := false
 	for id, state := range j.Jobs {
 		if state.ReportID == reportID && !state.Acked {
@@ -223,6 +243,8 @@ func (j *Jobs) markReportEvicted(reportID string) bool {
 }
 
 func (j *Jobs) markAcked(jobID string) bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	state, ok := j.Jobs[jobID]
 	if !ok || state.Acked {
 		return false
@@ -233,6 +255,8 @@ func (j *Jobs) markAcked(jobID string) bool {
 }
 
 func (j *Jobs) markFailed(jobIDs []string, message string) bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	changed := false
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	for _, id := range jobIDs {
@@ -257,6 +281,8 @@ type jobAck struct {
 }
 
 func (j *Jobs) pendingAcks() []jobAck {
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	var acks []jobAck
 	for id, state := range j.Jobs {
 		if state.Acked || (state.State != "completed" && state.State != "failed") {

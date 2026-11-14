@@ -16,6 +16,7 @@ import (
 	"telehack2026/internal/backend/api"
 	"telehack2026/internal/backend/config"
 	"telehack2026/internal/backend/db"
+	"telehack2026/internal/backend/licensecrypto"
 	"telehack2026/internal/backend/store"
 	"telehack2026/internal/protocol"
 	"telehack2026/internal/version"
@@ -55,6 +56,21 @@ func serve(ctx context.Context, cfg config.Config, logger *Logger) error {
 		return err
 	}
 	persistence := store.New(pool)
+	if err := persistence.BackfillLegacyJobs(ctx); err != nil {
+		logger.Logf("legacy jobs backfill failed: %v", err)
+	}
+	keyring, keyErr := licensecrypto.LoadKeyring(cfg.LicenseKeyringFile)
+	if keyErr != nil {
+		logger.Logf("license keyring unavailable, license operations disabled: %v", keyErr)
+	} else {
+		fingerprint, fingerprintErr := licensecrypto.LoadFingerprintKey(cfg.LicenseFingerprintKeyFile)
+		if fingerprintErr != nil {
+			logger.Logf("license fingerprint key unavailable, license operations disabled: %v", fingerprintErr)
+		} else {
+			persistence.SetLicenseCrypto(keyring, fingerprint)
+			logger.Logf("license crypto ready: active key id=%s", keyring.ActiveKeyID())
+		}
+	}
 	apiServer := api.New(persistence, logger, cfg)
 	agentServer := newHTTPServer(cfg.AgentListen, apiServer.AgentHandler())
 	adminServer := newHTTPServer(cfg.AdminListen, apiServer.AdminHandler())
@@ -163,6 +179,55 @@ func Migrate(configPath string) error {
 		return err
 	}
 	fmt.Printf("applied migrations: %v\n", versions)
+	return nil
+}
+
+// InitLicenseKeys creates the protected license keyring and the separate
+// deduplication key. It refuses to overwrite partial or complete state.
+func InitLicenseKeys(configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	keyringExists := fileExists(cfg.LicenseKeyringFile)
+	fingerprintExists := fileExists(cfg.LicenseFingerprintKeyFile)
+	if keyringExists || fingerprintExists {
+		return fmt.Errorf("license key material already exists; refusing to overwrite keyring=%t fingerprint=%t", keyringExists, fingerprintExists)
+	}
+	keyID, err := licensecrypto.InitKeyring(cfg.LicenseKeyringFile)
+	if err != nil {
+		return err
+	}
+	if err := licensecrypto.InitFingerprintKey(cfg.LicenseFingerprintKeyFile); err != nil {
+		_ = os.Remove(cfg.LicenseKeyringFile)
+		return err
+	}
+	fmt.Printf("license keyring created: path=%s active_key_id=%s\n", cfg.LicenseKeyringFile, keyID)
+	fmt.Printf("license fingerprint key created: path=%s\n", cfg.LicenseFingerprintKeyFile)
+	return nil
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// RotateLicenseKey creates a new active encryption key while retaining old
+// keys for existing rows. The keyring is rewritten atomically.
+func RotateLicenseKey(configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	ring, err := licensecrypto.LoadKeyring(cfg.LicenseKeyringFile)
+	if err != nil {
+		return err
+	}
+	keyID, err := ring.Rotate()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("license keyring rotated: active_key_id=%s; old keys retained\n", keyID)
 	return nil
 }
 

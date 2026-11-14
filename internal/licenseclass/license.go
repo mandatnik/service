@@ -29,8 +29,15 @@ func StateFromWallClock(expiresLocal time.Time, now time.Time) string {
 	return "active"
 }
 
+// IsOLEZeroDate reports the OLE Automation zero value used by CryptoPro CSP 5
+// for a perpetual license. It must not be classified as an expired 1899 date.
+func IsOLEZeroDate(value time.Time) bool {
+	return value.IsZero() || (value.Year() == 1899 && value.Month() == time.December && value.Day() == 30)
+}
+
 // TermKind derives only the directly observable term class: a readable
-// expiry date means time-limited. Trial status is intentionally not inferred.
+// non-zero expiry date means time-limited, the OLE zero date means perpetual,
+// and a missing/unreadable date is unknown.
 func TermKind(hasExpiry bool) string {
 	if hasExpiry {
 		return "time_limited"

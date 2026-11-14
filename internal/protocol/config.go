@@ -37,6 +37,16 @@ func CanonicalConfig(cfg AgentConfig) ([]byte, error) {
 	return Canonicalize(raw)
 }
 
+// LegacyConfigHash is computed over the protocol-1 projection. Old agents must
+// keep receiving a body and hash they can decode with DisallowUnknownFields.
+func LegacyConfigHash(cfg AgentConfig) (string, error) {
+	return ConfigHash(cfg.LegacyProjection())
+}
+
+func LegacyCanonicalConfig(cfg AgentConfig) ([]byte, error) {
+	return CanonicalConfig(cfg.LegacyProjection())
+}
+
 // DecodeConfig parses and validates a configuration JSON document, rejecting
 // duplicate keys and unknown fields.
 func DecodeConfig(raw []byte) (AgentConfig, error) {
