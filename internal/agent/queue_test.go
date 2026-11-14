@@ -24,7 +24,7 @@ func validTestReport(t *testing.T, seq int64) protocol.Report {
 
 func TestQueueKeepsTwoNewest(t *testing.T) {
 	dir := t.TempDir()
-	queue := &Queue{dir: dir}
+	queue := &Queue{dir: dir, protectFile: func(string) error { return nil }}
 	base := time.Now().UTC()
 	var ids []string
 	for index := 0; index < 3; index++ {
@@ -61,7 +61,7 @@ func TestQueueKeepsTwoNewest(t *testing.T) {
 
 func TestQueueArchivesCorruptItem(t *testing.T) {
 	dir := t.TempDir()
-	queue := &Queue{dir: dir}
+	queue := &Queue{dir: dir, protectFile: func(string) error { return nil }}
 	report := validTestReport(t, 1)
 	if _, err := queue.Add(QueueItem{ReportID: report.ReportID, ScanSeq: 1, CollectedAt: report.CollectedAt, Report: report}); err != nil {
 		t.Fatal(err)

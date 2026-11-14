@@ -83,13 +83,18 @@ func endToEnd(o options) (err error) {
 	if err = child.Start(); err != nil {
 		return err
 	}
-	stopped := make(chan error, 1)
-	go func() { stopped <- child.Wait() }()
+	stopped := make(chan struct{})
+	var exitError error
+	go func() { exitError = child.Wait(); close(stopped) }()
 	defer func() {
 		_ = child.Process.Kill()
 		<-stopped
 		if err != nil {
-			if data, e := os.ReadFile(filepath.Join(tmp, "backend.txt")); e == nil {
+			data, e := os.ReadFile(filepath.Join(tmp, "backend.txt"))
+			if e != nil {
+				data, e = os.ReadFile(filepath.Join(tmp, "process.log"))
+			}
+			if e == nil {
 				_ = os.MkdirAll(o.evidence, 0755)
 				_ = os.WriteFile(filepath.Join(o.evidence, "candidate-backend.txt"), data, 0600)
 			}
@@ -101,6 +106,11 @@ func endToEnd(o options) (err error) {
 	deadline := time.Now().Add(30 * time.Second)
 	ready := false
 	for time.Now().Before(deadline) {
+		select {
+		case <-stopped:
+			return fmt.Errorf("candidate backend exited before readiness: %v (see evidence logs)", exitError)
+		default:
+		}
 		response, e := client.Get("https://" + adminAddress + "/healthz")
 		if e == nil {
 			response.Body.Close()

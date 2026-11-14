@@ -59,6 +59,7 @@ func publish(o options) error {
 	type release struct {
 		ID      int64  `json:"id"`
 		HTMLURL string `json:"html_url"`
+		Draft   bool   `json:"draft"`
 	}
 	data, status, err := request("GET", "/releases/tags/"+url.PathEscape(tag), nil, "")
 	if err != nil {
@@ -66,7 +67,7 @@ func publish(o options) error {
 	}
 	var result release
 	if status == 404 {
-		payload, _ := json.Marshal(map[string]any{"tag_name": tag, "name": "Telehack 2026 " + tag, "target_commitish": os.Getenv("GITEA_SHA"), "body": "Windows amd64 EXE, MSI, build metadata and SHA-256 checksums. Built and tested through Makefile/Gitea Actions.", "draft": false, "prerelease": false})
+		payload, _ := json.Marshal(map[string]any{"tag_name": tag, "name": "Telehack 2026 " + tag, "target_commitish": os.Getenv("GITEA_SHA"), "body": "Windows amd64 EXE, MSI, build metadata and SHA-256 checksums. Built and tested through Makefile/Gitea Actions.", "draft": true, "prerelease": false})
 		data, status, err = request("POST", "/releases", bytes.NewReader(payload), "application/json")
 	}
 	if err != nil {
@@ -77,6 +78,28 @@ func publish(o options) error {
 	}
 	if err = json.Unmarshal(data, &result); err != nil {
 		return err
+	}
+	if !result.Draft {
+		fmt.Println("Release already published; preserving immutable assets:", result.HTMLURL)
+		return nil
+	}
+	assets, status, err := request("GET", fmt.Sprintf("/releases/%d/assets", result.ID), nil, "")
+	if err != nil {
+		return err
+	}
+	if status != 200 {
+		return fmt.Errorf("list draft assets: HTTP %d", status)
+	}
+	var existing []struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	if err = json.Unmarshal(assets, &existing); err != nil {
+		return err
+	}
+	existingIDs := map[string]int64{}
+	for _, asset := range existing {
+		existingIDs[asset.Name] = asset.ID
 	}
 	entries, err := os.ReadDir(o.out)
 	if err != nil {
@@ -90,6 +113,15 @@ func publish(o options) error {
 		ext := strings.ToLower(filepath.Ext(name))
 		if ext != ".exe" && ext != ".msi" && name != "SHA256SUMS" && name != "build-info.json" {
 			continue
+		}
+		if id, ok := existingIDs[name]; ok {
+			_, status, err = request("DELETE", fmt.Sprintf("/releases/%d/assets/%d", result.ID, id), nil, "")
+			if err != nil {
+				return err
+			}
+			if status != 204 {
+				return fmt.Errorf("replace unpublished draft asset: HTTP %d", status)
+			}
 		}
 		var buffer bytes.Buffer
 		writer := multipart.NewWriter(&buffer)
@@ -115,6 +147,14 @@ func publish(o options) error {
 			return fmt.Errorf("asset %s upload returned HTTP %d (published files are never overwritten)", name, status)
 		}
 		fmt.Println("Published", name)
+	}
+	payload := []byte(`{"draft":false}`)
+	_, status, err = request("PATCH", fmt.Sprintf("/releases/%d", result.ID), bytes.NewReader(payload), "application/json")
+	if err != nil {
+		return err
+	}
+	if status != 200 {
+		return fmt.Errorf("publish completed release: HTTP %d", status)
 	}
 	fmt.Println("Release:", result.HTMLURL)
 	return nil

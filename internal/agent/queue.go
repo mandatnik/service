@@ -29,6 +29,9 @@ type QueueItem struct {
 type Queue struct {
 	dir    string
 	logger *Logger
+	// nil means the production SYSTEM/Administrators ACL. Tests of queue
+	// ordering inject their own file protection instead of requiring SYSTEM.
+	protectFile func(string) error
 }
 
 func openQueue(logger *Logger) (*Queue, error) {
@@ -58,7 +61,11 @@ func (q *Queue) Add(item QueueItem) ([]string, error) {
 	if err := writeFileAtomic(path, raw, 0o600); err != nil {
 		return nil, err
 	}
-	if err := securePath(path); err != nil {
+	protect := q.protectFile
+	if protect == nil {
+		protect = securePath
+	}
+	if err := protect(path); err != nil {
 		return nil, err
 	}
 	return q.trim()

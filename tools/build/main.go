@@ -147,7 +147,18 @@ func run(env map[string]string, name string, args ...string) error {
 	return nil
 }
 func npm(args ...string) error {
-	return run(nil, "npm", append([]string{"--prefix", "frontend"}, args...)...)
+	args = append([]string{"--prefix", "frontend"}, args...)
+	// Use Node directly on Windows: npm.cmd under Program Files would otherwise
+	// need a second round of cmd.exe quoting.
+	if runtime.GOOS == "windows" {
+		if command, err := exec.LookPath("npm"); err == nil {
+			cli := filepath.Join(filepath.Dir(command), "node_modules", "npm", "bin", "npm-cli.js")
+			if _, err := os.Stat(cli); err == nil {
+				return run(nil, "node", append([]string{cli}, args...)...)
+			}
+		}
+	}
+	return run(nil, "npm", args...)
 }
 func normalized(o options) (options, error) {
 	if o.productVersion == "" {
@@ -170,7 +181,14 @@ func normalized(o options) (options, error) {
 		return o, fmt.Errorf("invalid COMMIT")
 	}
 	if o.date == "" {
-		o.date = time.Now().UTC().Format(time.RFC3339)
+		if data, err := exec.Command("git", "show", "-s", "--format=%cI", "HEAD").Output(); err == nil {
+			if date, err := time.Parse(time.RFC3339, strings.TrimSpace(string(data))); err == nil {
+				o.date = date.UTC().Format(time.RFC3339)
+			}
+		}
+		if o.date == "" {
+			o.date = time.Now().UTC().Format(time.RFC3339)
+		}
 	}
 	if _, err := time.Parse(time.RFC3339, o.date); err != nil {
 		return o, fmt.Errorf("BUILD_DATE must be RFC3339: %w", err)
