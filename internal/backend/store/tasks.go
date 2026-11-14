@@ -257,7 +257,7 @@ VALUES(@p1,N'scan',@p2,@p3,@p4,@p5,@p6,@p7,@p8)`,
 		itemID := protocol.NewUUID()
 		jobID := protocol.NewUUID()
 		var encrypted []byte
-		var keyID any
+		keyID := sql.NullString{}
 		var deliveryVersion = 0
 		if key != nil {
 			params, _ := json.Marshal(protocol.ScanParameters{Kind: protocol.TaskKindScan, Options: protocol.ScanOptions{Force: true}})
@@ -276,7 +276,7 @@ VALUES(@p1,N'scan',@p2,@p3,@p4,@p5,@p6,@p7,@p8)`,
 				return nil, &protocol.APIError{Code: protocol.CodeInternal, Message: "encrypt scan parameters"}
 			}
 			encrypted, _ = protocol.EncodeEncryptedParameters(envelope)
-			keyID = key.KeyID
+			keyID = sql.NullString{String: key.KeyID, Valid: true}
 			deliveryVersion = 1
 		}
 		_, err = tx.ExecContext(ctx, `
@@ -713,7 +713,7 @@ func mustJSON(value any) []byte {
 
 func nilIfNil(value []byte) any {
 	if value == nil {
-		return nil
+		return []byte(nil)
 	}
 	return value
 }

@@ -458,6 +458,44 @@ WHERE o.machine_id=@p1`, f.machineIDs[1]); err != nil {
 			t.Fatalf("Microsoft binding machine was mixed: %+v", byMachine[f.machineIDs[1]])
 		}
 	})
+
+	t.Run("scan task supports an old agent without encryption key", func(t *testing.T) {
+		f := newTaskFixture(t, ctx, pool, s, 1, 1)
+		defer f.cleanup()
+		if _, err := pool.ExecContext(ctx, `DELETE FROM dbo.agent_encryption_keys WHERE machine_id=@p1`, f.machineIDs[0]); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.ExecContext(ctx, `DELETE FROM dbo.agent_capabilities WHERE registration_id=@p1`, f.regIDs[0]); err != nil {
+			t.Fatal(err)
+		}
+		detail, apiErr := s.CreateScanTask(ctx, CreateScanTaskInput{
+			MachineIDs: f.machineIDs, IdempotencyKey: "legacy-scan-" + protocol.NewUUID(),
+		}, "test")
+		if apiErr != nil {
+			t.Fatalf("create scan for old agent: %v", apiErr)
+		}
+		if len(detail.Items) != 1 || detail.Items[0].State != protocol.TaskStateQueued {
+			t.Fatalf("legacy scan item = %+v", detail.Items)
+		}
+		var deliveryVersion int
+		var keyID sql.NullString
+		var encrypted []byte
+		if err := pool.QueryRowContext(ctx, `
+SELECT delivery_version,encryption_key_id,encrypted_parameters FROM dbo.task_items WHERE item_id=@p1`, detail.Items[0].ID).
+			Scan(&deliveryVersion, &keyID, &encrypted); err != nil {
+			t.Fatal(err)
+		}
+		if deliveryVersion != 0 || keyID.Valid || len(encrypted) != 0 {
+			t.Fatalf("legacy scan item has encrypted parameters: version=%d key=%v params=%d", deliveryVersion, keyID, len(encrypted))
+		}
+		var jobs int
+		if err := pool.QueryRowContext(ctx, `SELECT COUNT(1) FROM dbo.jobs WHERE task_id=@p1 AND state=N'pending'`, detail.Task.ID).Scan(&jobs); err != nil {
+			t.Fatal(err)
+		}
+		if jobs != 1 {
+			t.Fatalf("legacy scan jobs = %d, want 1", jobs)
+		}
+	})
 }
 
 type taskFixture struct {
