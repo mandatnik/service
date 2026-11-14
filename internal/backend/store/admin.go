@@ -246,7 +246,7 @@ func (s *Store) ListMachines(ctx context.Context, filter AdminMachineFilter) (Pa
 	case "active":
 		where = append(where, "r.state='active'")
 	case "offline":
-		where = append(where, "(r.last_seen_at IS NULL OR r.last_seen_at < DATEADD(minute, -20, SYSUTCDATETIME()))")
+		where = append(where, "r.state='active' AND (r.last_seen_at IS NULL OR r.last_seen_at < DATEADD(minute, -20, SYSUTCDATETIME()))")
 	case "conflict":
 		where = append(where, "EXISTS (SELECT 1 FROM dbo.registrations r2 WHERE r2.hostname_norm=r.hostname_norm AND r2.state='active' AND r2.registration_id<>r.registration_id)")
 	}

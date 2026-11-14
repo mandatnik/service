@@ -29,7 +29,7 @@ async function startScan() {
 }
 const groupsFor = id => catalog.value.groups.filter(g => g.machine_ids.includes(id))
 const query = ref('')
-const status = ref('')
+const status = ref('active')
 const page = ref(1)
 const data = ref({ items: [], total: 0, page: 1, page_size: 25 })
 const error = ref('')
@@ -55,8 +55,8 @@ onMounted(load)
       <form class="search-form" @submit.prevent="apply">
         <input aria-label="Поиск машин" v-model="query" placeholder="Имя, hostname или UUID" />
         <select aria-label="Фильтр по состоянию" v-model="status" @change="apply">
-          <option value="">Все состояния</option>
-          <option value="active">Доступные</option>
+          <option value="">Все</option>
+          <option value="active">Текущие</option>
           <option value="offline">Нет связи</option>
           <option value="conflict">Конфликт hostname</option>
         </select>
@@ -75,7 +75,7 @@ onMounted(load)
         <tbody>
           <tr v-for="m in data.items" :key="m.machine_id" class="clickable" tabindex="0" @keydown.enter.self="emit('open-machine', m.machine_id)" @click="emit('open-machine', m.machine_id)">
             <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="m.machine_id" :aria-label="`Выбрать ${m.display_name}`" /></td>
-            <td><strong>{{ m.display_name }}</strong><div class="machine-groups"><span v-for="group in groupsFor(m.machine_id)" :key="group.id" class="badge badge-neutral">{{ group.name }}</span></div><div v-if="m.hostname_conflict" class="badge badge-warning">hostname конфликт</div></td>
+            <td><strong>{{ m.display_name }}</strong><div v-if="m.registration_state !== 'active'" class="badge badge-neutral">Архивная запись</div><div class="machine-groups"><span v-for="group in groupsFor(m.machine_id)" :key="group.id" class="badge badge-neutral">{{ group.name }}</span></div><div v-if="m.hostname_conflict" class="badge badge-warning">hostname конфликт</div></td>
             <td><div>{{ m.hostname || '—' }}</div><code class="small">{{ m.uuid || 'нет регистрации' }}</code></td>
             <td><span class="badge" :class="m.offline ? 'badge-error' : 'badge-ok'">{{ m.offline ? 'Нет связи' : 'На связи' }}</span><div class="small muted">{{ m.last_seen_at ? timeAgo(m.last_seen_at) : 'нет связи' }}<br />{{ m.source_ip }}</div></td>
             <td><div>Версия <code>{{ m.product_version || '—' }}</code></div><div class="small muted">Ядро <code>{{ m.core_version || '—' }}</code></div></td>

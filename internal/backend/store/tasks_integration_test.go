@@ -78,6 +78,35 @@ func TestTasksSQLServer(t *testing.T) {
 	s := New(pool)
 	s.SetLicenseCrypto(ring, fingerprint)
 
+	t.Run("machine filters distinguish current offline and historical", func(t *testing.T) {
+		f := newTaskFixture(t, ctx, pool, s, 2, 1)
+		defer f.cleanup()
+		if _, err := pool.ExecContext(ctx, `UPDATE dbo.registrations SET last_seen_at=DATEADD(minute,-30,SYSUTCDATETIME()) WHERE machine_id=@p1`, f.machineIDs[0]); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.ExecContext(ctx, `UPDATE dbo.registrations SET state=N'revoked' WHERE machine_id=@p1`, f.machineIDs[1]); err != nil {
+			t.Fatal(err)
+		}
+		for _, tc := range []struct {
+			name, machine, status string
+			want                  int
+		}{
+			{"current includes offline workstation", f.machineIDs[0], "active", 1},
+			{"offline includes current workstation", f.machineIDs[0], "offline", 1},
+			{"current excludes historical workstation", f.machineIDs[1], "active", 0},
+			{"offline excludes historical workstation", f.machineIDs[1], "offline", 0},
+			{"all includes historical workstation", f.machineIDs[1], "", 1},
+		} {
+			page, err := s.ListMachines(ctx, AdminMachineFilter{MachineID: tc.machine, Status: tc.status, Page: 1, PageSize: 25})
+			if err != nil {
+				t.Fatal(tc.name, err)
+			}
+			if len(page.Items) != tc.want {
+				t.Errorf("%s: got %d items, want %d", tc.name, len(page.Items), tc.want)
+			}
+		}
+	})
+
 	t.Run("preview reservation idempotency and result", func(t *testing.T) {
 		f := newTaskFixture(t, ctx, pool, s, 2, 2)
 		defer f.cleanup()
@@ -532,14 +561,6 @@ VALUES(@p1,N'user_store',@p2,HASHBYTES('SHA2_256',CONCAT(N'user_store',CHAR(0),@
 		t.Fatal(apiErr)
 	}
 	fixture.poolID = poolResult.ID
-	serials := make([]string, licenseCount)
-	for i := range serials {
-		serials[i] = fmt.Sprintf("123456789012345678901%04d", i+1)
-	}
-	importResult, apiErr := s.ImportLicenses(ctx, fixture.poolID, serials, "test")
-	if apiErr != nil || !importResult.Accepted {
-		t.Fatalf("import: %v %+v", apiErr, importResult)
-	}
 	fixture.cleanupFunc = func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -569,6 +590,15 @@ VALUES(@p1,N'user_store',@p2,HASHBYTES('SHA2_256',CONCAT(N'user_store',CHAR(0),@
 			_, _ = pool.ExecContext(cleanupCtx, `DELETE FROM dbo.machines WHERE machine_id=@p1`, machineID)
 		}
 	}
+	serials := make([]string, licenseCount)
+	for i := range serials {
+		serials[i] = fmt.Sprintf("123456789012345678901%04d", i+1)
+	}
+	importResult, apiErr := s.ImportLicenses(ctx, fixture.poolID, serials, "test")
+	if apiErr != nil || !importResult.Accepted {
+		t.Fatalf("import: %v %+v", apiErr, importResult)
+	}
+
 	return fixture
 }
 
