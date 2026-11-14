@@ -30,3 +30,9 @@ evidence/local/
 /agent
 /backend
 /acceptance
+
+# CI outputs and runner credentials
+/artifacts/ci*/
+/deploy/msi/obj/
+*.wixpdb
+.runner

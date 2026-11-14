@@ -28,7 +28,16 @@ P11 (нагрузка 200+) и P12 (финальная поставка) в эт
 EXE. MSI/GPO/upgrade/repair/uninstall описаны в `deploy/msi` и
 `deploy/gpo`; приёмка — `docs/acceptance/P08.md`, `P09.md`, `P10.md`.
 
+Версия **0.4.0** добавляет группы машин, назначаемые политики папок и
+компактные таблицы сертификатов/лицензий. Правила и API:
+[docs/folder-policies.md](docs/folder-policies.md); проверка на стенде:
+[docs/acceptance/POLICIES-0.4.0.md](docs/acceptance/POLICIES-0.4.0.md).
+
 ## Сборка
+
+Кроссплатформенные команды `make`, установка инструментов Windows/Linux и
+Gitea CI/CD: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 
 Требуется Go 1.26+ (проверено на Go 1.26.3). CGO не требуется.
 

@@ -1,0 +1,24 @@
+name: Manual candidate acceptance
+on:
+  workflow_dispatch:
+concurrency:
+  group: telehack-ci
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    runs-on: telehack-windows
+    timeout-minutes: 30
+    steps:
+      - uses: https://github.com/actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: SQL and candidate HTTPS acceptance
+        shell: powershell
+        run: make test-e2e E2E_CONFIG="$env:TELEHACK_E2E_CONFIG"
+      - uses: https://github.com/actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-evidence
+          path: evidence/local/ci/
+          if-no-files-found: ignore
+          retention-days: 14

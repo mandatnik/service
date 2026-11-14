@@ -1,0 +1,70 @@
+name: Tests, EXE and MSI
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  workflow_dispatch:
+# The SQL stand is shared. Never cancel its cleanup halfway through a test.
+concurrency:
+  group: telehack-ci
+  cancel-in-progress: false
+jobs:
+  linux:
+    name: Linux tests and Windows cross-build
+    runs-on: telehack-linux
+    timeout-minutes: 30
+    steps:
+      - uses: https://github.com/actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Unit tests and static checks
+        run: make check
+      - name: Build embedded UI and Windows EXE
+        run: make build
+      - uses: https://github.com/actions/upload-artifact@v4
+        with:
+          name: windows-exe-from-linux
+          path: artifacts/ci/
+          if-no-files-found: error
+          retention-days: 14
+  windows:
+    name: Windows tests and MSI
+    needs: linux
+    runs-on: telehack-windows
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: https://github.com/actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Windows unit tests and static checks
+        run: make check
+      - name: Build EXE and MSI with WiX
+        run: make package
+      - name: Real SQL and candidate-backend end-to-end tests
+        if: gitea.ref == 'refs/heads/main' || startsWith(gitea.ref, 'refs/tags/v')
+        run: make test-e2e E2E_CONFIG="$env:TELEHACK_E2E_CONFIG"
+      - uses: https://github.com/actions/upload-artifact@v4
+        with:
+          name: windows-exe-and-msi
+          path: artifacts/ci/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: https://github.com/actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance-evidence
+          path: evidence/local/ci/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish tagged release
+        if: startsWith(gitea.ref, 'refs/tags/v')
+        env:
+          GITEA_SERVER_URL: ${{ gitea.server_url }}
+          GITEA_REPOSITORY: ${{ gitea.repository }}
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          GITEA_REF_NAME: ${{ gitea.ref_name }}
+          GITEA_SHA: ${{ gitea.sha }}
+        run: make publish
