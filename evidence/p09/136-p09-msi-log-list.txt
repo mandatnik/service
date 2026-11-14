@@ -1,0 +1,26 @@
+﻿
+Name                               Length
+----                               ------
+final-check-install.log             67906
+final-install-136.log              115038
+final-reinstall.log                 74364
+install-fixed.log                   15578
+install-fixed2.log                 123268
+install-new-msi.log                115030
+old-uninstall.log                  116890
+repair-2.log                       132572
+repair-3.log                       132574
+repair-4.log                       132572
+repair-5.log                       131496
+repair-6.log                       133500
+repair-7.log                       133500
+repair-final.log                   117528
+repair-new.log                     117400
+telehack-agent-install-2.log       115630
+telehack-agent-install.log         119900
+telehack-agent-uninstall-clean.log 110322
+telehack-gpo-msi.log               119072
+telehack-gpo-wrapper.log                0
+uninstall-fixed-final.log          116812
+
+

@@ -1,10 +1,139 @@
 <script setup>
-const title = 'Telehack 2026'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { api, setCSRF } from './api'
+import Login from './components/Login.vue'
+import OverviewView from './components/OverviewView.vue'
+import MachinesView from './components/MachinesView.vue'
+import MachineDetail from './components/MachineDetail.vue'
+import CertificatesView from './components/CertificatesView.vue'
+import CertificateDetail from './components/CertificateDetail.vue'
+import LicensingView from './components/LicensingView.vue'
+import HostnamesView from './components/HostnamesView.vue'
+import EventsView from './components/EventsView.vue'
+import SettingsView from './components/SettingsView.vue'
+
+const session = ref(null)
+const checking = ref(true)
+const bootError = ref('')
+const sessionNotice = ref('')
+const view = ref('overview')
+const machineId = ref('')
+const certificateSha = ref('')
+let expiryTimer = null
+
+const nav = [
+  { id: 'overview', label: 'Обзор', hint: 'Сводка' },
+  { id: 'machines', label: 'Машины', hint: 'Агенты и профили' },
+  { id: 'certificates', label: 'Сертификаты', hint: 'Наблюдения' },
+  { id: 'licensing', label: 'Лицензии', hint: 'CSP client/server' },
+  { id: 'hostnames', label: 'Hostname', hint: 'Конфликты' },
+  { id: 'events', label: 'События', hint: 'Диагностика' },
+  { id: 'settings', label: 'Настройки', hint: 'Сбор' }
+]
+const titles = {
+  overview: 'Обзор', machines: 'Рабочие машины', machine: 'Карточка машины',
+  certificates: 'Сертификаты', certificate: 'Карточка сертификата', licensing: 'Лицензирование',
+  hostnames: 'Hostname и конфликты', events: 'События', settings: 'Настройки сбора'
+}
+const title = computed(() => titles[view.value] || 'Админка')
+
+async function checkSession() {
+  checking.value = true
+  bootError.value = ''
+  const hadSession = !!session.value
+  try {
+    const result = await api.session()
+    setCSRF(result.csrf_token)
+    session.value = result
+    armExpiry(result)
+  } catch (e) {
+    if (e.status === 401) {
+      session.value = null
+      if (hadSession) sessionNotice.value = 'Сеанс истёк. Войдите снова.'
+    } else {
+      bootError.value = e.message
+    }
+  } finally {
+    checking.value = false
+  }
+}
+function armExpiry(result) {
+  if (expiryTimer) clearTimeout(expiryTimer)
+  const remaining = new Date(result.expires_at).getTime() - Date.now()
+  if (remaining > 0) expiryTimer = setTimeout(() => unauthorized(), Math.min(remaining + 250, 2147480000))
+}
+function loggedIn(result) {
+  session.value = result
+  sessionNotice.value = ''
+  view.value = 'overview'
+  machineId.value = ''
+  certificateSha.value = ''
+  armExpiry(result)
+}
+async function logout() {
+  try { await api.logout() } catch (e) { /* session may already be gone */ }
+  if (expiryTimer) clearTimeout(expiryTimer)
+  session.value = null
+  sessionNotice.value = 'Вы вышли из админки.'
+  view.value = 'overview'
+}
+function navigate(next) {
+  view.value = next
+  machineId.value = ''
+  certificateSha.value = ''
+}
+function openMachine(id) { machineId.value = id; view.value = 'machine' }
+function openCertificate(sha) { certificateSha.value = sha; view.value = 'certificate' }
+function unauthorized() {
+  if (session.value) {
+    if (expiryTimer) clearTimeout(expiryTimer)
+    session.value = null
+    sessionNotice.value = 'Сеанс истёк. Войдите снова.'
+  }
+}
+onMounted(() => {
+  window.addEventListener('telehack:unauthorized', unauthorized)
+  checkSession()
+})
+onUnmounted(() => {
+  window.removeEventListener('telehack:unauthorized', unauthorized)
+  if (expiryTimer) clearTimeout(expiryTimer)
+})
 </script>
 
 <template>
-  <main>
-    <h1>{{ title }}</h1>
-    <p>Админка будет реализована в P08. Текущий объём — P01–P07.</p>
-  </main>
+  <div v-if="checking" class="boot-screen"><div class="spinner"></div><p>Проверка сеанса…</p></div>
+  <div v-else-if="bootError" class="boot-screen">
+    <div class="boot-error"><strong>Backend недоступен</strong><p>{{ bootError }}</p><button class="btn btn-primary" @click="checkSession">Повторить</button></div>
+  </div>
+  <Login v-else-if="!session" :notice="sessionNotice" @logged-in="loggedIn" />
+  <div v-else class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand"><div class="brand-mark">TH</div><div><div class="brand-name">Telehack 2026</div><div class="sidebar-subtitle">CryptoPro inventory</div></div></div>
+      <nav class="nav">
+        <button v-for="item in nav" :key="item.id" class="nav-item" :class="{ active: view === item.id || (item.id === 'machines' && view === 'machine') || (item.id === 'certificates' && view === 'certificate') }" @click="navigate(item.id)">
+          <span>{{ item.label }}</span><small>{{ item.hint }}</small>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-chip"><span class="avatar">{{ session.username?.slice(0, 1).toUpperCase() }}</span><div><strong>{{ session.username }}</strong><small>администратор</small></div></div>
+        <button class="btn btn-quiet btn-wide" @click="logout">Выйти</button>
+      </div>
+    </aside>
+    <main class="content">
+      <header class="topbar"><div><span class="eyebrow">Локальная админка</span><h1>{{ title }}</h1></div><div class="topbar-status"><span class="status-dot"></span> HTTPS · SQL Server</div></header>
+      <div class="content-body">
+        <OverviewView v-if="view === 'overview'" @navigate="navigate" />
+        <MachinesView v-else-if="view === 'machines'" @open-machine="openMachine" />
+        <MachineDetail v-else-if="view === 'machine'" :machine-id="machineId" @back="navigate('machines')" @open-machine="openMachine" />
+        <CertificatesView v-else-if="view === 'certificates'" @open-certificate="openCertificate" />
+        <CertificateDetail v-else-if="view === 'certificate'" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />
+        <LicensingView v-else-if="view === 'licensing'" />
+        <HostnamesView v-else-if="view === 'hostnames'" @open-machine="openMachine" />
+        <EventsView v-else-if="view === 'events'" />
+        <SettingsView v-else-if="view === 'settings'" />
+      </div>
+      <footer class="app-footer">Telehack 2026 · только авторизованный административный доступ</footer>
+    </main>
+  </div>
 </template>

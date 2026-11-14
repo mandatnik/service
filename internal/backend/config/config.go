@@ -41,6 +41,7 @@ type Config struct {
 	LogFile               string `json:"log_file"`
 	MaxConcurrentReports  int    `json:"max_concurrent_reports"`
 	MaxConcurrentRequests int    `json:"max_concurrent_requests"`
+	AdminSessionHours     int    `json:"admin_session_hours"`
 	DB                    DB     `json:"db"`
 
 	// Path is filled by Load and is not part of the JSON schema.
@@ -101,6 +102,12 @@ func (c *Config) Validate() error {
 	}
 	if c.MaxConcurrentRequests < 1 || c.MaxConcurrentRequests > 1024 {
 		return fmt.Errorf("max_concurrent_requests must be between 1 and 1024")
+	}
+	if c.AdminSessionHours == 0 {
+		c.AdminSessionHours = 12
+	}
+	if c.AdminSessionHours < 1 || c.AdminSessionHours > 72 {
+		return fmt.Errorf("admin_session_hours must be between 1 and 72")
 	}
 	if err := c.DB.Validate(); err != nil {
 		return err

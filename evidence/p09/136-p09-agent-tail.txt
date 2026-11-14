@@ -1,0 +1,60 @@
+﻿2026-11-14 10:09:27.854 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=2
+2026-11-14 10:09:27.962 - collection finished in 106ms: scan_seq=6 status=partial complete=false profiles=6 sources=6 certificates=0 csp_present=true csp_complete=true job_count=2 errors=2
+2026-11-14 10:09:27.962 - collection error: S-1-5-21-2458881001-951638917-3945708937-1105: decode C:\Users\mimbol\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\3B9FBEDBB5E328ABBC1031094A65B2C3CB35E416: unsupported file-store element format
+2026-11-14 10:09:27.962 - collection error: S-1-5-21-2458881001-951638917-3945708937-9999: RegLoadKey(C:\Windows\Temp\p10-profile\NTUSER.DAT): An I/O operation initiated by the registry failed unrecoverably. The registry could not read in, or write out, or flush, one of the files that contain the system's image of the registry.
+2026-11-14 10:09:57.973 - delivering report 68c2d9f9-d0ce-4da3-b4c5-bac2e834e7b9 scan_seq=6
+2026-11-14 10:09:58.026 - report 68c2d9f9-d0ce-4da3-b4c5-bac2e834e7b9 accepted duplicate=false applied=true
+2026-11-14 10:09:58.032 - job 65343c1e-1bb6-44ec-98b4-a147b4e5f4ba acknowledged as completed
+2026-11-14 10:09:58.036 - job d0a5f0cf-6ed7-4fa6-aaf3-2b526daf5c86 acknowledged as completed
+2026-11-14 10:10:54.972 - agent cycle stopping
+2026-11-14 10:10:55.251 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:10:55.256 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-1
+2026-11-14 10:10:55.256 - identity uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 pending_rename=false
+2026-11-14 10:10:55.256 - queue items=0 scan_seq=6 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:10:55.256 - agent cycle started
+2026-11-14 10:11:16.287 - registration failed: status=0 code=network_error message=Post "https://192.168.189.138:9443/api/agent/v1/register": dial tcp 192.168.189.138:9443: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.
+2026-11-14 10:12:37.346 - registration failed: status=0 code=network_error message=Post "https://192.168.189.138:9443/api/agent/v1/register": dial tcp 192.168.189.138:9443: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.
+2026-11-14 10:14:07.327 - registration failed: status=0 code=network_error message=Post "https://192.168.189.138:9443/api/agent/v1/register": dial tcp 192.168.189.138:9443: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.
+2026-11-14 10:15:16.315 - registration ok: machine_id=1281d73a-6df4-4378-891d-28c0e9e2fe39 uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 warnings=[dns_unverified]
+2026-11-14 10:15:16.322 - sync warnings: [dns_unverified]
+2026-11-14 10:15:16.322 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=1
+2026-11-14 10:15:16.432 - collection finished in 108ms: scan_seq=7 status=partial complete=false profiles=5 sources=5 certificates=0 csp_present=true csp_complete=true job_count=1 errors=1
+2026-11-14 10:15:16.432 - collection error: S-1-5-21-2458881001-951638917-3945708937-1105: decode C:\Users\mimbol\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\3B9FBEDBB5E328ABBC1031094A65B2C3CB35E416: unsupported file-store element format
+2026-11-14 10:15:46.294 - delivering report 19350449-8817-4c3d-a890-837adb0a742b scan_seq=7
+2026-11-14 10:15:46.314 - report 19350449-8817-4c3d-a890-837adb0a742b deferred: status=200 code=client_decode message=unexpected end of JSON input
+2026-11-14 10:15:46.321 - job 7a59ae2b-a9b8-4c40-8a1c-9caf232a15a1 acknowledged as completed
+2026-11-14 10:16:16.288 - delivering report 19350449-8817-4c3d-a890-837adb0a742b scan_seq=7
+2026-11-14 10:16:16.293 - report 19350449-8817-4c3d-a890-837adb0a742b accepted duplicate=true applied=false
+2026-11-14 10:17:09.600 - agent cycle stopping
+2026-11-14 10:17:09.865 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:17:09.869 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-1
+2026-11-14 10:17:09.869 - identity uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 pending_rename=false
+2026-11-14 10:17:09.869 - queue items=0 scan_seq=7 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:17:09.869 - agent cycle started
+2026-11-14 10:17:09.894 - registration ok: machine_id=1281d73a-6df4-4378-891d-28c0e9e2fe39 uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 warnings=[]
+2026-11-14 10:17:09.898 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0
+2026-11-14 10:23:49.867 - agent cycle stopping
+2026-11-14 10:24:11.509 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:24:11.513 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-1
+2026-11-14 10:24:11.513 - identity uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 pending_rename=false
+2026-11-14 10:24:11.513 - queue items=0 scan_seq=7 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:24:11.513 - agent cycle started
+2026-11-14 10:24:11.533 - save state after registration: open C:\ProgramData\Telehack2026\Agent\.tmp-state.json-222401628: There is not enough space on the disk.
+2026-11-14 10:24:11.534 - registration ok: machine_id=1281d73a-6df4-4378-891d-28c0e9e2fe39 uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 warnings=[]
+2026-11-14 10:24:11.535 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0
+2026-11-14 10:24:26.654 - agent cycle stopping
+2026-11-14 10:24:28.994 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:24:28.999 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-1
+2026-11-14 10:24:28.999 - identity uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 pending_rename=false
+2026-11-14 10:24:28.999 - queue items=0 scan_seq=7 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:24:28.999 - agent cycle started
+2026-11-14 10:24:29.021 - registration ok: machine_id=1281d73a-6df4-4378-891d-28c0e9e2fe39 uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 warnings=[]
+2026-11-14 10:24:29.022 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0
+2026-11-14 10:24:35.307 - agent cycle stopping
+2026-11-14 10:24:38.848 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:24:38.852 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-1
+2026-11-14 10:24:38.852 - identity uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 pending_rename=false
+2026-11-14 10:24:38.852 - queue items=0 scan_seq=7 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:24:38.852 - agent cycle started
+2026-11-14 10:24:38.876 - registration ok: machine_id=1281d73a-6df4-4378-891d-28c0e9e2fe39 uuid=99bb6b95-de93-4d85-975d-0339ab50f2f0 hostname=WORKSTATION-1 warnings=[]
+2026-11-14 10:24:38.879 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0

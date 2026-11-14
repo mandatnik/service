@@ -6,11 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
+	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
 	"telehack2026/internal/platform"
@@ -55,6 +59,13 @@ func InstallService(configPath string) error {
 		return fmt.Errorf("create service: %w", err)
 	}
 	defer service.Close()
+	if err := configureRecovery(service); err != nil {
+		return err
+	}
+	return nil
+}
+
+func configureRecovery(service *mgr.Service) error {
 	actions := []mgr.RecoveryAction{
 		{Type: mgr.ServiceRestart, Delay: 5 * time.Second},
 		{Type: mgr.ServiceRestart, Delay: 15 * time.Second},
@@ -67,6 +78,100 @@ func InstallService(configPath string) error {
 		return fmt.Errorf("set recovery on non-crash failures: %w", err)
 	}
 	return nil
+}
+
+// ConfigureServiceRecovery is invoked by the MSI after ServiceInstall. It
+// applies the same restart policy as a manual install without touching state.
+func ConfigureServiceRecovery() error {
+	manager, err := mgr.Connect()
+	if err != nil {
+		return fmt.Errorf("connect to SCM: %w", err)
+	}
+	defer manager.Disconnect()
+	service, err := manager.OpenService(ServiceName)
+	if err != nil {
+		return fmt.Errorf("open service: %w", err)
+	}
+	defer service.Close()
+	return configureRecovery(service)
+}
+
+// UninstallProduct delegates to the Windows Installer for an MSI-installed
+// product. Local developer installs retain the explicit local fallback.
+func UninstallProduct(purge bool) (string, error) {
+	if code, ok := installedMSIProduct(); ok {
+		// The MSI owns the service and program files. The CLI owns the
+		// per-machine state: stop the service, remove identity/key/queue/logs,
+		// then hand product removal to the Windows Installer. The GPO-managed
+		// agent-config.json lives above AgentDir and is intentionally kept.
+		_ = StopService()
+		if err := os.RemoveAll(platform.AgentDir()); err != nil {
+			return "", fmt.Errorf("purge agent state: %w", err)
+		}
+		logPath, err := startMSIUninstall(code)
+		if err != nil {
+			return "", err
+		}
+		return "MSI uninstall started; log: " + logPath, nil
+	}
+	if err := UninstallService(purge); err != nil {
+		return "", err
+	}
+	return "local service removed", nil
+}
+
+var msiProductCodePattern = regexp.MustCompile(`^\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}$`)
+
+func installedMSIProduct() (string, bool) {
+	root, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`, registry.READ)
+	if err != nil {
+		return "", false
+	}
+	defer root.Close()
+	names, err := root.ReadSubKeyNames(-1)
+	if err != nil {
+		return "", false
+	}
+	for _, name := range names {
+		if !msiProductCodePattern.MatchString(name) {
+			continue
+		}
+		key, err := registry.OpenKey(root, name, registry.READ)
+		if err != nil {
+			continue
+		}
+		displayName, _, _ := key.GetStringValue("DisplayName")
+		publisher, _, _ := key.GetStringValue("Publisher")
+		key.Close()
+		if strings.EqualFold(displayName, "Telehack 2026 Agent") && strings.EqualFold(publisher, "Telehack 2026") {
+			return strings.ToUpper(name), true
+		}
+	}
+	return "", false
+}
+
+func startMSIUninstall(productCode string) (string, error) {
+	if !msiProductCodePattern.MatchString(productCode) {
+		return "", fmt.Errorf("invalid MSI product code")
+	}
+	logPath := filepath.Join(os.TempDir(), "telehack-agent-uninstall-"+time.Now().UTC().Format("20060102T150405Z")+".log")
+	msiexec := filepath.Join(os.Getenv("SystemRoot"), "System32", "msiexec.exe")
+	cmd := exec.Command(msiexec, "/x", productCode, "/qn", "/norestart", "/l*v", logPath)
+	cmd.Dir = os.TempDir()
+	null, nullErr := os.OpenFile(os.DevNull, os.O_RDWR, 0)
+	if nullErr == nil {
+		defer null.Close()
+		cmd.Stdin = null
+		cmd.Stdout = null
+		cmd.Stderr = null
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x00000008 | 0x00000200 | 0x01000000}
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("start MSI uninstall: %w", err)
+	}
+	// Windows Installer starts in its own process; this CLI exits immediately
+	// so the installed EXE is not held open when the file table is removed.
+	return logPath, nil
 }
 
 // UninstallService stops and deletes the service. purge also removes the

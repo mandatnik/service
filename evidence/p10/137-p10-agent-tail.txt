@@ -1,0 +1,10 @@
+﻿2026-11-14 10:41:20.001 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T05:37:33Z)
+2026-11-14 10:41:20.019 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-2
+2026-11-14 10:41:20.019 - identity uuid=dd4ee7e0-7329-4f24-97ec-daa428d0c6ee hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 10:41:20.019 - queue items=0 scan_seq=0 config_hash=
+2026-11-14 10:41:20.019 - agent cycle started
+2026-11-14 10:41:20.082 - registration ok: machine_id=0cae45ad-d997-4622-b998-24e805790d2e uuid=dd4ee7e0-7329-4f24-97ec-daa428d0c6ee hostname=WORKSTATION-2 warnings=[hostname_conflict]
+2026-11-14 10:41:20.084 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0
+2026-11-14 10:41:20.281 - collection finished in 194ms: scan_seq=1 status=complete complete=true profiles=5 sources=5 certificates=0 csp_present=true csp_complete=true job_count=0 errors=0
+2026-11-14 10:41:50.287 - delivering report 17a15b71-18b4-48be-b95d-b9252f2f7e99 scan_seq=1
+2026-11-14 10:41:50.309 - report 17a15b71-18b4-48be-b95d-b9252f2f7e99 accepted duplicate=false applied=true

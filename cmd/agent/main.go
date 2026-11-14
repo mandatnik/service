@@ -36,13 +36,20 @@ func main() {
 		fmt.Println("service installed:", agent.ServiceName)
 	case "uninstall":
 		fs := flag.NewFlagSet("uninstall", flag.ExitOnError)
-		purge := fs.Bool("purge", false, "remove agent identity, queue and logs")
+		purge := fs.Bool("purge", false, "remove agent identity, queue and logs for a local install")
 		_ = fs.Parse(os.Args[2:])
-		if err := agent.UninstallService(*purge); err != nil {
+		method, err := agent.UninstallProduct(*purge)
+		if err != nil {
 			fmt.Fprintln(os.Stderr, "uninstall:", err)
 			os.Exit(1)
 		}
-		fmt.Println("service removed")
+		fmt.Println(method)
+	case "service-config":
+		if err := agent.ConfigureServiceRecovery(); err != nil {
+			fmt.Fprintln(os.Stderr, "service-config:", err)
+			os.Exit(1)
+		}
+		fmt.Println("service recovery configured")
 	case "start", "stop":
 		var err error
 		if os.Args[1] == "start" {
@@ -102,11 +109,14 @@ Usage:
   telehack-agent.exe version
   telehack-agent.exe install [-config PATH]
   telehack-agent.exe uninstall [-purge]
+  telehack-agent.exe service-config
   telehack-agent.exe run [-config PATH]
   telehack-agent.exe start | stop | status | diag
   telehack-agent.exe reset-identity --confirm
 
-Normal operation requires no CLI after install. The command set does not add
-inbound ports or change user certificate stores.
+uninstall delegates to the MSI when the product is installed by MSI and
+removes agent-owned state on a full uninstall. Normal operation requires no
+CLI after install. The command set does not add inbound ports or change user
+certificate stores.
 `)
 }

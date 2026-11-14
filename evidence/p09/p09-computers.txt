@@ -1,0 +1,7 @@
+﻿
+Name          DistinguishedName                                     
+----          -----------------                                     
+WORKSTATION-1 CN=WORKSTATION-1,OU=Telehack P09 Test,DC=HACK,DC=LOCAL
+WORKSTATION-2 CN=WORKSTATION-2,OU=Telehack P09 Test,DC=HACK,DC=LOCAL
+
+

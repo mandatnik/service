@@ -1,0 +1,48 @@
+﻿2026-11-14 09:52:17.664 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 09:52:17.682 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-2
+2026-11-14 09:52:17.682 - identity uuid=9c673218-5245-4dae-9b26-a96886f02b51 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 09:52:17.682 - queue items=0 scan_seq=0 config_hash=
+2026-11-14 09:52:17.682 - agent cycle started
+2026-11-14 09:52:17.713 - registration ok: machine_id=285a1b69-d7c5-40fb-8170-e3e3be506d1e uuid=9c673218-5245-4dae-9b26-a96886f02b51 hostname=WORKSTATION-2 warnings=[hostname_conflict]
+2026-11-14 09:52:17.716 - sync ok: config_hash=c2653b59a665a0d031f2eed69d44fe71c5124f8a2a0d8c18170bb542d74ac51e config_received=false jobs=0
+2026-11-14 09:52:18.008 - collection finished in 291ms: scan_seq=1 status=complete complete=true profiles=5 sources=6 certificates=1 csp_present=true csp_complete=true job_count=0 errors=0
+2026-11-14 09:52:48.020 - delivering report 189f46ac-34ff-463c-b3e3-6788426df059 scan_seq=1
+2026-11-14 09:52:48.049 - report 189f46ac-34ff-463c-b3e3-6788426df059 accepted duplicate=false applied=true
+2026-11-14 10:02:17.634 - sync ok: config_hash=d83fc1d259cc104e3ac66aa8b1812820a52efc66c7a93e97a98cc452cd315ae4 config_received=true jobs=0
+2026-11-14 10:12:17.604 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=true jobs=0
+2026-11-14 10:17:46.825 - agent cycle stopping
+2026-11-14 10:17:47.406 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:17:47.423 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-2
+2026-11-14 10:17:47.423 - identity uuid=9c673218-5245-4dae-9b26-a96886f02b51 hostname=WORKSTATION-2 pending_rename=false
+2026-11-14 10:17:47.423 - queue items=0 scan_seq=1 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:17:47.423 - agent cycle started
+2026-11-14 10:17:47.451 - registration ok: machine_id=285a1b69-d7c5-40fb-8170-e3e3be506d1e uuid=9c673218-5245-4dae-9b26-a96886f02b51 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 10:17:47.459 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=1
+2026-11-14 10:17:47.649 - collection finished in 189ms: scan_seq=2 status=complete complete=true profiles=5 sources=5 certificates=0 csp_present=true csp_complete=true job_count=1 errors=0
+2026-11-14 10:18:17.664 - delivering report b28092a7-3e75-45cf-a193-2d76d0c3c0a1 scan_seq=2
+2026-11-14 10:18:38.719 - report b28092a7-3e75-45cf-a193-2d76d0c3c0a1 deferred: network error: Post "https://192.168.189.138:8443/api/agent/v1/report": dial tcp 192.168.189.138:8443: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.
+2026-11-14 10:18:46.402 - agent cycle stopping
+2026-11-14 10:19:02.082 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:19:02.095 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-2A
+2026-11-14 10:19:02.095 - identity uuid=9c673218-5245-4dae-9b26-a96886f02b51 hostname=WORKSTATION-2 pending_rename=true
+2026-11-14 10:19:02.095 - queue items=1 scan_seq=2 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:19:02.095 - agent cycle started
+2026-11-14 10:19:23.314 - registration failed: status=0 code=network_error message=Post "https://192.168.189.138:8443/api/agent/v1/register": dial tcp 192.168.189.138:8443: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.
+2026-11-14 10:20:44.396 - registration failed: status=0 code=network_error message=Post "https://192.168.189.138:8443/api/agent/v1/register": dial tcp 192.168.189.138:8443: connectex: A connection attempt failed because the connected party did not properly respond after a period of time, or established connection failed because connected host has failed to respond.
+2026-11-14 10:21:53.372 - registration ok: machine_id=285a1b69-d7c5-40fb-8170-e3e3be506d1e uuid=9c673218-5245-4dae-9b26-a96886f02b51 hostname=WORKSTATION-2 warnings=[]
+2026-11-14 10:21:53.373 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=1
+2026-11-14 10:21:53.387 - delivering report b28092a7-3e75-45cf-a193-2d76d0c3c0a1 scan_seq=2
+2026-11-14 10:21:53.426 - report b28092a7-3e75-45cf-a193-2d76d0c3c0a1 accepted duplicate=false applied=true
+2026-11-14 10:21:53.432 - job 8d5e51f4-8fae-4c33-85bb-5e80a93ffcd7 acknowledged as completed
+2026-11-14 10:22:23.325 - attempting signed rename 9c673218-5245-4dae-9b26-a96886f02b51 -> 14abd8e3-262e-47ab-9fec-465f09aabad6
+2026-11-14 10:22:23.360 - rename committed: machine_id=285a1b69-d7c5-40fb-8170-e3e3be506d1e uuid=14abd8e3-262e-47ab-9fec-465f09aabad6 hostname=WORKSTATION-2A warnings=[]
+2026-11-14 10:25:12.301 - agent cycle stopping
+2026-11-14 10:25:26.797 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T04:34:42Z)
+2026-11-14 10:25:26.828 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-2
+2026-11-14 10:25:26.828 - identity uuid=14abd8e3-262e-47ab-9fec-465f09aabad6 hostname=WORKSTATION-2A pending_rename=true
+2026-11-14 10:25:26.828 - queue items=0 scan_seq=2 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:25:26.828 - agent cycle started
+2026-11-14 10:25:27.056 - registration ok: machine_id=285a1b69-d7c5-40fb-8170-e3e3be506d1e uuid=14abd8e3-262e-47ab-9fec-465f09aabad6 hostname=WORKSTATION-2A warnings=[]
+2026-11-14 10:25:27.082 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0
+2026-11-14 10:25:27.082 - attempting signed rename 14abd8e3-262e-47ab-9fec-465f09aabad6 -> 292268a5-fd1a-4698-8138-55295103fb7f
+2026-11-14 10:25:27.143 - rename committed: machine_id=285a1b69-d7c5-40fb-8170-e3e3be506d1e uuid=292268a5-fd1a-4698-8138-55295103fb7f hostname=WORKSTATION-2 warnings=[]

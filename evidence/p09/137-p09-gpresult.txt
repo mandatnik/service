@@ -1,0 +1,55 @@
+﻿
+Microsoft (R) Windows (R) Operating System Group Policy Result tool v2.0
+c Microsoft Corporation. All rights reserved.
+
+Created on ?11/?14/?2026 at 10:29:20 AM
+
+
+
+RSOP data for  on WORKSTATION-2 : Logging Mode
+-----------------------------------------------
+
+OS Configuration:            Member Workstation
+OS Version:                  10.0.19045
+Site Name:                   Default-First-Site-Name
+Roaming Profile:             
+Local Profile:               
+Connected over a slow link?: No
+
+
+COMPUTER SETTINGS
+------------------
+    CN=WORKSTATION-2,OU=Telehack P09 Test,DC=HACK,DC=LOCAL
+    Last time Group Policy was applied: 11/14/2026 at 10:25:25 AM
+    Group Policy was applied from:      SERVER-WINDOWS.HACK.LOCAL
+    Group Policy slow link threshold:   500 kbps
+    Domain Name:                        HACK
+    Domain Type:                        Windows 2008 or later
+
+    Applied Group Policy Objects
+    -----------------------------
+        Telehack P09 Test
+        Default Domain Policy
+
+    The following GPOs were not applied because they were filtered out
+    -------------------------------------------------------------------
+        Telehack P09 Test
+            Filtering:  Disabled (Link)
+
+        Local Group Policy
+            Filtering:  Not Applied (Empty)
+
+    The computer is a part of the following security groups
+    -------------------------------------------------------
+        BUILTIN\Administrators
+        Everyone
+        BUILTIN\Users
+        NT AUTHORITY\NETWORK
+        NT AUTHORITY\Authenticated Users
+        This Organization
+        WORKSTATION-2$
+        Domain Computers
+        TelehackP09Computers
+        Authentication authority asserted identity
+        System Mandatory Level
+        

@@ -109,9 +109,15 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	case "proxy":
+		if err := runP10Proxy(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "proxy:", err)
+			os.Exit(1)
+		}
 	case "help", "-h", "--help":
 		fmt.Println("usage: acceptance contract -config acceptance.json [-evidence DIR]")
 		fmt.Println("       acceptance config -config acceptance.json -interval 1 -dirs 'C:\\certs'")
+		fmt.Println("       acceptance proxy -listen 0.0.0.0:9443 -backend https://... -cert ... -key ... -ca ...")
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n", os.Args[1])
 		os.Exit(2)

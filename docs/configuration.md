@@ -101,10 +101,13 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
     "ca_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\tls-ca.crt"
   },
   "max_concurrent_reports": 8,
-  "max_concurrent_requests": 64
+  "max_concurrent_requests": 64,
+  "admin_session_hours": 12
 }
 ```
 
+- `admin_session_hours` — срок жизни сессии администратора, 1–72 часа
+  (по умолчанию 12). Cookie сессии HttpOnly/Secure/SameSite=Strict.
 - Пароль БД не хранится в файле: только имя переменной окружения.
 - `trust_server_certificate=true` допустим только как явная диагностическая
   настройка; в примере и на стенде — `false`.

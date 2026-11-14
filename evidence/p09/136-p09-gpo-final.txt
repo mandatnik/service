@@ -1,0 +1,4 @@
+﻿2026-11-14T09:52:14.7466685+05:00 GPO startup: begin
+2026-11-14T09:52:14.8086586+05:00 GPO startup: config copied
+2026-11-14T09:52:17.9203308+05:00 GPO startup: msiexec exit=0
+2026-11-14T09:52:18.2476425+05:00 GPO startup: service start requested

@@ -16,13 +16,17 @@
 - `internal/agent/winapi` — WinAPI-адаптеры: профили, offline hive, CryptoAPI,
   COM-лицензии, DPAPI, ACL, SCM.
 - `internal/backend` — HTTP API, SQL-хранилище, миграции.
-- `migrations/` — SQL-миграции SQL Server 2019.
-- `deploy/stand/` — воспроизводимая настройка стенда.
+- `internal/backend/migrations/` — SQL-миграции SQL Server 2019.
+- `frontend/` — Vue 3 + Vite; `internal/backend/web/dist/` — встроенный бандл.
+- `deploy/msi/`, `deploy/gpo/` — MSI и GPO deployment.
 - `docs/` — контракты, решения, конфигурация, приёмочные протоколы.
 
-Объём текущей реализации: **P01–P07** (ARCHITECTURE/IMPLEMENTATION_PLAN).
-Админка P08, MSI P09, нагрузка P11 и финальная поставка P12 в этот объём не
-входят; отсутствие этих функций не является незавершённостью P07.
+Объём текущей реализации: **P01–P10** (ARCHITECTURE/IMPLEMENTATION_PLAN).
+P11 (нагрузка 200+) и P12 (финальная поставка) в этот объём не входят.
+
+Админка — Vue 3/Vite, собирается в один HTML/CSS/JS и встроена в backend
+EXE. MSI/GPO/upgrade/repair/uninstall описаны в `deploy/msi` и
+`deploy/gpo`; приёмка — `docs/acceptance/P08.md`, `P09.md`, `P10.md`.
 
 ## Сборка
 
@@ -42,7 +46,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/telehack-backend.exe ./c
 
 Подробно: [docs/build.md](docs/build.md), [docs/configuration.md](docs/configuration.md),
 [docs/protocol.md](docs/protocol.md), [docs/decisions.md](docs/decisions.md),
-[docs/stand-setup.md](docs/stand-setup.md).
+[docs/admin.md](docs/admin.md), [docs/stand-setup.md](docs/stand-setup.md).
 
 ## Тестовые данные
 

@@ -1,0 +1,11 @@
+﻿
+Name                               Length
+----                               ------
+telehack-agent-install-2.log       115630
+telehack-agent-install.log         119900
+telehack-agent-uninstall-clean.log 110322
+telehack-agent-upgrade.log         226924
+telehack-gpo-msi.log               119072
+telehack-gpo-wrapper.log                0
+
+

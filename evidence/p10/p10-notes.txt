@@ -1,0 +1,14 @@
+P10 stand test notes (sanitized)
+- Corrupt queue archived: report-corrupt-p10.json, 2026-11-14T04:57:44Z.
+- Corrupt config: service Stopped with agent configuration failed; restored and Running.
+- Busy profile: user1 NTUSER.DAT loaded in HKU, RegLoadKey sharing violation, report partial; unloaded.
+- Corrupt profile: temporary ProfileList SID ...-9999 with bad NTUSER.DAT, registry read error; profile/key removed.
+- Corrupt folder/file: p10-bad/broken.cer and p10-missing produced partial; test config removed afterwards.
+- COM unavailable: HKCR\CPCSPLicense.CPCSPLicense temporarily deleted; csp_complete=false; restored, next scan csp_complete=true.
+- SQL unavailable: MSSQLSERVER stopped, admin login HTTP 503; restarted, login/overview recovered. Screenshots in this directory.
+- Backend down: report deferred with network error, queue preserved; after restart accepted.
+- Lost response: acceptance-only TLS proxy :9443 dropped first /report response after backend commit; retry same report_id returned duplicate=true applied=false.
+- Rename with queue: report b28092a7... delivered before signed rename; machine_id 285a1b69... kept; hostnames WORKSTATION-2 -> 2A -> 2.
+- Disk full: 16 MB VHD mounted as AgentDir junction, volume filled; state save failed with "not enough space"; after free/restart state save and sync recovered. VHD/junction removed.
+- TLS: hostname mismatch telehack-p10.invalid failed x509 verification; SQL wrong CA failed unknown authority; correct CA health OK.
+- Cleanup: GPO/OU/share, test profile SID, hosts entry, firewall rule, proxy task, VHD and test folders removed.

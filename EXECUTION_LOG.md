@@ -72,7 +72,38 @@ state/jobs durable, повторы с новым request_id/тем же report_i
 Публикация: один монорепозиторий в Gitea (`pdoexception/telehack2026`),
 private, плюс release-артефакты; свежий clone проверен.
 
+## P08 — админка Vue + Vite
+
+Статус: завершён. Локальный bcrypt-администратор, сессии в SQL с
+HttpOnly/Secure/SameSite cookie, CSRF double-submit, rate limit; API
+машин/пользователей/сертификатов/лицензий/событий/заданий/конфигурации/
+hostname. Ручное сканирование, изменение расписания/папок, rebind/revoke,
+разрешение hostname-конфликтов. Vue 3.5.45/Vite 6.4.6, один
+HTML/CSS/JS, `go:embed`, без CDN. Проверено Chromium 158 на реальных
+данных `.136/.137`, включая истечение сеанса и недоступную БД. Протокол:
+`docs/acceptance/P08.md`; скриншоты: `evidence/p08/`.
+
+## P09 — MSI, GPO, upgrade/uninstall
+
+Статус: завершён. WiX 3.14.1 MSI 0.2.0/0.3.0; LocalSystem-служба,
+ProgramData ACL, пример конфига, recovery, upgrade с тем же UpgradeCode.
+Проверены чистая установка на обеих станциях, upgrade 0.2→0.3 с
+сохранением UUID/DPAPI/state/очереди (отчёт доставлен после backend down),
+repair, удаление через CLI/MSI, повреждённый MSI (1620) и переустановка с
+hostname-конфликтом. Реальная GPO: отдельная OU, startup script, config
+создан GPO, обе станции установились; GPO/OU/share очищены после теста.
+Протокол: `docs/acceptance/P09.md`; доказательства: `evidence/p09/`.
+
+## P10 — отказы и границы
+
+Статус: завершён. Проверены повреждённые очередь/конфиг, занятый и
+повреждённый профиль, недоступные папки/битый `.cer`, недоступный COM,
+остановленный SQL (UI 503), backend outage/queue recovery, потеря ответа
+после принятого отчёта (идемпотентный retry), рестарты, rename с
+неотправленной очередью, заполнение выделенного 16 MB VHD, TLS hostname/CA
+failure и восстановление, отсутствие inbound-портов/секретов/mounts.
+Протокол: `docs/acceptance/P10.md`; логи: `evidence/p10/`.
+
 ## Вне объёма
 
-P08 админка, P09 MSI, P10 расширенные отказы, P11 нагрузка 200+,
-P12 финальная поставка — не входят в поручение P01–P07.
+P11 нагрузка 200+, P12 финальная поставка.

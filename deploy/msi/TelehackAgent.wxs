@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product Id="$(var.ProductCode)"
+           Name="Telehack 2026 Agent"
+           Language="1049"
+           Version="$(var.ProductVersion)"
+           Manufacturer="Telehack 2026"
+           UpgradeCode="$(var.UpgradeCode)">
+    <Package InstallerVersion="500"
+             Compressed="yes"
+             InstallScope="perMachine"
+             Platform="x64"
+             Description="Telehack 2026 certificate and CryptoPro inventory agent"
+             Comments="LocalSystem service. Reads personal certificate stores and CSP state; never exports private keys." />
+    <MajorUpgrade DowngradeErrorMessage="A newer Telehack 2026 Agent is already installed."
+                  Schedule="afterInstallValidate"
+                  MigrateFeatures="yes" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="ARPNOREPAIR" Value="0" />
+    <Property Id="ARPCOMMENTS" Value="Telehack 2026 inventory agent" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="CompanyFolder" Name="Telehack2026">
+          <Directory Id="INSTALLFOLDER" Name="Agent" />
+        </Directory>
+      </Directory>
+      <Directory Id="CommonAppDataFolder">
+        <Directory Id="DataFolder" Name="Telehack2026">
+          <Directory Id="AgentDataFolder" Name="Agent">
+            <Directory Id="LogsFolder" Name="logs" />
+            <Directory Id="QueueFolder" Name="queue" />
+          </Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="AgentServiceComponent" Guid="{3B4743C0-6F7A-4E89-9CAF-E994B0F63D11}" Win64="yes">
+        <File Id="AgentExe" Source="$(var.AgentExe)" Name="telehack-agent.exe" KeyPath="yes" Vital="yes" />
+        <ServiceInstall Id="TelehackAgentService"
+                        Name="TelehackAgent"
+                        DisplayName="Telehack 2026 Agent"
+                        Description="Collects personal certificate inventory and CryptoPro CSP state."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem"
+                        Arguments="run -config &quot;[DataFolder]agent-config.json&quot;" />
+        <ServiceControl Id="TelehackAgentControl"
+                        Name="TelehackAgent"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+        <RemoveFolder Id="RemoveInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DataFolder">
+      <Component Id="DataRootComponent" Guid="{6CBB5408-A3F5-4C01-85E2-2347D684F03C}" Win64="yes">
+        <CreateFolder Directory="DataFolder">
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="DataRoot" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+      <Component Id="ExampleConfigComponent" Guid="{63EFB577-F545-4929-88A6-E6D94644A48B}" Win64="yes" NeverOverwrite="yes">
+        <File Id="ExampleConfig" Source="$(var.ExampleConfig)" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="AgentDataFolder">
+      <Component Id="AgentDataComponent" Guid="{CC98BD53-1A65-4893-B5E2-236976989FE6}" Win64="yes">
+        <CreateFolder Directory="AgentDataFolder">
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="AgentData" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="LogsFolder">
+      <Component Id="LogsComponent" Guid="{AE9F0267-6FC5-46E8-BA32-2F82C9A400B0}" Win64="yes">
+        <CreateFolder Directory="LogsFolder">
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="Logs" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="QueueFolder">
+      <Component Id="QueueComponent" Guid="{F9C63928-1CA4-4E74-9BA3-3C3CE3003F2A}" Win64="yes">
+        <CreateFolder Directory="QueueFolder">
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+        </CreateFolder>
+        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="Queue" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <CustomAction Id="ConfigureAgentServiceRecovery"
+                  FileKey="AgentExe"
+                  ExeCommand="service-config"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+    <InstallExecuteSequence>
+      <Custom Action="ConfigureAgentServiceRecovery" After="InstallServices">NOT Installed OR REINSTALL</Custom>
+    </InstallExecuteSequence>
+
+    <Feature Id="AgentFeature" Title="Telehack 2026 Agent" Level="1" Absent="disallow">
+      <ComponentRef Id="AgentServiceComponent" />
+      <ComponentRef Id="DataRootComponent" />
+      <ComponentRef Id="ExampleConfigComponent" />
+      <ComponentRef Id="AgentDataComponent" />
+      <ComponentRef Id="LogsComponent" />
+      <ComponentRef Id="QueueComponent" />
+    </Feature>
+  </Product>
+</Wix>

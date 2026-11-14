@@ -1,0 +1,160 @@
+﻿2026-11-14 10:04:48.728 - admin GET / status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:04:48.752 - admin GET /app.css status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:04:48.759 - admin GET /app.js status=200 duration=6ms remote=192.168.189.140
+2026-11-14 10:04:48.828 - admin GET /api/admin/v1/session status=401 duration=0s remote=192.168.189.140
+2026-11-14 10:04:48.845 - admin GET /favicon.ico status=204 duration=0s remote=192.168.189.140
+2026-11-14 10:04:51.288 - admin POST /api/admin/v1/login status=200 duration=198ms remote=192.168.189.140
+2026-11-14 10:04:51.321 - admin GET /api/admin/v1/overview status=200 duration=13ms remote=192.168.189.140
+2026-11-14 10:05:09.866 - admin POST /api/admin/v1/login status=200 duration=186ms remote=192.168.189.140
+2026-11-14 10:05:10.061 - admin PUT /api/admin/v1/config status=200 duration=5ms remote=192.168.189.140
+2026-11-14 10:05:59.530 - POST /api/agent/v1/register status=200 duration=18ms remote=192.168.189.136
+2026-11-14 10:05:59.537 - POST /api/agent/v1/sync status=200 duration=7ms remote=192.168.189.136
+2026-11-14 10:06:25.164 - POST /api/agent/v1/register status=200 duration=8ms remote=192.168.189.136
+2026-11-14 10:06:25.168 - POST /api/agent/v1/sync status=200 duration=1ms remote=192.168.189.136
+2026-11-14 10:06:38.487 - admin POST /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39/jobs status=202 duration=3ms remote=192.168.189.140
+2026-11-14 10:06:40.025 - POST /api/agent/v1/register status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:06:40.032 - POST /api/agent/v1/sync status=200 duration=6ms remote=192.168.189.136
+2026-11-14 10:07:10.187 - POST /api/agent/v1/report status=200 duration=36ms remote=192.168.189.136
+2026-11-14 10:07:10.193 - POST /api/agent/v1/jobs/ack status=200 duration=5ms remote=192.168.189.136
+2026-11-14 10:07:22.517 - admin GET /api/admin/v1/jobs status=200 duration=3ms remote=192.168.189.140
+2026-11-14 10:07:38.074 - admin GET / status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:07:38.100 - admin GET /app.css status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:07:38.106 - admin GET /app.js status=200 duration=6ms remote=192.168.189.140
+2026-11-14 10:07:38.256 - admin GET /api/admin/v1/session status=401 duration=0s remote=192.168.189.140
+2026-11-14 10:07:38.260 - admin GET /favicon.ico status=204 duration=0s remote=192.168.189.140
+2026-11-14 10:07:39.128 - admin POST /api/admin/v1/login status=200 duration=192ms remote=192.168.189.140
+2026-11-14 10:07:39.150 - admin GET /api/admin/v1/overview status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:07:39.414 - admin GET /api/admin/v1/machines status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:08:16.479 - admin GET / status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:08:16.529 - admin GET /app.css status=200 duration=7ms remote=192.168.189.140
+2026-11-14 10:08:16.534 - admin GET /app.js status=200 duration=12ms remote=192.168.189.140
+2026-11-14 10:08:16.587 - admin GET /api/admin/v1/session status=401 duration=0s remote=192.168.189.140
+2026-11-14 10:08:16.615 - admin GET /favicon.ico status=204 duration=0s remote=192.168.189.140
+2026-11-14 10:08:17.482 - admin POST /api/admin/v1/login status=200 duration=191ms remote=192.168.189.140
+2026-11-14 10:08:17.507 - admin GET /api/admin/v1/overview status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:08:17.685 - admin GET /api/admin/v1/machines status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:08:17.889 - admin GET /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39 status=200 duration=26ms remote=192.168.189.140
+2026-11-14 10:08:18.211 - admin POST /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39/jobs status=202 duration=7ms remote=192.168.189.140
+2026-11-14 10:08:18.228 - admin GET /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39 status=200 duration=9ms remote=192.168.189.140
+2026-11-14 10:08:19.395 - admin GET /api/admin/v1/certificates status=200 duration=4ms remote=192.168.189.140
+2026-11-14 10:08:19.593 - admin GET /api/admin/v1/certificates/dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9 status=200 duration=3ms remote=192.168.189.140
+2026-11-14 10:08:19.793 - admin GET /api/admin/v1/licensing status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:08:19.893 - admin GET /api/admin/v1/hostnames status=200 duration=1ms remote=192.168.189.140
+2026-11-14 10:08:19.978 - admin GET /api/admin/v1/events status=200 duration=3ms remote=192.168.189.140
+2026-11-14 10:08:20.192 - admin GET /api/admin/v1/config status=200 duration=1ms remote=192.168.189.140
+2026-11-14 10:09:10.879 - backend starting: 0.3.0 (commit working, built 2026-11-14T05:08:56Z)
+2026-11-14 10:09:10.934 - backend ready: agent=0.0.0.0:8443 admin=0.0.0.0:8444 db=192.168.189.138/Telehack2026
+2026-11-14 10:09:10.934 - admin listener starting on 0.0.0.0:8444
+2026-11-14 10:09:10.934 - agent listener starting on 0.0.0.0:8443
+2026-11-14 10:09:26.222 - admin POST /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39/jobs status=202 duration=8ms remote=192.168.189.140
+2026-11-14 10:09:27.842 - POST /api/agent/v1/register status=200 duration=16ms remote=192.168.189.136
+2026-11-14 10:09:27.850 - POST /api/agent/v1/sync status=200 duration=6ms remote=192.168.189.136
+2026-11-14 10:09:58.023 - POST /api/agent/v1/report status=200 duration=44ms remote=192.168.189.136
+2026-11-14 10:09:58.028 - POST /api/agent/v1/jobs/ack status=200 duration=5ms remote=192.168.189.136
+2026-11-14 10:09:58.033 - POST /api/agent/v1/jobs/ack status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:10:46.734 - admin POST /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39/jobs status=202 duration=1ms remote=192.168.189.140
+2026-11-14 10:12:17.601 - POST /api/agent/v1/sync status=200 duration=4ms remote=192.168.189.137
+2026-11-14 10:15:16.312 - POST /api/agent/v1/register status=200 duration=3ms remote=192.168.189.138
+2026-11-14 10:15:16.320 - POST /api/agent/v1/sync status=200 duration=4ms remote=192.168.189.138
+2026-11-14 10:15:46.313 - POST /api/agent/v1/report status=200 duration=11ms remote=192.168.189.138
+2026-11-14 10:15:46.320 - POST /api/agent/v1/jobs/ack status=200 duration=1ms remote=192.168.189.138
+2026-11-14 10:16:16.291 - POST /api/agent/v1/report status=200 duration=3ms remote=192.168.189.138
+2026-11-14 10:17:09.891 - POST /api/agent/v1/register status=200 duration=13ms remote=192.168.189.136
+2026-11-14 10:17:09.898 - POST /api/agent/v1/sync status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:17:27.066 - admin POST /api/admin/v1/login status=200 duration=188ms remote=192.168.189.140
+2026-11-14 10:17:27.256 - admin GET /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39 status=200 duration=26ms remote=192.168.189.140
+2026-11-14 10:17:44.997 - admin POST /api/admin/v1/machines/285a1b69-d7c5-40fb-8170-e3e3be506d1e/jobs status=202 duration=2ms remote=192.168.189.140
+2026-11-14 10:17:47.446 - POST /api/agent/v1/register status=200 duration=4ms remote=192.168.189.137
+2026-11-14 10:17:47.454 - POST /api/agent/v1/sync status=200 duration=5ms remote=192.168.189.137
+2026-11-14 10:21:30.794 - backend starting: 0.3.0 (commit working, built 2026-11-14T05:08:56Z)
+2026-11-14 10:21:30.853 - backend ready: agent=0.0.0.0:8443 admin=0.0.0.0:8444 db=192.168.189.138/Telehack2026
+2026-11-14 10:21:30.853 - admin listener starting on 0.0.0.0:8444
+2026-11-14 10:21:30.853 - agent listener starting on 0.0.0.0:8443
+2026-11-14 10:21:52.667 - POST /api/agent/v1/register status=200 duration=12ms remote=192.168.189.137
+2026-11-14 10:21:52.680 - POST /api/agent/v1/sync status=200 duration=6ms remote=192.168.189.137
+2026-11-14 10:21:52.727 - POST /api/agent/v1/report status=200 duration=38ms remote=192.168.189.137
+2026-11-14 10:21:52.732 - POST /api/agent/v1/jobs/ack status=200 duration=4ms remote=192.168.189.137
+2026-11-14 10:22:22.651 - POST /api/agent/v1/rename status=200 duration=21ms remote=192.168.189.137
+2026-11-14 10:23:52.500 - POST /api/agent/v1/register status=200 duration=19ms remote=192.168.189.136
+2026-11-14 10:23:52.507 - POST /api/agent/v1/sync status=200 duration=1ms remote=192.168.189.136
+2026-11-14 10:24:11.533 - POST /api/agent/v1/register status=200 duration=10ms remote=192.168.189.136
+2026-11-14 10:24:11.535 - POST /api/agent/v1/sync status=200 duration=1ms remote=192.168.189.136
+2026-11-14 10:24:29.019 - POST /api/agent/v1/register status=200 duration=12ms remote=192.168.189.136
+2026-11-14 10:24:29.023 - POST /api/agent/v1/sync status=200 duration=1ms remote=192.168.189.136
+2026-11-14 10:24:38.873 - POST /api/agent/v1/register status=200 duration=4ms remote=192.168.189.136
+2026-11-14 10:24:38.878 - POST /api/agent/v1/sync status=200 duration=5ms remote=192.168.189.136
+2026-11-14 10:24:52.829 - admin POST /api/admin/v1/login status=200 duration=203ms remote=192.168.189.140
+2026-11-14 10:24:53.015 - admin GET /api/admin/v1/machines/285a1b69-d7c5-40fb-8170-e3e3be506d1e status=200 duration=27ms remote=192.168.189.140
+2026-11-14 10:25:26.626 - POST /api/agent/v1/register status=200 duration=2ms remote=192.168.189.137
+2026-11-14 10:25:26.654 - POST /api/agent/v1/sync status=200 duration=25ms remote=192.168.189.137
+2026-11-14 10:25:26.685 - POST /api/agent/v1/rename status=200 duration=8ms remote=192.168.189.137
+2026-11-14 10:28:57.743 - backend starting: 0.3.0 (commit working, built 2026-11-14T05:28:41Z)
+2026-11-14 10:28:57.803 - backend ready: agent=0.0.0.0:8443 admin=0.0.0.0:8444 db=192.168.189.138/Telehack2026
+2026-11-14 10:28:57.803 - admin listener starting on 0.0.0.0:8444
+2026-11-14 10:28:57.803 - agent listener starting on 0.0.0.0:8443
+2026-11-14 10:32:33.815 - POST /api/agent/v1/register status=200 duration=26ms remote=192.168.189.136
+2026-11-14 10:32:33.825 - POST /api/agent/v1/sync status=200 duration=8ms remote=192.168.189.136
+2026-11-14 10:34:17.993 - POST /api/agent/v1/register status=200 duration=3ms remote=192.168.189.136
+2026-11-14 10:34:17.997 - POST /api/agent/v1/sync status=200 duration=4ms remote=192.168.189.136
+2026-11-14 10:34:50.101 - POST /api/agent/v1/register status=200 duration=14ms remote=192.168.189.136
+2026-11-14 10:34:50.108 - POST /api/agent/v1/sync status=200 duration=5ms remote=192.168.189.136
+2026-11-14 10:35:26.748 - POST /api/agent/v1/sync status=200 duration=4ms remote=192.168.189.137
+2026-11-14 10:36:16.688 - POST /api/agent/v1/register status=200 duration=0s remote=192.168.189.136
+2026-11-14 10:36:16.695 - POST /api/agent/v1/sync status=200 duration=1ms remote=192.168.189.136
+2026-11-14 10:36:30.620 - POST /api/agent/v1/register status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:36:30.624 - POST /api/agent/v1/sync status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:36:56.442 - POST /api/agent/v1/register status=200 duration=3ms remote=192.168.189.136
+2026-11-14 10:36:56.447 - POST /api/agent/v1/sync status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:37:50.788 - POST /api/agent/v1/register status=200 duration=4ms remote=192.168.189.136
+2026-11-14 10:37:50.794 - POST /api/agent/v1/sync status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:38:10.348 - POST /api/agent/v1/register status=200 duration=30ms remote=192.168.189.136
+2026-11-14 10:38:10.355 - POST /api/agent/v1/sync status=200 duration=2ms remote=192.168.189.136
+2026-11-14 10:38:13.377 - POST /api/agent/v1/register status=200 duration=14ms remote=192.168.189.136
+2026-11-14 10:38:13.382 - POST /api/agent/v1/sync status=200 duration=4ms remote=192.168.189.136
+2026-11-14 10:38:13.419 - POST /api/agent/v1/report status=200 duration=35ms remote=192.168.189.136
+2026-11-14 10:41:04.101 - POST /api/agent/v1/register status=200 duration=11ms remote=192.168.189.136
+2026-11-14 10:41:04.105 - POST /api/agent/v1/sync status=200 duration=4ms remote=192.168.189.136
+2026-11-14 10:41:20.080 - POST /api/agent/v1/register status=200 duration=19ms remote=192.168.189.137
+2026-11-14 10:41:20.084 - POST /api/agent/v1/sync status=200 duration=1ms remote=192.168.189.137
+2026-11-14 10:41:30.712 - POST /api/agent/v1/register status=200 duration=14ms remote=192.168.189.136
+2026-11-14 10:41:30.717 - POST /api/agent/v1/sync status=200 duration=3ms remote=192.168.189.136
+2026-11-14 10:41:30.724 - POST /api/agent/v1/report status=200 duration=6ms remote=192.168.189.136
+2026-11-14 10:41:40.974 - admin POST /api/admin/v1/login status=200 duration=200ms remote=192.168.189.140
+2026-11-14 10:41:41.138 - admin GET /api/admin/v1/machines status=200 duration=12ms remote=192.168.189.140
+2026-11-14 10:41:50.308 - POST /api/agent/v1/report status=200 duration=22ms remote=192.168.189.137
+2026-11-14 10:43:08.362 - admin GET /api/admin/v1/machines/2d088c2e-3228-4bba-92b7-5efe28980ae7 status=200 duration=21ms remote=192.168.189.140
+2026-11-14 10:43:08.510 - admin GET /api/admin/v1/machines/1281d73a-6df4-4378-891d-28c0e9e2fe39 status=200 duration=16ms remote=192.168.189.140
+2026-11-14 10:43:08.717 - admin GET /api/admin/v1/machines/99aa373a-65e4-4302-9c58-a8c530ff4ef1 status=200 duration=3ms remote=192.168.189.140
+2026-11-14 10:43:08.889 - admin GET /api/admin/v1/machines/0cae45ad-d997-4622-b998-24e805790d2e status=200 duration=4ms remote=192.168.189.140
+2026-11-14 10:43:08.978 - admin GET /api/admin/v1/machines/285a1b69-d7c5-40fb-8170-e3e3be506d1e status=200 duration=15ms remote=192.168.189.140
+2026-11-14 10:43:15.983 - admin POST /api/admin/v1/registrations/43/revoke status=200 duration=3ms remote=192.168.189.140
+2026-11-14 10:43:16.057 - admin POST /api/admin/v1/registrations/47/revoke status=200 duration=1ms remote=192.168.189.140
+2026-11-14 10:43:16.214 - admin POST /api/admin/v1/registrations/46/revoke status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:43:16.296 - admin POST /api/admin/v1/hostnames/workstation-1/assign status=200 duration=4ms remote=192.168.189.140
+2026-11-14 10:43:16.390 - admin POST /api/admin/v1/hostnames/workstation-2/assign status=200 duration=1ms remote=192.168.189.140
+2026-11-14 10:43:56.574 - admin GET /api/admin/v1/machines status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:44:30.530 - admin GET / status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:44:30.568 - admin GET /app.css status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:44:30.574 - admin GET /app.js status=200 duration=6ms remote=192.168.189.140
+2026-11-14 10:44:30.672 - admin GET /api/admin/v1/session status=401 duration=0s remote=192.168.189.140
+2026-11-14 10:44:30.682 - admin GET /favicon.ico status=204 duration=0s remote=192.168.189.140
+2026-11-14 10:44:31.593 - admin POST /api/admin/v1/login status=200 duration=194ms remote=192.168.189.140
+2026-11-14 10:44:31.622 - admin GET /api/admin/v1/overview status=200 duration=8ms remote=192.168.189.140
+2026-11-14 10:44:31.783 - admin GET /api/admin/v1/machines status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:45:11.286 - admin GET / status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:45:11.307 - admin GET /app.css status=200 duration=0s remote=192.168.189.140
+2026-11-14 10:45:11.312 - admin GET /app.js status=200 duration=5ms remote=192.168.189.140
+2026-11-14 10:45:11.351 - admin GET /api/admin/v1/session status=401 duration=0s remote=192.168.189.140
+2026-11-14 10:45:11.364 - admin GET /favicon.ico status=204 duration=0s remote=192.168.189.140
+2026-11-14 10:45:12.282 - admin POST /api/admin/v1/login status=200 duration=206ms remote=192.168.189.140
+2026-11-14 10:45:12.305 - admin GET /api/admin/v1/overview status=200 duration=3ms remote=192.168.189.140
+2026-11-14 10:45:12.471 - admin GET /api/admin/v1/machines status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:45:12.664 - admin GET /api/admin/v1/machines/2d088c2e-3228-4bba-92b7-5efe28980ae7 status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:45:12.855 - admin POST /api/admin/v1/machines/2d088c2e-3228-4bba-92b7-5efe28980ae7/jobs status=202 duration=2ms remote=192.168.189.140
+2026-11-14 10:45:12.881 - admin GET /api/admin/v1/machines/2d088c2e-3228-4bba-92b7-5efe28980ae7 status=200 duration=20ms remote=192.168.189.140
+2026-11-14 10:45:14.006 - admin GET /api/admin/v1/certificates status=200 duration=3ms remote=192.168.189.140
+2026-11-14 10:45:14.219 - admin GET /api/admin/v1/certificates/dc7667ab2db38b2e2150753f1dd686b74ea4922807706c9e65c79b842a090de9 status=200 duration=16ms remote=192.168.189.140
+2026-11-14 10:45:14.355 - admin GET /api/admin/v1/licensing status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:45:14.539 - admin GET /api/admin/v1/hostnames status=200 duration=12ms remote=192.168.189.140
+2026-11-14 10:45:14.623 - admin GET /api/admin/v1/events status=200 duration=2ms remote=192.168.189.140
+2026-11-14 10:45:14.774 - admin GET /api/admin/v1/config status=200 duration=2ms remote=192.168.189.140

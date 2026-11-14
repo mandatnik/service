@@ -25,23 +25,25 @@ type Logger interface {
 // Server owns both agent and administrative handlers. It is one process and
 // shares the SQL pool; there is no broker or second service.
 type Server struct {
-	store    *store.Store
-	logger   Logger
-	config   config.Config
-	dns      *dnsCache
-	requests chan struct{}
-	reports  chan struct{}
+	store        *store.Store
+	logger       Logger
+	config       config.Config
+	dns          *dnsCache
+	requests     chan struct{}
+	reports      chan struct{}
+	adminLimiter *adminLoginLimiter
 }
 
 // New creates the API server.
 func New(persistence *store.Store, logger Logger, cfg config.Config) *Server {
 	return &Server{
-		store:    persistence,
-		logger:   logger,
-		config:   cfg,
-		dns:      newDNSCache(5 * time.Minute),
-		requests: make(chan struct{}, cfg.MaxConcurrentRequests),
-		reports:  make(chan struct{}, cfg.MaxConcurrentReports),
+		store:        persistence,
+		logger:       logger,
+		config:       cfg,
+		dns:          newDNSCache(5 * time.Minute),
+		requests:     make(chan struct{}, cfg.MaxConcurrentRequests),
+		reports:      make(chan struct{}, cfg.MaxConcurrentReports),
+		adminLimiter: newAdminLoginLimiter(),
 	}
 }
 
@@ -50,27 +52,11 @@ func (s *Server) AgentHandler() http.Handler {
 	return http.HandlerFunc(s.handleAgent)
 }
 
-// AdminHandler returns the administrative listener handler. P07 exposes only
-// health/version; authenticated administration is P08.
+// AdminHandler returns the administrative listener handler. The same
+// embedded bundle is served by the backend EXE; API calls require a local
+// administrator session.
 func (s *Server) AdminHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/healthz":
-			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-			defer cancel()
-			if err := s.store.DB.PingContext(ctx); err != nil {
-				writeError(w, http.StatusServiceUnavailable, protocol.CodeDatabase, "database is unavailable")
-				return
-			}
-			writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "time": time.Now().UTC().Format(time.RFC3339Nano)})
-		case "/version":
-			writeJSON(w, http.StatusOK, map[string]any{"protocol_version": protocol.ProtocolVersion})
-		case "/":
-			writeJSON(w, http.StatusOK, map[string]any{"service": "telehack-backend", "protocol_version": protocol.ProtocolVersion})
-		default:
-			writeError(w, http.StatusNotFound, protocol.CodeNotFound, "not found")
-		}
-	})
+	return http.HandlerFunc(s.handleAdmin)
 }
 
 func (s *Server) handleAgent(w http.ResponseWriter, r *http.Request) {

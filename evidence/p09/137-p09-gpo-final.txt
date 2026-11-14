@@ -1,0 +1,12 @@
+﻿2026-11-14T09:52:16.0265611+05:00 GPO startup: begin
+2026-11-14T09:52:16.1048209+05:00 GPO startup: config copied
+2026-11-14T09:52:19.2433857+05:00 GPO startup: msiexec exit=0
+2026-11-14T09:52:19.5244917+05:00 GPO startup: service start requested
+2026-11-14T10:19:06.5435732+05:00 GPO startup: begin
+2026-11-14T10:19:06.6215380+05:00 GPO startup: config copied
+2026-11-14T10:19:06.6215380+05:00 GPO startup: agent already installed
+2026-11-14T10:19:06.7465569+05:00 GPO startup: service start requested
+2026-11-14T10:25:30.7764340+05:00 GPO startup: begin
+2026-11-14T10:25:30.8372823+05:00 GPO startup: config copied
+2026-11-14T10:25:30.8372823+05:00 GPO startup: agent already installed
+2026-11-14T10:25:30.9466043+05:00 GPO startup: service start requested

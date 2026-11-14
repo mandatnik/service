@@ -1,0 +1,19 @@
+﻿2026-11-14 10:41:04.065 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T05:37:33Z)
+2026-11-14 10:41:04.080 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-1
+2026-11-14 10:41:04.080 - identity uuid=b7bab5bf-8ed1-48ca-a729-83c46bc9bb29 hostname=WORKSTATION-1 pending_rename=false
+2026-11-14 10:41:04.080 - queue items=0 scan_seq=0 config_hash=
+2026-11-14 10:41:04.080 - agent cycle started
+2026-11-14 10:41:04.103 - registration ok: machine_id=2d088c2e-3228-4bba-92b7-5efe28980ae7 uuid=b7bab5bf-8ed1-48ca-a729-83c46bc9bb29 hostname=WORKSTATION-1 warnings=[hostname_conflict]
+2026-11-14 10:41:04.105 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0
+2026-11-14 10:41:04.208 - collection finished in 101ms: scan_seq=1 status=partial complete=false profiles=5 sources=5 certificates=0 csp_present=true csp_complete=true job_count=0 errors=1
+2026-11-14 10:41:04.208 - collection error: S-1-5-21-2458881001-951638917-3945708937-1105: decode C:\Users\mimbol\AppData\Roaming\Microsoft\SystemCertificates\My\Certificates\3B9FBEDBB5E328ABBC1031094A65B2C3CB35E416: unsupported file-store element format
+2026-11-14 10:41:29.239 - agent cycle stopping
+2026-11-14 10:41:30.675 - agent runtime starting: 0.3.0 (commit working, built 2026-11-14T05:37:33Z)
+2026-11-14 10:41:30.688 - service identity: user=NT AUTHORITY\SYSTEM sid=S-1-5-18 session=0 os="Windows 10 Enterprise 19045.7846" host=WORKSTATION-1
+2026-11-14 10:41:30.688 - identity uuid=b7bab5bf-8ed1-48ca-a729-83c46bc9bb29 hostname=WORKSTATION-1 pending_rename=false
+2026-11-14 10:41:30.688 - queue items=1 scan_seq=1 config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2
+2026-11-14 10:41:30.688 - agent cycle started
+2026-11-14 10:41:30.715 - registration ok: machine_id=2d088c2e-3228-4bba-92b7-5efe28980ae7 uuid=b7bab5bf-8ed1-48ca-a729-83c46bc9bb29 hostname=WORKSTATION-1 warnings=[]
+2026-11-14 10:41:30.716 - sync ok: config_hash=511e8a3fd4790cab5c0d59c88154f0d6f336d4191e5177393264227edce51ed2 config_received=false jobs=0
+2026-11-14 10:41:30.716 - delivering report e5edd901-6373-453d-b90e-f56c350bf787 scan_seq=1
+2026-11-14 10:41:30.725 - report e5edd901-6373-453d-b90e-f56c350bf787 accepted duplicate=false applied=true
