@@ -26,6 +26,7 @@ type Identity struct {
 	OSVersion       string
 	Architecture    string
 	State           string
+	ScanEpoch       int
 }
 
 // LookupActiveIdentity loads an active registration by UUID. It deliberately
@@ -42,11 +43,11 @@ func (s *Store) LookupActiveIdentity(ctx context.Context, uuid string) (*Identit
 	err = s.DB.QueryRowContext(ctx, `
 SELECT registration_id, machine_id, uuid, hostname, hostname_norm, public_key_pem,
        public_key_sha256, COALESCE(agent_version,''), COALESCE(os_version,''),
-       COALESCE(architecture,''), state
+       COALESCE(architecture,''), state, scan_epoch
 FROM dbo.registrations WHERE uuid = @p1`, normalized).Scan(
 		&identity.RegistrationID, &machineID, &uuidValue, &identity.Hostname,
 		&identity.HostnameNorm, &identity.PublicKeyPEM, &identity.PublicKeySHA256,
-		&identity.AgentVersion, &identity.OSVersion, &identity.Architecture, &identity.State)
+		&identity.AgentVersion, &identity.OSVersion, &identity.Architecture, &identity.State, &identity.ScanEpoch)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &protocol.APIError{Code: protocol.CodeUnknownIdentity, Message: "identity is not registered"}
 	}
@@ -107,11 +108,11 @@ func (s *Store) Register(ctx context.Context, request *protocol.SignedRequest, s
 	var existing RegistrationRow
 	err = tx.QueryRowContext(ctx, `
 SELECT registration_id, machine_id, hostname, hostname_norm, public_key_sha256, state, created_at,
-       COALESCE(agent_version,''), COALESCE(os_version,''), COALESCE(architecture,'')
+       COALESCE(agent_version,''), COALESCE(os_version,''), COALESCE(architecture,''), scan_epoch
 FROM dbo.registrations WITH (UPDLOCK, HOLDLOCK) WHERE uuid = @p1`, uuid).Scan(
 		&existing.RegistrationID, &existing.MachineID, &existing.Hostname, &existing.HostnameNorm,
 		&existing.PublicKeySHA256, &existing.State, &existing.CreatedAt,
-		&existing.AgentVersion, &existing.OSVersion, &existing.Architecture)
+		&existing.AgentVersion, &existing.OSVersion, &existing.Architecture, &existing.ScanEpoch)
 	switch {
 	case err == nil:
 		if existing.State != "active" {
@@ -181,6 +182,36 @@ WHERE public_key_sha256=@p1 AND state='active'`, fingerprint).Scan(&reusedUUID)
 		warnings = append(warnings, "public_key_reused")
 	}
 
+	// A name already associated with any machine card, including a historical
+	// card without an active registration or an archived card, requires an
+	// administrator decision. Matching IP, DNS or hardware is never enough to
+	// merge installations automatically.
+	associated, err := hostnameAssociatedMachineIDsTx(ctx, tx, hostnameNorm)
+	if err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "check hostname ownership"}
+	}
+	var existingRequestState string
+	requestErr := tx.QueryRowContext(ctx, `SELECT state FROM dbo.agent_install_requests WITH (UPDLOCK,HOLDLOCK) WHERE uuid=@p1`, uuid).Scan(&existingRequestState)
+	if requestErr != nil && !errors.Is(requestErr, sql.ErrNoRows) {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "check installation request"}
+	}
+	if len(associated) > 0 || requestErr == nil {
+		apiErr, err := s.createOrUpdateInstallationRequest(ctx, tx, uuid, hostname, hostnameNorm, normalizedPublicKey, fingerprint, request, ipBytes(sourceIP), dnsStatus, now)
+		if err != nil {
+			return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "record pending installation"}
+		}
+		if recErr := recordRequest(ctx, tx, uuid, request.Data.RequestID, protocol.PathRegister, now); recErr != nil {
+			return nil, recErr
+		}
+		if commitErr := tx.Commit(); commitErr != nil {
+			return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "commit pending installation"}
+		}
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		return nil, &protocol.APIError{Code: protocol.CodeInstallationPending, Message: "installation is waiting for administrator confirmation"}
+	}
+
 	machineID := protocol.NewUUID()
 	if _, err := tx.ExecContext(ctx, `
 INSERT INTO dbo.machines (machine_id, display_name, created_at, updated_at) VALUES (@p1, @p2, @p3, @p4)`,
@@ -246,6 +277,7 @@ type RegistrationRow struct {
 	AgentVersion    string
 	OSVersion       string
 	Architecture    string
+	ScanEpoch       int
 }
 
 func boundAgentVersion(request *protocol.SignedRequest) string {
@@ -353,10 +385,10 @@ func (s *Store) Rename(ctx context.Context, request *protocol.SignedRequest, sou
 	var old RegistrationRow
 	err = tx.QueryRowContext(ctx, `
 SELECT registration_id, machine_id, hostname, hostname_norm, public_key_sha256, state, created_at,
-       COALESCE(agent_version,''), COALESCE(os_version,''), COALESCE(architecture,'')
+       COALESCE(agent_version,''), COALESCE(os_version,''), COALESCE(architecture,''), scan_epoch
 FROM dbo.registrations WITH (UPDLOCK, HOLDLOCK) WHERE uuid=@p1`, oldUUID).Scan(
 		&old.RegistrationID, &old.MachineID, &old.Hostname, &old.HostnameNorm, &old.PublicKeySHA256,
-		&old.State, &old.CreatedAt, &old.AgentVersion, &old.OSVersion, &old.Architecture)
+		&old.State, &old.CreatedAt, &old.AgentVersion, &old.OSVersion, &old.Architecture, &old.ScanEpoch)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &protocol.APIError{Code: protocol.CodeUnknownIdentity, Message: "identity is not registered"}
 	}
@@ -379,22 +411,34 @@ FROM dbo.registrations WITH (UPDLOCK, HOLDLOCK) WHERE uuid=@p1`, oldUUID).Scan(
 	}
 
 	machineID := uuidString(old.MachineID)
+	newEpoch := old.ScanEpoch + 1
+	// Retire the old registration before inserting the new active row: the
+	// filtered unique index UQ_registrations_one_active permits only one.
+	retired, err := tx.ExecContext(ctx, `
+UPDATE dbo.registrations SET state=N'renamed',revoked_at=@p1
+WHERE registration_id=@p2 AND state=N'active'`, now, old.RegistrationID)
+	if err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "retire old registration"}
+	}
+	if affected, _ := retired.RowsAffected(); affected != 1 {
+		return nil, &protocol.APIError{Code: protocol.CodeIdentityRevoked, Message: "identity is not active"}
+	}
 	var newRegistrationID int64
 	if err := tx.QueryRowContext(ctx, `
 INSERT INTO dbo.registrations
  (machine_id, uuid, hostname, hostname_norm, public_key_pem, public_key_sha256, state,
-  agent_version, os_version, architecture, previous_registration_id, created_at, last_seen_at, last_source_ip, last_dns_status, last_dns_checked_at)
+  agent_version, os_version, architecture, previous_registration_id, scan_epoch, created_at, last_seen_at, last_source_ip, last_dns_status, last_dns_checked_at)
 OUTPUT INSERTED.registration_id
-VALUES (@p1,@p2,@p3,@p4,@p5,@p6,N'active',@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15)`,
+VALUES (@p1,@p2,@p3,@p4,@p5,@p6,N'active',@p7,@p8,@p9,@p10,@p11,@p12,@p12,@p13,@p14,@p15)`,
 		machineID, newUUID, newHostname, strings.ToLower(newHostname), normalizedNewKey, newFingerprint,
 		boundAgentVersion(request), truncate(request.Data.OSVersion, 128), request.Data.Architecture,
-		old.RegistrationID, now, now, ipBytes(sourceIP), dnsStatus, now).Scan(&newRegistrationID); err != nil {
+		old.RegistrationID, newEpoch, now, ipBytes(sourceIP), dnsStatus, now).Scan(&newRegistrationID); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "create new registration"}
 	}
 	if _, err := tx.ExecContext(ctx, `
-UPDATE dbo.registrations SET state=N'renamed', revoked_at=@p1, replaced_by_registration_id=@p2 WHERE registration_id=@p3`,
-		now, newRegistrationID, old.RegistrationID); err != nil {
-		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "retire old registration"}
+UPDATE dbo.registrations SET replaced_by_registration_id=@p1 WHERE registration_id=@p2`,
+		newRegistrationID, old.RegistrationID); err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "link renamed registration"}
 	}
 	// A rename is a confirmed transition of the same machine. Preserve
 	// capabilities and the active encryption key while deactivating the old
@@ -417,7 +461,9 @@ FROM dbo.agent_encryption_keys WHERE registration_id=@p3 AND active=0 AND revoke
 		newRegistrationID, now, old.RegistrationID); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "copy encryption key on rename"}
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE dbo.machines SET display_name=@p1, updated_at=@p2 WHERE machine_id=@p3`, newHostname, now, machineID); err != nil {
+	if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.machines SET display_name=CASE WHEN display_name_custom=0 THEN @p1 ELSE display_name END, updated_at=@p2
+WHERE machine_id=@p3`, newHostname, now, machineID); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "update machine name"}
 	}
 	if err := releaseHostnameTx(ctx, tx, old.HostnameNorm, old.RegistrationID); err != nil {
@@ -436,12 +482,20 @@ FROM dbo.agent_encryption_keys WHERE registration_id=@p3 AND active=0 AND revoke
 	}
 	// The old registration is no longer authorized, so its delayed reports
 	// cannot apply. Reset per-source ordering for the new identity while
-	// preserving the current observations.
-	if _, err := tx.ExecContext(ctx, `UPDATE dbo.source_states SET last_scan_seq=0, updated_at=@p1 WHERE machine_id=@p2`, now, machineID); err != nil {
+	// preserving the current observations. A rename is the same installation,
+	// so unfinished task items move to the new registration and receive a fresh
+	// encrypted envelope.
+	if _, err := tx.ExecContext(ctx, `UPDATE dbo.source_states SET last_scan_epoch=@p1, last_scan_seq=0, updated_at=@p2 WHERE machine_id=@p3`, newEpoch, now, machineID); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "reset source ordering"}
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE dbo.csp_states SET last_scan_seq=0, updated_at=@p1 WHERE machine_id=@p2`, now, machineID); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE dbo.csp_states SET last_scan_epoch=@p1, last_scan_seq=0, updated_at=@p2 WHERE machine_id=@p3`, newEpoch, now, machineID); err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "reset CSP ordering"}
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.task_items SET registration_id=@p1,delivery_version=delivery_version+1,
+       encrypted_parameters=NULL,encryption_key_id=NULL,updated_at=@p2
+WHERE registration_id=@p3 AND completed_at IS NULL`, newRegistrationID, now, old.RegistrationID); err != nil {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "move unfinished tasks on rename"}
 	}
 	if apiErr := recordRequest(ctx, tx, oldUUID, request.Data.RequestID, protocol.PathRename, now); apiErr != nil {
 		return nil, apiErr

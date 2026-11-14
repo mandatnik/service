@@ -18,6 +18,13 @@ import (
 	"telehack2026/internal/protocol"
 )
 
+// scanNewer compares an installation-local scan sequence together with the
+// per-machine installation epoch. A replacement installation may restart
+// scan_seq at 1 without losing its first report.
+func scanNewer(epoch, seq, lastEpoch, lastSeq int64) bool {
+	return epoch > lastEpoch || (epoch == lastEpoch && seq > lastSeq)
+}
+
 // SubmitReport applies one idempotent report. The request_id and all business
 // changes are committed together. A delayed report is accepted but applies
 // only sources whose scan_seq is newer than the last applied sequence for that
@@ -88,9 +95,9 @@ func (s *Store) SubmitReport(ctx context.Context, identity *Identity, request *p
 		personalComplete = false
 	}
 	if _, err := tx.ExecContext(ctx, `
-INSERT INTO dbo.reports (report_id, machine_id, registration_id, scan_seq, collected_at, received_at, status, applied, applied_sources, payload_sha256, payload_json, source_ip, dns_status, profiles_complete, personal_complete)
-VALUES (@p1,@p2,@p3,@p4,@p5,@p6,@p7,0,0,@p8,@p9,@p10,@p11,@p12,@p13)`,
-		report.ReportID, identity.MachineID, identity.RegistrationID, report.ScanSeq, collectedAt, now,
+INSERT INTO dbo.reports (report_id, machine_id, registration_id, scan_epoch, scan_seq, collected_at, received_at, status, applied, applied_sources, payload_sha256, payload_json, source_ip, dns_status, profiles_complete, personal_complete)
+VALUES (@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,0,0,@p9,@p10,@p11,@p12,@p13,@p14)`,
+		report.ReportID, identity.MachineID, identity.RegistrationID, identity.ScanEpoch, report.ScanSeq, collectedAt, now,
 		report.Status, payloadHash, string(canonical), ipBytes(sourceIP), dnsStatus, report.ProfilesComplete, personalComplete); err != nil {
 		if isDuplicateKey(err) {
 			return nil, &protocol.APIError{Code: protocol.CodeReportConflict, Message: "report_id was inserted concurrently"}
@@ -209,8 +216,9 @@ func (s *Store) applySourceTx(ctx context.Context, tx *sql.Tx, identity *Identit
 	// policy scan has revoked them. Compare ordering across the scope transition.
 	if source.SourceType == "folder" && source.SourceKey != "folder-policies" {
 		var seq int64
-		err := tx.QueryRowContext(ctx, `SELECT last_scan_seq FROM dbo.source_states WITH(UPDLOCK,HOLDLOCK) WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scopeHash("folder", "folder-policies")).Scan(&seq)
-		if err == nil && report.ScanSeq <= seq {
+		var epoch int
+		err := tx.QueryRowContext(ctx, `SELECT last_scan_seq,last_scan_epoch FROM dbo.source_states WITH(UPDLOCK,HOLDLOCK) WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scopeHash("folder", "folder-policies")).Scan(&seq, &epoch)
+		if err == nil && !scanNewer(int64(identity.ScanEpoch), report.ScanSeq, int64(epoch), seq) {
 			return false, nil
 		}
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -218,10 +226,11 @@ func (s *Store) applySourceTx(ctx context.Context, tx *sql.Tx, identity *Identit
 		}
 	}
 	var lastSeq int64
+	var lastEpoch int
 	err := tx.QueryRowContext(ctx, `
-SELECT last_scan_seq FROM dbo.source_states WITH (UPDLOCK, HOLDLOCK)
-WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&lastSeq)
-	if err == nil && report.ScanSeq <= lastSeq {
+SELECT last_scan_seq,last_scan_epoch FROM dbo.source_states WITH (UPDLOCK, HOLDLOCK)
+WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&lastSeq, &lastEpoch)
+	if err == nil && !scanNewer(int64(identity.ScanEpoch), report.ScanSeq, int64(lastEpoch), lastSeq) {
 		return false, nil
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -257,7 +266,7 @@ WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&
 
 	if source.SourceType == "user_store" {
 		for _, cert := range source.Certificates {
-			observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", userID, report, now)
+			observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", userID, report, identity.ScanEpoch, now)
 			if apiErr != nil {
 				return false, apiErr
 			}
@@ -280,7 +289,7 @@ WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&
 			}
 			seenFileCert[hash] = true
 			obsKey := observationHash(scope, file.Path)
-			observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, obsKey, source, hash, file.Path, nil, report, now)
+			observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, obsKey, source, hash, file.Path, nil, report, identity.ScanEpoch, now)
 			if apiErr != nil {
 				return false, apiErr
 			}
@@ -290,7 +299,7 @@ WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&
 		}
 		for _, cert := range source.Certificates {
 			if !seenFileCert[cert.SHA256] {
-				observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", nil, report, now)
+				observationID, apiErr := upsertObservationTx(ctx, tx, identity.MachineID, scope, scope, source, cert.SHA256, "", nil, report, identity.ScanEpoch, now)
 				if apiErr != nil {
 					return false, apiErr
 				}
@@ -306,7 +315,7 @@ WHERE machine_id=@p1 AND source_key_hash=@p2`, identity.MachineID, scope).Scan(&
 			return false, apiErr
 		}
 	}
-	if err := upsertSourceStateTx(ctx, tx, identity.MachineID, scope, source, report, now); err != nil {
+	if err := upsertSourceStateTx(ctx, tx, identity.MachineID, scope, source, report, identity.ScanEpoch, now); err != nil {
 		return false, &protocol.APIError{Code: protocol.CodeDatabase, Message: "update source state"}
 	}
 	if !source.Complete {
@@ -389,7 +398,7 @@ VALUES (@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@
 	return nil
 }
 
-func upsertObservationTx(ctx context.Context, tx *sql.Tx, machineID string, scope, obsKey []byte, source *protocol.SourceResult, certSHA, filePath string, userID any, report *protocol.Report, now time.Time) (int64, *protocol.APIError) {
+func upsertObservationTx(ctx context.Context, tx *sql.Tx, machineID string, scope, obsKey []byte, source *protocol.SourceResult, certSHA, filePath string, userID any, report *protocol.Report, scanEpoch int, now time.Time) (int64, *protocol.APIError) {
 	var path any
 	if strings.TrimSpace(filePath) != "" {
 		path = filePath
@@ -401,14 +410,14 @@ USING (SELECT @p1 AS machine_id, @p2 AS observation_key_hash, @p3 AS certificate
 ON target.machine_id=source.machine_id AND target.observation_key_hash=source.observation_key_hash AND target.certificate_sha256=source.certificate_sha256
 WHEN MATCHED THEN UPDATE SET
     machine_user_id=@p4, source_type=@p5, source_key=@p6, source_scope_hash=@p7, file_path=@p8,
-    active=1, last_seen_at=@p9, removed_at=NULL, last_report_id=@p10, last_scan_seq=@p11
+    active=1, last_seen_at=@p9, removed_at=NULL, last_report_id=@p10, last_scan_seq=@p11, last_scan_epoch=@p12
 WHEN NOT MATCHED THEN INSERT
     (machine_id, machine_user_id, source_type, source_key, source_scope_hash, observation_key_hash, file_path,
-     certificate_sha256, active, first_seen_at, last_seen_at, removed_at, last_report_id, last_scan_seq)
-VALUES (@p1,@p4,@p5,@p6,@p7,@p2,@p8,@p3,1,@p9,@p9,NULL,@p10,@p11)
+     certificate_sha256, active, first_seen_at, last_seen_at, removed_at, last_report_id, last_scan_seq, last_scan_epoch)
+VALUES (@p1,@p4,@p5,@p6,@p7,@p2,@p8,@p3,1,@p9,@p9,NULL,@p10,@p11,@p12)
 OUTPUT INSERTED.observation_id;`,
 		machineID, obsKey, certSHA, userID, source.SourceType, source.SourceKey, scope, path,
-		now, report.ReportID, report.ScanSeq).Scan(&observationID)
+		now, report.ReportID, report.ScanSeq, scanEpoch).Scan(&observationID)
 	if err != nil {
 		return 0, &protocol.APIError{Code: protocol.CodeDatabase, Message: "upsert certificate observation: " + err.Error()}
 	}
@@ -485,7 +494,9 @@ func removeMissingObservationsTx(ctx context.Context, tx *sql.Tx, identity *Iden
 	}
 	rows, err := tx.QueryContext(ctx, `
 SELECT observation_id, observation_key_hash, certificate_sha256 FROM dbo.certificate_observations WITH (UPDLOCK, HOLDLOCK)
-WHERE machine_id=@p1 AND (source_scope_hash=@p2 OR (@p3=1 AND source_type=N'folder')) AND active=1 AND last_scan_seq<=@p4`, identity.MachineID, scope, source.SourceType == "folder" && source.SourceKey == "folder-policies", report.ScanSeq)
+WHERE machine_id=@p1 AND (source_scope_hash=@p2 OR (@p3=1 AND source_type=N'folder')) AND active=1
+  AND (last_scan_epoch<@p5 OR (last_scan_epoch=@p5 AND last_scan_seq<=@p4))`,
+		identity.MachineID, scope, source.SourceType == "folder" && source.SourceKey == "folder-policies", report.ScanSeq, identity.ScanEpoch)
 	if err != nil {
 		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "load current observations"}
 	}
@@ -515,9 +526,9 @@ WHERE machine_id=@p1 AND (source_scope_hash=@p2 OR (@p3=1 AND source_type=N'fold
 	rows.Close()
 	for _, stale := range removed {
 		if _, err := tx.ExecContext(ctx, `
-UPDATE dbo.certificate_observations SET active=0, removed_at=@p1, last_report_id=@p2, last_scan_seq=@p3
-WHERE observation_id=@p4 AND active=1`,
-			now, report.ReportID, report.ScanSeq, stale.id); err != nil {
+UPDATE dbo.certificate_observations SET active=0, removed_at=@p1, last_report_id=@p2, last_scan_seq=@p3, last_scan_epoch=@p4
+WHERE observation_id=@p5 AND active=1`,
+			now, report.ReportID, report.ScanSeq, identity.ScanEpoch, stale.id); err != nil {
 			return &protocol.APIError{Code: protocol.CodeDatabase, Message: "remove certificate observation"}
 		}
 		_ = insertEvent(ctx, tx, identity.MachineID, identity.RegistrationID, report.ReportID, nil,
@@ -554,17 +565,17 @@ WHERE machine_user_id=@p2 AND certificate_sha256=@p3 AND active=1`, report.Repor
 	return nil
 }
 
-func upsertSourceStateTx(ctx context.Context, tx *sql.Tx, machineID string, scope []byte, source *protocol.SourceResult, report *protocol.Report, now time.Time) error {
+func upsertSourceStateTx(ctx context.Context, tx *sql.Tx, machineID string, scope []byte, source *protocol.SourceResult, report *protocol.Report, scanEpoch int, now time.Time) error {
 	_, err := tx.ExecContext(ctx, `
 MERGE dbo.source_states WITH (HOLDLOCK) AS target
 USING (SELECT @p1 AS machine_id, @p2 AS source_key_hash) AS source
 ON target.machine_id=source.machine_id AND target.source_key_hash=source.source_key_hash
 WHEN MATCHED THEN UPDATE SET source_type=@p3, source_key=@p4, last_scan_seq=@p5, last_report_id=@p6,
-    last_complete=@p7, last_collected_at=@p8, updated_at=@p9
-WHEN NOT MATCHED THEN INSERT (machine_id, source_type, source_key, source_key_hash, last_scan_seq, last_report_id, last_complete, last_collected_at, updated_at)
-VALUES (@p1,@p3,@p4,@p2,@p5,@p6,@p7,@p8,@p9);`,
+    last_complete=@p7, last_collected_at=@p8, updated_at=@p9, last_scan_epoch=@p10
+WHEN NOT MATCHED THEN INSERT (machine_id, source_type, source_key, source_key_hash, last_scan_seq, last_report_id, last_complete, last_collected_at, updated_at, last_scan_epoch)
+VALUES (@p1,@p3,@p4,@p2,@p5,@p6,@p7,@p8,@p9,@p10);`,
 		machineID, scope, source.SourceType, source.SourceKey, report.ScanSeq, report.ReportID,
-		source.Complete, parseTimeOrZero(report.CollectedAt), now)
+		source.Complete, parseTimeOrZero(report.CollectedAt), now, scanEpoch)
 	return err
 }
 
@@ -591,16 +602,17 @@ func (s *Store) applyCSPTx(ctx context.Context, tx *sql.Tx, identity *Identity, 
 		return nil
 	}
 	var lastSeq int64
+	var lastEpoch int
 	var oldKind, oldState, oldProduct string
 	err := tx.QueryRowContext(ctx, `
-SELECT last_scan_seq, COALESCE(license_kind,''), COALESCE(license_state,''), COALESCE(product_version,'')
+SELECT last_scan_seq,last_scan_epoch, COALESCE(license_kind,''), COALESCE(license_state,''), COALESCE(product_version,'')
 FROM dbo.csp_states WITH (UPDLOCK, HOLDLOCK) WHERE machine_id=@p1`, identity.MachineID).
-		Scan(&lastSeq, &oldKind, &oldState, &oldProduct)
+		Scan(&lastSeq, &lastEpoch, &oldKind, &oldState, &oldProduct)
 	exists := err == nil
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "load CSP state"}
 	}
-	if exists && report.ScanSeq <= lastSeq {
+	if exists && !scanNewer(int64(identity.ScanEpoch), report.ScanSeq, int64(lastEpoch), lastSeq) {
 		return nil
 	}
 	productsJSON := "[]"
@@ -615,10 +627,10 @@ FROM dbo.csp_states WITH (UPDLOCK, HOLDLOCK) WHERE machine_id=@p1`, identity.Mac
 		if !exists {
 			if _, err := tx.ExecContext(ctx, `
 INSERT INTO dbo.csp_states (machine_id, scanned, complete, present, license_kind, license_kind_raw, license_kind_source,
- license_state, time_basis, term_kind, is_trial, source, error, products_json, last_scan_seq, collected_at, updated_at, last_attempt_at, last_attempt_error)
-VALUES (@p1,1,0,@p2,'unknown','','','unknown','','unknown','unknown','',@p3,@p4,0,@p5,@p6,@p6,@p3)`,
+ license_state, time_basis, term_kind, is_trial, source, error, products_json, last_scan_seq, last_scan_epoch, collected_at, updated_at, last_attempt_at, last_attempt_error)
+VALUES (@p1,1,0,@p2,'unknown','','','unknown','','unknown','unknown','',@p3,@p4,0,@p7,@p5,@p6,@p6,@p3)`,
 				identity.MachineID, report.CSP.Present, truncate(report.CSP.Error, 2048), productsJSON,
-				parseTimeOrZero(report.CollectedAt), now); err != nil {
+				parseTimeOrZero(report.CollectedAt), now, identity.ScanEpoch); err != nil {
 				return &protocol.APIError{Code: protocol.CodeDatabase, Message: "store partial CSP state"}
 			}
 		} else if _, err := tx.ExecContext(ctx, `
@@ -644,18 +656,19 @@ WHEN MATCHED THEN UPDATE SET scanned=1, complete=1, present=@p2, product_version
  license_kind=@p5, license_kind_raw=@p6, license_kind_source=@p7, license_state=@p8,
  valid_to_raw=@p9, valid_to_utc=@p10, time_basis=@p11, term_kind=@p12, is_trial=@p13,
  source=@p14, error=@p15, products_json=@p16, last_report_id=@p17, last_scan_seq=@p18,
- collected_at=@p19, updated_at=@p20, last_attempt_at=@p20, last_attempt_error=NULL, environment=@p21
+ collected_at=@p19, updated_at=@p20, last_attempt_at=@p20, last_attempt_error=NULL, environment=@p21,
+ last_scan_epoch=@p22
 WHEN NOT MATCHED THEN INSERT (machine_id, scanned, complete, present, product_version, core_version,
  license_kind, license_kind_raw, license_kind_source, license_state, valid_to_raw, valid_to_utc,
  time_basis, term_kind, is_trial, source, error, products_json, last_report_id, last_scan_seq,
- collected_at, updated_at, last_attempt_at, last_attempt_error, environment)
-VALUES (@p1,1,1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@p17,@p18,@p19,@p20,@p20,NULL,@p21);`,
+ collected_at, updated_at, last_attempt_at, last_attempt_error, environment, last_scan_epoch)
+VALUES (@p1,1,1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@p17,@p18,@p19,@p20,@p20,NULL,@p21,@p22);`,
 		identity.MachineID, report.CSP.Present, nilIfEmpty(report.CSP.ProductVersion), nilIfEmpty(report.CSP.CoreVersion),
 		nilIfEmpty(report.CSP.License.Kind), nilIfEmpty(report.CSP.License.KindRaw), nilIfEmpty(report.CSP.License.KindSource),
 		nilIfEmpty(report.CSP.License.State), nilIfEmpty(report.CSP.License.ValidToRaw), validToUTC,
 		nilIfEmpty(report.CSP.License.TimeBasis), nilIfEmpty(report.CSP.License.TermKind), nilIfEmpty(report.CSP.License.IsTrial),
 		nilIfEmpty(report.CSP.License.Source), nilIfEmpty(report.CSP.Error), productsJSON, report.ReportID,
-		report.ScanSeq, parseTimeOrZero(report.CollectedAt), now, nilIfEmpty(report.CSP.Environment))
+		report.ScanSeq, parseTimeOrZero(report.CollectedAt), now, nilIfEmpty(report.CSP.Environment), identity.ScanEpoch)
 	if err != nil {
 		return &protocol.APIError{Code: protocol.CodeDatabase, Message: "store CSP state"}
 	}

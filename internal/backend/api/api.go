@@ -323,6 +323,10 @@ func writeAPIError(w http.ResponseWriter, apiErr *protocol.APIError) {
 		status = http.StatusUnauthorized
 	case protocol.CodeReplay, protocol.CodeReportConflict, protocol.CodeKeyConflict, protocol.CodeUUIDConflict, protocol.CodeHostnameMismatch, protocol.CodeJobConflict, protocol.CodeHostnameConflict:
 		status = http.StatusConflict
+	case protocol.CodeInstallationPending, protocol.CodeInstallationStale, protocol.CodeInstallationConflict:
+		status = http.StatusConflict
+	case protocol.CodeInstallationRejected:
+		status = http.StatusForbidden
 	case protocol.CodeReportInvalid, protocol.CodeConfigInvalid:
 		status = http.StatusUnprocessableEntity
 	case protocol.CodePayloadTooLarge:

@@ -207,6 +207,18 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.adminMachineDetail(w, r, parts[1])
 	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "jobs" && r.Method == http.MethodPost:
 		s.adminCreateJob(w, r, session, parts[1])
+	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "archive" && r.Method == http.MethodPost:
+		s.adminArchiveMachine(w, r, session, parts[1])
+	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "display-name" && r.Method == http.MethodPost:
+		s.adminRenameMachine(w, r, session, parts[1])
+	case path == "installations" && r.Method == http.MethodGet:
+		s.adminInstallations(w, r)
+	case len(parts) == 3 && parts[0] == "installations" && parts[2] == "replace" && r.Method == http.MethodPost:
+		s.adminReplaceInstallation(w, r, session, parts[1])
+	case len(parts) == 3 && parts[0] == "installations" && parts[2] == "separate" && r.Method == http.MethodPost:
+		s.adminSeparateInstallation(w, r, session, parts[1])
+	case len(parts) == 3 && parts[0] == "installations" && parts[2] == "reject" && r.Method == http.MethodPost:
+		s.adminRejectInstallation(w, r, session, parts[1])
 	case path == "certificates" && r.Method == http.MethodGet:
 		s.adminCertificates(w, r)
 	case len(parts) == 2 && parts[0] == "certificates" && r.Method == http.MethodGet:
@@ -445,6 +457,151 @@ func (s *Server) adminMachineDetail(w http.ResponseWriter, r *http.Request, mach
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, detail)
+}
+
+func (s *Server) adminInstallations(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := contextWithTimeout(r, 15*time.Second)
+	defer cancel()
+	items, err := s.store.ListInstallations(ctx, r.URL.Query().Get("status"))
+	if err != nil {
+		s.logf("admin installations failed: %v", err)
+		writeAdminError(w, http.StatusServiceUnavailable, protocol.CodeDatabase, "could not load installation requests")
+		return
+	}
+	writeAdminJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+type installationDecisionBody struct {
+	RequestVersion      int    `json:"request_version"`
+	KeyFingerprint      string `json:"key_fingerprint"`
+	MachineID           string `json:"machine_id"`
+	OldRegistrationID   int64  `json:"old_registration_id"`
+	Reason              string `json:"reason"`
+	ConfirmNameConflict bool   `json:"confirm_name_conflict"`
+}
+
+func (s *Server) adminReplaceInstallation(w http.ResponseWriter, r *http.Request, session *store.AdminSession, requestID string) {
+	var input installationDecisionBody
+	if err := readAdminJSON(w, r, &input); err != nil {
+		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
+		return
+	}
+	ctx, cancel := contextWithTimeout(r, 15*time.Second)
+	defer cancel()
+	result, apiErr := s.store.ReplaceInstallation(ctx, store.InstallationDecisionInput{
+		RequestID: requestID, RequestVersion: input.RequestVersion, KeyFingerprint: input.KeyFingerprint,
+		MachineID: input.MachineID, OldRegistrationID: input.OldRegistrationID, Reason: input.Reason,
+	}, session.Email)
+	if apiErr != nil {
+		writeInstallationAPIError(w, apiErr)
+		return
+	}
+	writeAdminJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) adminSeparateInstallation(w http.ResponseWriter, r *http.Request, session *store.AdminSession, requestID string) {
+	var input installationDecisionBody
+	if err := readAdminJSON(w, r, &input); err != nil {
+		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
+		return
+	}
+	ctx, cancel := contextWithTimeout(r, 15*time.Second)
+	defer cancel()
+	result, apiErr := s.store.RegisterSeparateInstallation(ctx, store.InstallationDecisionInput{
+		RequestID: requestID, RequestVersion: input.RequestVersion, KeyFingerprint: input.KeyFingerprint,
+		Reason: input.Reason, ConfirmNameConflict: input.ConfirmNameConflict,
+	}, session.Email)
+	if apiErr != nil {
+		writeInstallationAPIError(w, apiErr)
+		return
+	}
+	writeAdminJSON(w, http.StatusCreated, result)
+}
+
+func (s *Server) adminRejectInstallation(w http.ResponseWriter, r *http.Request, session *store.AdminSession, requestID string) {
+	var input installationDecisionBody
+	if err := readAdminJSON(w, r, &input); err != nil {
+		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
+		return
+	}
+	ctx, cancel := contextWithTimeout(r, 15*time.Second)
+	defer cancel()
+	result, apiErr := s.store.RejectInstallation(ctx, store.InstallationDecisionInput{
+		RequestID: requestID, RequestVersion: input.RequestVersion, KeyFingerprint: input.KeyFingerprint,
+		Reason: input.Reason,
+	}, session.Email)
+	if apiErr != nil {
+		writeInstallationAPIError(w, apiErr)
+		return
+	}
+	writeAdminJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) adminRenameMachine(w http.ResponseWriter, r *http.Request, session *store.AdminSession, machineID string) {
+	var input struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := readAdminJSON(w, r, &input); err != nil {
+		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
+		return
+	}
+	ctx, cancel := contextWithTimeout(r, 10*time.Second)
+	defer cancel()
+	result, err := s.store.RenameMachine(ctx, machineID, input.DisplayName, session.Email)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeAdminError(w, http.StatusNotFound, protocol.CodeNotFound, "machine not found")
+		return
+	}
+	if err != nil {
+		writeAdminError(w, http.StatusUnprocessableEntity, "invalid_machine_name", err.Error())
+		return
+	}
+	writeAdminJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) adminArchiveMachine(w http.ResponseWriter, r *http.Request, session *store.AdminSession, machineID string) {
+	id, err := protocol.NormalizeUUID(machineID)
+	if err != nil {
+		writeAdminError(w, http.StatusBadRequest, "invalid_machine", "invalid machine identifier")
+		return
+	}
+	var input struct {
+		Reason string `json:"reason"`
+	}
+	if err := readAdminJSON(w, r, &input); err != nil {
+		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
+		return
+	}
+	ctx, cancel := contextWithTimeout(r, 10*time.Second)
+	defer cancel()
+	if err := s.store.ArchiveMachine(ctx, id, input.Reason, session.Email); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeAdminError(w, http.StatusNotFound, protocol.CodeNotFound, "machine not found")
+			return
+		}
+		writeAdminError(w, http.StatusUnprocessableEntity, "archive_failed", err.Error())
+		return
+	}
+	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func writeInstallationAPIError(w http.ResponseWriter, apiErr *protocol.APIError) {
+	if apiErr == nil {
+		writeAdminError(w, http.StatusInternalServerError, protocol.CodeInternal, "internal error")
+		return
+	}
+	status := http.StatusConflict
+	switch apiErr.Code {
+	case protocol.CodeNotFound:
+		status = http.StatusNotFound
+	case protocol.CodeInstallationRejected:
+		status = http.StatusForbidden
+	case protocol.CodeDatabase:
+		status = http.StatusServiceUnavailable
+	case protocol.CodeInstallationStale, protocol.CodeInstallationConflict:
+		status = http.StatusConflict
+	}
+	writeAdminJSON(w, status, protocol.ErrorResponse{Error: *apiErr})
 }
 
 func (s *Server) adminCreateJob(w http.ResponseWriter, r *http.Request, session *store.AdminSession, machineID string) {

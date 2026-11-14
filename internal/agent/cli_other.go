@@ -25,7 +25,10 @@ func UninstallProduct(purge bool) (string, error) {
 	if err := UninstallService(purge); err != nil {
 		return "", err
 	}
-	return "local service removed", nil
+	if purge {
+		return "local service removed; agent state purged", nil
+	}
+	return "local service removed; agent identity and state preserved", nil
 }
 
 // ConfigureServiceRecovery is only meaningful for the Windows SCM service.

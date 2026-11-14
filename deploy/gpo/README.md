@@ -62,7 +62,9 @@ deployment.
 - First boot: copy config, install MSI, start LocalSystem service.
 - Later boots: copy the current GPO config and leave the existing agent/state.
 - The MSI never overwrites `C:\ProgramData\Telehack2026\agent-config.json`.
-- Upgrade keeps ProgramData state; full uninstall through the product CLI
-  removes agent-owned state but deliberately keeps the GPO config.
+- Upgrade and repair keep ProgramData state. An ordinary uninstall also keeps
+  the agent identity/state; only the explicit product CLI
+  `uninstall -purge` removes agent-owned state and deliberately keeps the GPO
+  config.
 - Repair requires the original MSI source to remain reachable (normal Windows
   Installer behavior); keep the deployment share available for repair.

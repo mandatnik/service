@@ -55,9 +55,11 @@ SELECT CASE WHEN EXISTS(
 	}
 	rows, err := tx.QueryContext(ctx, `
 SELECT j.job_id, j.kind, j.created_at FROM dbo.jobs j WITH (UPDLOCK, ROWLOCK)
+LEFT JOIN dbo.task_items ti ON ti.item_id=j.task_item_id
 WHERE j.machine_id=@p1 AND j.state IN (N'pending', N'delivered')
-  AND (@p2=0 OR j.task_item_id IS NULL)
-ORDER BY j.created_at`, identity.MachineID, capable)
+  AND (j.task_item_id IS NULL OR ti.registration_id=@p2)
+  AND (@p3=0 OR j.task_item_id IS NULL)
+ORDER BY j.created_at`, identity.MachineID, identity.RegistrationID, capable)
 	if err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "load jobs"}
 	}

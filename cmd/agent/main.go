@@ -122,9 +122,11 @@ Usage:
   telehack-agent.exe reset-identity --confirm
   telehack-agent.exe rotate-encryption-key
 
-uninstall delegates to the MSI when the product is installed by MSI and
-removes agent-owned state on a full uninstall. Normal operation requires no
-CLI after install. The command set does not add inbound ports or change user
-certificate stores.
+uninstall preserves the agent identity and state unless -purge is explicitly
+specified. Repair and upgrade always preserve it. reset-identity archives the
+old identity and the next registration is a new installation: if the hostname
+matches an existing machine, an administrator must confirm it in the admin UI.
+Normal operation requires no CLI after install. The command set does not add
+inbound ports or change user certificate stores.
 `)
 }

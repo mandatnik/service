@@ -1,12 +1,14 @@
 <script setup>
 import { useAutoRefresh } from '../autoRefresh'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api } from '../api'
-import { badgeClass, machineRowView, pluralRu } from '../format'
+import { badgeClass, formatTime, machineRowView, pluralRu } from '../format'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
 import Pager from './Pager.vue'
 import RefreshControl from './RefreshControl.vue'
+import InstallationReview from './InstallationReview.vue'
+import MachineRenameDialog from './MachineRenameDialog.vue'
 
 const emit = defineEmits(['open-machine', 'open-group'])
 const selected = ref([]), catalog = ref({ groups: [] }), targetGroup = ref(''), newGroup = ref(''), adding = ref(false), message = ref('')
@@ -14,10 +16,15 @@ const groupNotice = ref(null)
 const pollSeconds = ref(60)
 const scanBusy = ref(false)
 const pollText = computed(() => `Опрос агента — раз в ${pollSeconds.value} ${pluralRu(pollSeconds.value, ['секунду', 'секунды', 'секунд'])}`)
-const allSelected = computed(() => data.value.items.length > 0 && data.value.items.every(m => selected.value.includes(m.machine_id)))
+const pendingInstallations = ref([])
+const reviewing = ref(null)
+const renameTarget = ref(null)
+const actionMenu = ref(null)
+const selectableRows = computed(() => data.value.items.filter(m => !m.archived))
+const allSelected = computed(() => selectableRows.value.length > 0 && selectableRows.value.every(m => selected.value.includes(m.machine_id)))
 const rows = computed(() => data.value.items.map(machine => ({ machine, view: machineRowView(machine) })))
 function selectPage(checked) {
-  const ids = data.value.items.map(m => m.machine_id)
+  const ids = selectableRows.value.map(m => m.machine_id)
   selected.value = checked ? [...new Set([...selected.value, ...ids])] : selected.value.filter(id => !ids.includes(id))
 }
 async function addToGroup() {
@@ -57,11 +64,39 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const results = await Promise.all([api.machines({ query: query.value, status: status.value, page: page.value, page_size: 25 }), api.inventorySettings()]); data.value = results[0]; catalog.value = results[1]
+    const results = await Promise.all([api.machines({ query: query.value, status: status.value, page: page.value, page_size: 25 }), api.inventorySettings(), api.installations({ status: 'pending' })]); data.value = results[0]; catalog.value = results[1]; pendingInstallations.value = results[2]?.items || []
   } catch (e) { error.value = e.message } finally { loading.value = false }
 }
 function apply() { page.value = 1; load() }
 function changePage(next) { page.value = next; load() }
+function reviewInstallation(request) { reviewing.value = request; message.value = '' }
+function toggleRowActions(machine, event) {
+  event.stopPropagation()
+  if (actionMenu.value?.machine.machine_id === machine.machine_id) {
+    actionMenu.value = null
+    return
+  }
+  const rect = event.currentTarget.getBoundingClientRect()
+  actionMenu.value = {
+    machine,
+    top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 120)),
+    left: Math.max(8, Math.min(rect.right - 200, window.innerWidth - 208))
+  }
+}
+function closeRowActions() { actionMenu.value = null }
+function startRename(machine) { actionMenu.value = null; renameTarget.value = machine; message.value = ''; groupNotice.value = null }
+function openFromMenu(machine) { actionMenu.value = null; emit('open-machine', machine.machine_id) }
+async function machineRenamed(result) { renameTarget.value = null; message.value = `Имя АРМ изменено: «${result.display_name}». Hostname и machine_id не изменялись.`; await load() }
+async function installationResolved(payload) {
+  const action = payload?.action
+  reviewing.value = null
+  message.value = action === 'replace'
+    ? `Установка заменена. Машина ${payload.result.machine_id} сохранила карточку и историю.`
+    : action === 'separate'
+      ? `Создана отдельная машина ${payload.result.machine_id} с тем же именем.`
+      : 'Заявка на установку отклонена.'
+  await load()
+}
 async function loadPollInterval() {
   try {
     const result = await api.config()
@@ -69,8 +104,16 @@ async function loadPollInterval() {
     if (Number.isFinite(value) && value > 0) pollSeconds.value = value
   } catch {}
 }
-onMounted(() => { load(); loadPollInterval() })
-useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
+onMounted(() => {
+  load(); loadPollInterval()
+  document.addEventListener('click', closeRowActions)
+  window.addEventListener('resize', closeRowActions)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', closeRowActions)
+  window.removeEventListener('resize', closeRowActions)
+})
+useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!reviewing.value || !!renameTarget.value || !!actionMenu.value)
 </script>
 <template>
   <section>
@@ -80,12 +123,13 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
     </div>
     <div class="toolbar">
       <form class="search-form" @submit.prevent="apply">
-        <input aria-label="Поиск машин" v-model="query" placeholder="Имя АРМ, hostname или UUID" />
+        <input aria-label="Поиск АРМ" v-model="query" placeholder="Имя АРМ, hostname или UUID" />
         <select aria-label="Фильтр по состоянию" v-model="status" @change="apply">
           <option value="">Все</option>
           <option value="active">Текущие</option>
           <option value="offline">Нет связи</option>
           <option value="conflict">Конфликт hostname</option>
+          <option value="archived">Архивные</option>
         </select>
         <button class="btn">Найти</button>
       </form>
@@ -95,9 +139,37 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
     <div v-if="groupNotice" class="alert alert-success" role="status"><strong>{{ groupNotice.title }}</strong><div>{{ groupNotice.text }}</div></div>
     <div v-if="message" class="alert alert-success" role="status">{{ message }}</div>
     <ErrorState v-if="error" :message="error" @retry="load" />
-    <div v-else class="panel table-panel">
+    <div v-if="pendingInstallations.length && !reviewing" class="panel installation-queue">
+      <div class="panel-heading">
+        <div><h3>Ожидают подтверждения <span class="badge badge-warning">{{ pendingInstallations.length }}</span></h3><p class="muted">Новые установки с именем существующей машины. Автоматического объединения нет.</p></div>
+      </div>
+      <div v-for="request in pendingInstallations" :key="request.request_id" class="installation-request">
+        <div>
+          <strong>{{ request.hostname }}</strong>
+          <code class="small muted">{{ request.uuid }}</code>
+          <div class="small muted">Ключ {{ request.key_fingerprint.slice(0, 20) }}… · {{ request.source_ip || 'IP неизвестен' }} · {{ formatTime(request.last_seen_at) }}</div>
+          <div class="small">
+            Связанные карточки:
+            <template v-if="request.candidates.length">
+              <span v-for="candidate in request.candidates" :key="candidate.machine_id" class="badge badge-neutral">{{ candidate.display_name }}</span>
+            </template>
+            <span v-else class="muted">нет</span>
+          </div>
+        </div>
+        <button type="button" class="btn" @click="reviewInstallation(request)">Рассмотреть</button>
+      </div>
+    </div>
+    <InstallationReview v-if="reviewing" :request="reviewing" @resolved="installationResolved" @cancel="reviewing = null" />
+    <MachineRenameDialog v-if="renameTarget" :machine="renameTarget" @saved="machineRenamed" @close="renameTarget = null" />
+    <Teleport to="body">
+      <div v-if="actionMenu" class="row-actions-menu" role="menu" :style="{ top: actionMenu.top + 'px', left: actionMenu.left + 'px' }" @click.stop>
+        <button type="button" role="menuitem" @click="startRename(actionMenu.machine)">Переименовать АРМ</button>
+        <button type="button" role="menuitem" @click="openFromMenu(actionMenu.machine)">Открыть карточку</button>
+      </div>
+    </Teleport>
+    <div v-if="!reviewing" class="panel table-panel">
       <div v-if="loading && !data.items.length" class="state">Загрузка…</div>
-      <EmptyState v-else-if="!data.items.length" title="Машины не найдены" text="Проверьте фильтры или зарегистрируйте агент." />
+      <EmptyState v-else-if="!data.items.length" title="АРМ не найдены" text="Проверьте фильтры или зарегистрируйте агент." />
       <table v-else class="data-table machines-table">
         <thead>
           <tr>
@@ -110,14 +182,17 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
             <th>Лицензия</th>
             <th>Сертификаты</th>
             <th>Статус</th>
+            <th class="actions-cell"><span class="sr-only">Действия</span></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.machine.machine_id" class="clickable" tabindex="0" @keydown.enter.self="emit('open-machine', row.machine.machine_id)" @click="emit('open-machine', row.machine.machine_id)">
-            <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="row.machine.machine_id" :aria-label="`Выбрать ${row.view.name}`" /></td>
+            <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="row.machine.machine_id" :disabled="row.machine.archived" :aria-label="`Выбрать ${row.view.name}`" /></td>
             <td>
               <strong>{{ row.view.name }}</strong>
-              <span v-if="row.machine.registration_state !== 'active'" class="badge badge-neutral archive-badge">Архивная запись</span>
+              <span v-if="row.machine.archived" class="badge badge-neutral archive-badge" :title="row.machine.archive_reason">Архивирована</span>
+              <span v-else-if="row.machine.registration_state !== 'active'" class="badge badge-neutral archive-badge">Историческая запись</span>
+              <div v-if="row.machine.archived" class="small muted">Причина: {{ row.machine.archive_reason || 'не указана' }} · {{ formatTime(row.machine.archived_at) }}</div>
               <code class="small muted machine-uuid">{{ row.view.uuid }}</code>
             </td>
             <td>
@@ -151,6 +226,9 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value)
               <div class="small muted">{{ row.view.certificates.secondary }}</div>
             </td>
             <td><span class="badge" :class="badgeClass(row.view.status.tone)">{{ row.view.status.label }}</span></td>
+            <td class="actions-cell" @click.stop>
+              <button type="button" class="row-actions-trigger" :aria-expanded="actionMenu?.machine.machine_id === row.machine.machine_id" aria-haspopup="menu" :aria-label="`Действия с АРМ ${row.view.name}`" @click="toggleRowActions(row.machine, $event)">…</button>
+            </td>
           </tr>
         </tbody>
       </table>

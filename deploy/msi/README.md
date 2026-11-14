@@ -71,18 +71,21 @@ msiexec /i .\TelehackAgent-0.4.0.msi /qn /norestart /l*v install.log
 # repair (источник MSI должен быть доступен)
 msiexec /f {64E20BF5-DDF6-4704-9374-E175CA30152F} /qn /norestart /l*v repair.log
 
-# удаление через CLI агента: останавливает службу, удаляет
-# AgentDir (identity/DPAPI/queue/logs), затем вызывает msiexec /x
+# удаление через CLI агента: сохраняет identity/state, затем вызывает msiexec /x
 & 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' uninstall
 
-# стандартное MSI-удаление (например, Add/Remove Programs)
+# полное удаление с явной очисткой identity, ключей, очереди и журнала
+& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' uninstall -purge
+
+# стандартное MSI-удаление (например, Add/Remove Programs) сохраняет состояние
 msiexec /x {64E20BF5-DDF6-4704-9374-E175CA30152F} /qn /norestart
 ```
 
-CLI-удаление — предусмотренный интерфейс полного удаления: оно удаляет
-состояние агента перед штатным MSI uninstall. Стандартный MSI uninstall
-удаляет продукт и службу; GPO-конфиг и каталог `C:\ProgramData\Telehack2026`
-не являются собственностью MSI и сохраняются.
+`uninstall` без `-purge` — обычное удаление продукта: identity, DPAPI-ключи,
+очередь и журнал остаются, поэтому повторная установка не создаёт новую
+машину молча. Только `uninstall -purge` выполняет полную очистку состояния
+перед MSI uninstall. Стандартный MSI uninstall также сохраняет
+`C:\ProgramData\Telehack2026`; GPO-конфиг не является собственностью MSI.
 
 `repair`/upgrade не должны удалять `AgentDir`: в WXS это учтено; состояние
 проверяется отдельно. Большой `RemoveFolderEx` намеренно не используется,

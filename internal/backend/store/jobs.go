@@ -26,9 +26,13 @@ func (s *Store) AckJob(ctx context.Context, identity *Identity, request *protoco
 	var machineID mssql.UniqueIdentifier
 	var state string
 	var reportID mssql.NullUniqueIdentifier
+	var taskRegistration sql.NullInt64
 	err = tx.QueryRowContext(ctx, `
-SELECT machine_id, state, report_id FROM dbo.jobs WITH (UPDLOCK, HOLDLOCK) WHERE job_id=@p1`,
-		request.Data.JobID).Scan(&machineID, &state, &reportID)
+SELECT j.machine_id, j.state, j.report_id, ti.registration_id
+FROM dbo.jobs j WITH (UPDLOCK, HOLDLOCK)
+LEFT JOIN dbo.task_items ti ON ti.item_id=j.task_item_id
+WHERE j.job_id=@p1`,
+		request.Data.JobID).Scan(&machineID, &state, &reportID, &taskRegistration)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, &protocol.APIError{Code: protocol.CodeNotFound, Message: "job not found"}
 	}
@@ -37,6 +41,9 @@ SELECT machine_id, state, report_id FROM dbo.jobs WITH (UPDLOCK, HOLDLOCK) WHERE
 	}
 	if uuidString(machineID) != identity.MachineID {
 		return nil, &protocol.APIError{Code: protocol.CodeNotFound, Message: "job belongs to another machine"}
+	}
+	if taskRegistration.Valid && taskRegistration.Int64 != identity.RegistrationID {
+		return nil, &protocol.APIError{Code: protocol.CodeNotFound, Message: "job belongs to another installation"}
 	}
 	terminal := state == "completed" || state == "failed" || state == "report_evicted"
 	if terminal {

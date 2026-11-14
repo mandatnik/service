@@ -123,8 +123,8 @@ func (s *Store) SyncAgentTasks(ctx context.Context, identity *Identity) (*protoc
 	}
 	rows, err := s.DB.QueryContext(ctx, `
 SELECT ti.item_id FROM dbo.task_items ti
-WHERE ti.machine_id=@p1 AND ti.state IN (N'queued',N'delivered',N'running',N'retry_wait',N'outcome_unknown')
-ORDER BY ti.created_at,ti.item_id`, identity.MachineID)
+WHERE ti.machine_id=@p1 AND ti.registration_id=@p2 AND ti.state IN (N'queued',N'delivered',N'running',N'retry_wait',N'outcome_unknown')
+ORDER BY ti.created_at,ti.item_id`, identity.MachineID, identity.RegistrationID)
 	if err != nil {
 		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "list agent task items"}
 	}
@@ -164,8 +164,8 @@ func (s *Store) prepareAgentDelivery(ctx context.Context, identity *Identity, it
 	if apiErr != nil {
 		return nil, "", apiErr
 	}
-	if row.MachineID != identity.MachineID {
-		return nil, "", &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another machine"}
+	if row.MachineID != identity.MachineID || row.RegistrationID != identity.RegistrationID {
+		return nil, "", &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another installation"}
 	}
 	if protocol.IsTerminalTaskState(row.State) {
 		return nil, "", nil
@@ -315,8 +315,8 @@ func (s *Store) AckTaskDelivery(ctx context.Context, identity *Identity, itemID 
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	if row.MachineID != identity.MachineID {
-		return nil, &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another machine"}
+	if row.MachineID != identity.MachineID || row.RegistrationID != identity.RegistrationID {
+		return nil, &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another installation"}
 	}
 	if version < row.DeliveryVersion {
 		return nil, &protocol.APIError{Code: protocol.CodeTaskConflict, Message: "stale delivery version"}
@@ -357,8 +357,8 @@ func (s *Store) ClaimTaskItem(ctx context.Context, identity *Identity, itemID st
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	if row.MachineID != identity.MachineID {
-		return nil, &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another machine"}
+	if row.MachineID != identity.MachineID || row.RegistrationID != identity.RegistrationID {
+		return nil, &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another installation"}
 	}
 	if version != row.DeliveryVersion {
 		return nil, &protocol.APIError{Code: protocol.CodeTaskConflict, Message: "claim must reference the delivered version"}
@@ -462,8 +462,8 @@ func (s *Store) TaskProgress(ctx context.Context, identity *Identity, event prot
 	if apiErr != nil {
 		return apiErr
 	}
-	if row.MachineID != identity.MachineID {
-		return &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another machine"}
+	if row.MachineID != identity.MachineID || row.RegistrationID != identity.RegistrationID {
+		return &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another installation"}
 	}
 	now := s.now()
 	if event.EventType == "attempt_intent" {
@@ -513,8 +513,8 @@ func (s *Store) SubmitTaskResult(ctx context.Context, identity *Identity, result
 	if apiErr != nil {
 		return nil, apiErr
 	}
-	if row.MachineID != identity.MachineID {
-		return nil, &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another machine"}
+	if row.MachineID != identity.MachineID || row.RegistrationID != identity.RegistrationID {
+		return nil, &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another installation"}
 	}
 	if result.DeliveryVersion < row.DeliveryVersion {
 		return nil, &protocol.APIError{Code: protocol.CodeTaskConflict, Message: "result references a stale delivery version"}
@@ -1060,8 +1060,8 @@ func (s *Store) RecordTaskDiagnostic(ctx context.Context, identity *Identity, di
 		if apiErr != nil {
 			return apiErr
 		}
-		if row.MachineID != identity.MachineID {
-			return &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another machine"}
+		if row.MachineID != identity.MachineID || row.RegistrationID != identity.RegistrationID {
+			return &protocol.APIError{Code: protocol.CodeTaskNotFound, Message: "task item belongs to another installation"}
 		}
 		sequence, err := s.nextSequenceTx(ctx, tx, id)
 		if err != nil {

@@ -36,6 +36,9 @@ type agentRuntime struct {
 	stateMu    sync.Mutex
 
 	registered            bool
+	registrationState     string
+	installationRequestID string
+	installationMessage   string
 	lastRegisterAttempt   time.Time
 	lastCapabilityAttempt time.Time
 	lastSync              time.Time
@@ -98,6 +101,10 @@ func newAgentRuntime(configPath string) (*agentRuntime, error) {
 		logger.Close()
 		return nil, err
 	}
+	notice, noticeErr := loadRegistrationNotice()
+	if noticeErr != nil {
+		logger.Logf("registration notice load failed: %v", noticeErr)
+	}
 	jobs, err := loadJobs()
 	if err != nil {
 		logger.Logf("job state load failed, starting with empty job state: %v", err)
@@ -132,19 +139,22 @@ func newAgentRuntime(configPath string) (*agentRuntime, error) {
 		}
 	}
 	runtime := &agentRuntime{
-		configPath: configPath,
-		logger:     logger,
-		collector:  NewCollector(logger),
-		fileConfig: fileConfig,
-		client:     newAPIClient(fileConfig.ServerURL, time.Duration(fileConfig.RequestTimeoutSeconds)*time.Second),
-		identity:   identity,
-		pending:    pending,
-		state:      state,
-		jobs:       jobs,
-		queue:      queue,
-		journal:    journal,
-		encryption: encryption,
-		pollWake:   make(chan struct{}, 1),
+		configPath:            configPath,
+		logger:                logger,
+		collector:             NewCollector(logger),
+		fileConfig:            fileConfig,
+		client:                newAPIClient(fileConfig.ServerURL, time.Duration(fileConfig.RequestTimeoutSeconds)*time.Second),
+		identity:              identity,
+		pending:               pending,
+		state:                 state,
+		jobs:                  jobs,
+		queue:                 queue,
+		journal:               journal,
+		encryption:            encryption,
+		registrationState:     notice.State,
+		installationRequestID: notice.RequestID,
+		installationMessage:   notice.Message,
+		pollWake:              make(chan struct{}, 1),
 	}
 	if encryption != nil && journal != nil {
 		runtime.tasks = newTaskRuntime(runtime, journal, encryption)
@@ -156,7 +166,7 @@ func newAgentRuntime(configPath string) (*agentRuntime, error) {
 	if system, err := currentSystemIdentity(); err == nil {
 		logger.Logf("service identity: user=%s sid=%s session=%d os=%q host=%s", system.User, system.SID, system.SessionID, system.OSVersion, system.Hostname)
 	}
-	logger.Logf("identity uuid=%s hostname=%s pending_rename=%t", identity.UUID, identity.Hostname, pending != nil)
+	logger.Logf("identity uuid=%s hostname=%s pending_rename=%t registration_state=%s", identity.UUID, identity.Hostname, pending != nil, notice.State)
 	logger.Logf("queue items=%d scan_seq=%d config_hash=%s", queue.Count(), state.ScanSeq, state.ConfigHash)
 	return runtime, nil
 }
@@ -297,16 +307,54 @@ func (r *agentRuntime) ensureRegistered(ctx context.Context) bool {
 	if r.registered {
 		return true
 	}
-	if !r.lastRegisterAttempt.IsZero() && time.Since(r.lastRegisterAttempt) < time.Minute {
+	retryAfter := time.Minute
+	switch r.registrationState {
+	case "pending_confirmation":
+		retryAfter = 5 * time.Minute
+	case "rejected":
+		retryAfter = 10 * time.Minute
+	}
+	if !r.lastRegisterAttempt.IsZero() && time.Since(r.lastRegisterAttempt) < retryAfter {
 		return false
 	}
 	r.lastRegisterAttempt = time.Now()
 	response, result := r.client.register(ctx, r.identity, agentOSVersion())
 	if result.Error != nil {
+		switch result.Error.Code {
+		case protocol.CodeInstallationPending:
+			requestID, _ := result.Error.Details["request_id"].(string)
+			message := "установка ожидает подтверждения администратором; идентичность и локальные данные сохранены"
+			r.registrationState = "pending_confirmation"
+			r.installationRequestID = requestID
+			r.installationMessage = message
+			if saveErr := saveRegistrationNotice(registrationNotice{State: r.registrationState, RequestID: requestID, Message: message}); saveErr != nil {
+				r.logger.Logf("save pending installation state: %v", saveErr)
+			}
+			r.logger.Logf("registration pending administrator confirmation: request_id=%s hostname=%s uuid=%s retry_after=%s", requestID, r.identity.Hostname, r.identity.UUID, retryAfter)
+			return false
+		case protocol.CodeInstallationRejected:
+			message := "заявка на установку отклонена администратором; требуется сброс идентичности или обращение к администратору"
+			if requestID, _ := result.Error.Details["request_id"].(string); requestID != "" {
+				r.installationRequestID = requestID
+			}
+			r.registrationState = "rejected"
+			r.installationMessage = message
+			if saveErr := saveRegistrationNotice(registrationNotice{State: r.registrationState, RequestID: r.installationRequestID, Message: message}); saveErr != nil {
+				r.logger.Logf("save rejected installation state: %v", saveErr)
+			}
+			r.logger.Logf("registration rejected: %s; identity is preserved", result.Error.Message)
+			return false
+		}
 		r.logger.Logf("registration failed: status=%d code=%s message=%s", result.Status, result.Error.Code, result.Error.Message)
 		return false
 	}
 	r.registered = true
+	r.registrationState = ""
+	r.installationRequestID = ""
+	r.installationMessage = ""
+	if saveErr := saveRegistrationNotice(registrationNotice{}); saveErr != nil {
+		r.logger.Logf("clear installation notice: %v", saveErr)
+	}
 	r.stateMu.Lock()
 	r.state.MachineID = response.MachineID
 	if response.ConfigHash != "" {

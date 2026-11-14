@@ -100,24 +100,30 @@ func ConfigureServiceRecovery() error {
 // product. Local developer installs retain the explicit local fallback.
 func UninstallProduct(purge bool) (string, error) {
 	if code, ok := installedMSIProduct(); ok {
-		// The MSI owns the service and program files. The CLI owns the
-		// per-machine state: stop the service, remove identity/key/queue/logs,
-		// then hand product removal to the Windows Installer. The GPO-managed
+		// The MSI owns the service and program files. Only an explicit purge
+		// removes the per-machine identity/key/queue/logs; repair, upgrade and
+		// an ordinary uninstall keep ProgramData state. The GPO-managed
 		// agent-config.json lives above AgentDir and is intentionally kept.
 		_ = StopService()
-		if err := os.RemoveAll(platform.AgentDir()); err != nil {
+		if err := purgeAgentState(purge, platform.AgentDir()); err != nil {
 			return "", fmt.Errorf("purge agent state: %w", err)
 		}
 		logPath, err := startMSIUninstall(code)
 		if err != nil {
 			return "", err
 		}
-		return "MSI uninstall started; log: " + logPath, nil
+		if purge {
+			return "MSI uninstall started; agent state purged; log: " + logPath, nil
+		}
+		return "MSI uninstall started; agent identity and state preserved; log: " + logPath, nil
 	}
 	if err := UninstallService(purge); err != nil {
 		return "", err
 	}
-	return "local service removed", nil
+	if purge {
+		return "local service removed; agent state purged", nil
+	}
+	return "local service removed; agent identity and state preserved", nil
 }
 
 var msiProductCodePattern = regexp.MustCompile(`^\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}$`)
@@ -196,7 +202,7 @@ func UninstallService(purge bool) error {
 		return fmt.Errorf("delete service: %w", err)
 	}
 	if purge {
-		if err := os.RemoveAll(platform.AgentDir()); err != nil {
+		if err := purgeAgentState(true, platform.AgentDir()); err != nil {
 			return fmt.Errorf("purge agent state: %w", err)
 		}
 	}
@@ -310,7 +316,10 @@ func ResetIdentity() (string, error) {
 	if err := os.MkdirAll(backup, 0o755); err != nil {
 		return "", err
 	}
-	for _, name := range []string{"identity.dpapi", "pending_rename.dpapi", "identity-public.json", "state.json", "jobs.json", "queue"} {
+	for _, name := range []string{
+		"identity.dpapi", "pending_rename.dpapi", "pending_rename.accepted", "identity-public.json",
+		"state.json", "jobs.json", "registration-state.json", "queue", "encryption.dpapi", "task-journal.dpapi",
+	} {
 		source := filepath.Join(platform.AgentDir(), name)
 		if _, err := os.Stat(source); err != nil {
 			continue
@@ -348,6 +357,16 @@ func Diagnostics() (string, error) {
 		if json.Unmarshal(stateRaw, &state) == nil {
 			builder.WriteString(fmt.Sprintf("state: %v\n", state))
 		}
+	}
+	if notice, err := loadRegistrationNotice(); err == nil && notice.State != "" {
+		builder.WriteString(fmt.Sprintf("registration: %s", notice.State))
+		if notice.RequestID != "" {
+			builder.WriteString(" request_id=" + notice.RequestID)
+		}
+		if notice.Message != "" {
+			builder.WriteString(" — " + notice.Message)
+		}
+		builder.WriteString("\n")
 	}
 	queue, _ := os.ReadDir(platform.AgentQueueDir())
 	builder.WriteString(fmt.Sprintf("queue items: %d\n", len(queue)))

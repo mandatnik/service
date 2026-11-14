@@ -4,6 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatDate, formatTime, licenseKindLabel, stateLabel, trialLabel } from '../format'
 import ErrorState from './ErrorState.vue'
+import InstallationReview from './InstallationReview.vue'
+import MachineRenameDialog from './MachineRenameDialog.vue'
 const props = defineProps({ machineId: { type: String, required: true } })
 const emit = defineEmits(['back', 'open-machine'])
 const data = ref(null)
@@ -15,7 +17,12 @@ const rebindID = ref('')
 const publicKey = ref('')
 const manualBusy = ref(false)
 const rebindBusy = ref(false)
+const reviewing = ref(null)
+const archiveReason = ref('')
+const archiveBusy = ref(false)
+const renameOpen = ref(false)
 const activeRegs = computed(() => (data.value?.registrations || []).filter(r => r.state === 'active'))
+const pendingInstallations = computed(() => data.value?.pending_installations || [])
 async function load() {
   loading.value = true
   error.value = ''
@@ -57,6 +64,33 @@ async function revoke(registrationID) {
     await load()
   } catch (e) { actionError.value = e.message }
 }
+async function installationResolved(payload) {
+  const action = payload?.action
+  reviewing.value = null
+  message.value = action === 'replace'
+    ? `Установка заменена. Карточка ${payload.result.machine_id} и история сохранены.`
+    : action === 'separate'
+      ? `Создана отдельная машина ${payload.result.machine_id}.`
+      : 'Заявка на установку отклонена.'
+  await load()
+}
+async function machineRenamed(result) {
+  renameOpen.value = false
+  message.value = `Имя АРМ изменено: «${result.display_name}». Hostname и machine_id не изменялись.`
+  await load()
+}
+async function archive() {
+  actionError.value = ''
+  message.value = ''
+  if (!archiveReason.value.trim()) { actionError.value = 'Укажите причину архивирования.'; return }
+  archiveBusy.value = true
+  try {
+    await api.archiveMachine(props.machineId, archiveReason.value.trim())
+    message.value = 'Карточка архивирована; история сохранена и доступна через фильтр «Архивные».'
+    archiveReason.value = ''
+    await load()
+  } catch (e) { actionError.value = e.message } finally { archiveBusy.value = false }
+}
 async function assign(hostname, registrationID) {
   actionError.value = ''
   message.value = ''
@@ -68,7 +102,7 @@ async function assign(hostname, registrationID) {
   } catch (e) { actionError.value = e.message }
 }
 onMounted(load)
-useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value || !!publicKey.value.trim())
+useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value || archiveBusy.value || !!publicKey.value.trim() || !!reviewing.value || renameOpen.value)
 </script>
 <template>
   <section>
@@ -78,10 +112,11 @@ useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value
     <template v-else-if="data">
       <div class="page-heading">
         <div>
-          <h2>{{ data.machine.display_name }}</h2>
-          <p class="muted">{{ data.machine.hostname || 'hostname не собран' }} · <code>{{ data.machine.uuid || 'нет активной регистрации' }}</code></p>
+          <h2>{{ data.machine.display_name }} <span v-if="data.machine.archived" class="badge badge-neutral">Архивная запись</span></h2>
+          <p class="muted">{{ data.machine.hostname || 'hostname не собран' }} · <code>{{ data.machine.machine_id }}</code></p>
         </div>
         <div class="heading-actions">
+          <button class="btn" @click="renameOpen = true">Переименовать</button>
           <button class="btn btn-primary" :disabled="manualBusy" @click="scan">{{ manualBusy ? 'Создание…' : 'Ручное сканирование' }}</button>
           <button class="btn" @click="load">Обновить</button>
         </div>
@@ -129,13 +164,44 @@ useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value
         </table>
         <details class="advanced">
           <summary>Перепривязать публичный ключ</summary>
-          <p class="muted">Операция разрешает новому ключу подписывать запросы от имени этой машины. Выполняйте её только при контролируемой переустановке агента.</p>
+          <p class="muted">Это не замена установки: операция меняет ключ текущей регистрации. Новую установку с новым UUID подтверждайте через очередь «Ожидают подтверждения» и действие «Заменить установку агента».</p>
           <div class="form-row">
             <label class="field"><span>Активная регистрация</span><select v-model="rebindID"><option v-for="r in activeRegs" :key="r.registration_id" :value="String(r.registration_id)">{{ r.registration_id }} · {{ r.hostname }}</option></select></label>
           </div>
           <label class="field"><span>PUBLIC KEY (PEM)</span><textarea v-model="publicKey" rows="7" placeholder="-----BEGIN PUBLIC KEY-----"></textarea></label>
           <button class="btn btn-danger" :disabled="rebindBusy || !activeRegs.length" @click="rebind">{{ rebindBusy ? 'Сохранение…' : 'Заменить ключ' }}</button>
         </details>
+      </div>
+
+      <div class="panel">
+        <div class="panel-heading">
+          <div><h3>Ожидающие установки</h3><p class="muted">Все ожидающие установки. Для этой карточки можно вручную подтвердить замену, в том числе при отличающемся имени; <code>machine_id</code> и история сохранятся.</p></div>
+          <span v-if="pendingInstallations.length" class="badge badge-warning">{{ pendingInstallations.length }}</span>
+        </div>
+        <div v-if="!pendingInstallations.length" class="muted">Нет заявок, ожидающих решения.</div>
+        <div v-for="request in pendingInstallations" :key="request.request_id" class="installation-request">
+          <div>
+            <strong>{{ request.hostname }}</strong>
+            <code class="small muted">{{ request.uuid }}</code>
+            <div class="small muted">Ключ {{ request.key_fingerprint.slice(0, 20) }}… · {{ request.source_ip || 'IP неизвестен' }} · {{ formatTime(request.last_seen_at) }}</div>
+          </div>
+          <button type="button" class="btn btn-primary" @click="reviewing = request">Заменить установку агента</button>
+        </div>
+        <InstallationReview v-if="reviewing" :request="reviewing" :preset-machine-id="machineId" @resolved="installationResolved" @cancel="reviewing = null" />
+      </div>
+
+      <div class="panel">
+        <h3>Архив карточки</h3>
+        <div v-if="data.machine.archived" class="alert alert-info">
+          Карточка архивирована {{ formatTime(data.machine.archived_at) }} · {{ data.machine.archived_by || 'администратор' }}.
+          Причина: {{ data.machine.archive_reason || 'не указана' }}. История, отчёты и события сохранены.
+        </div>
+        <template v-else-if="!activeRegs.length">
+          <p class="muted">Историческая карточка без активной регистрации. Архивирование убирает её из списка действующих АРМ, не удаляя историю.</p>
+          <label class="field"><span>Причина архивирования</span><input v-model="archiveReason" maxlength="1024" placeholder="Например: устаревшая запись после переустановки" /></label>
+          <button type="button" class="btn btn-danger" :disabled="archiveBusy || !archiveReason.trim()" @click="archive">{{ archiveBusy ? 'Архивирование…' : 'Архивировать карточку' }}</button>
+        </template>
+        <p v-else class="muted">Сначала отзовите или замените активную регистрацию: карточку с действующей установкой архивировать нельзя.</p>
       </div>
 
       <div class="panel">
@@ -185,5 +251,6 @@ useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value
         <div v-for="e in data.events" :key="e.event_id" class="event-row"><div><span class="badge" :class="e.severity === 'error' ? 'badge-error' : (e.severity === 'warning' ? 'badge-warning' : 'badge-neutral')">{{ e.severity }}</span> <strong>{{ e.kind }}</strong><div>{{ e.message }}</div><details v-if="e.details_json"><summary class="small muted">Детали</summary><pre class="details-json">{{ e.details_json }}</pre></details></div><span class="muted small">{{ formatTime(e.created_at) }}</span></div>
       </div>
     </template>
+    <MachineRenameDialog v-if="renameOpen && data" :machine="data.machine" @saved="machineRenamed" @close="renameOpen = false" />
   </section>
 </template>

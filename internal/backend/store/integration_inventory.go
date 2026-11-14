@@ -94,7 +94,8 @@ SELECT m.machine_id, m.display_name, m.created_at,
 FROM dbo.machines m
 LEFT JOIN dbo.registrations r ON r.machine_id=m.machine_id AND r.state='active'
 LEFT JOIN dbo.csp_states c ON c.machine_id=m.machine_id
-OUTER APPLY (SELECT TOP 1 report_id,status,collected_at,applied_sources FROM dbo.reports rep WHERE rep.machine_id=m.machine_id ORDER BY rep.scan_seq DESC) rp`
+OUTER APPLY (SELECT TOP 1 report_id,status,collected_at,applied_sources FROM dbo.reports rep WHERE rep.machine_id=m.machine_id ORDER BY rep.scan_epoch DESC, rep.scan_seq DESC) rp
+WHERE m.archived_at IS NULL`
 
 func scanIntegrationMachine(scanner interface {
 	Scan(dest ...any) error

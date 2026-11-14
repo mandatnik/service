@@ -30,6 +30,15 @@ const (
 	adminDisplayNameMaxLength = 255
 )
 
+const (
+	machineOfflineMinutes   = 3
+	machineOfflineThreshold = machineOfflineMinutes * time.Minute
+)
+
+func machineOffline(lastSeen *time.Time, now time.Time) bool {
+	return lastSeen == nil || now.Sub(*lastSeen) >= machineOfflineThreshold
+}
+
 // NormalizeAdminEmail trims and lowercases an administrator login. Only a bare
 // RFC 5322 address is accepted; display-name forms such as "Name <a@b>" are
 // rejected so the database always stores a single canonical value.
@@ -226,6 +235,7 @@ type MachineGroupRef struct {
 type MachineSummary struct {
 	MachineID         string            `json:"machine_id"`
 	DisplayName       string            `json:"display_name"`
+	DisplayNameCustom bool              `json:"display_name_custom"`
 	FirstSeen         *time.Time        `json:"first_seen,omitempty"`
 	UUID              string            `json:"uuid,omitempty"`
 	Hostname          string            `json:"hostname,omitempty"`
@@ -255,6 +265,10 @@ type MachineSummary struct {
 	Groups            []MachineGroupRef `json:"groups"`
 	Status            string            `json:"status"`
 	Offline           bool              `json:"offline"`
+	Archived          bool              `json:"archived"`
+	ArchivedAt        *time.Time        `json:"archived_at,omitempty"`
+	ArchivedBy        string            `json:"archived_by,omitempty"`
+	ArchiveReason     string            `json:"archive_reason,omitempty"`
 }
 
 type Page[T any] struct {
@@ -307,11 +321,12 @@ func ipString(value []byte) string {
 }
 
 type AdminMachineFilter struct {
-	Query     string
-	Status    string
-	Page      int
-	PageSize  int
-	MachineID string
+	Query           string
+	Status          string
+	Page            int
+	PageSize        int
+	MachineID       string
+	IncludeArchived bool
 }
 
 func (s *Store) ListMachines(ctx context.Context, filter AdminMachineFilter) (Page[MachineSummary], error) {
@@ -333,19 +348,28 @@ func (s *Store) ListMachines(ctx context.Context, filter AdminMachineFilter) (Pa
 		like := "%" + q + "%"
 		add("(m.display_name LIKE @p%d OR r.hostname LIKE @p%d OR CONVERT(nvarchar(36), r.uuid) LIKE @p%d)", like, like, like)
 	}
-	switch filter.Status {
-	case "active":
-		where = append(where, "r.state='active'")
-	case "offline":
-		where = append(where, "r.state='active' AND (r.last_seen_at IS NULL OR r.last_seen_at < DATEADD(minute, -20, SYSUTCDATETIME()))")
-	case "conflict":
-		where = append(where, "EXISTS (SELECT 1 FROM dbo.registrations r2 WHERE r2.hostname_norm=r.hostname_norm AND r2.state='active' AND r2.registration_id<>r.registration_id)")
+	// Archived historical cards are available only through the explicit
+	// "archived" filter. They never mix into the acting machine list.
+	if strings.EqualFold(strings.TrimSpace(filter.Status), "archived") {
+		where = append(where, "m.archived_at IS NOT NULL")
+	} else {
+		if !filter.IncludeArchived {
+			where = append(where, "m.archived_at IS NULL")
+		}
+		switch filter.Status {
+		case "active":
+			where = append(where, "r.state='active'")
+		case "offline":
+			where = append(where, fmt.Sprintf("r.state='active' AND (r.last_seen_at IS NULL OR r.last_seen_at <= DATEADD(minute, -%d, SYSUTCDATETIME()))", machineOfflineMinutes))
+		case "conflict":
+			where = append(where, "EXISTS (SELECT 1 FROM dbo.registrations r2 WHERE r2.hostname_norm=r.hostname_norm AND r2.state='active' AND r2.registration_id<>r.registration_id)")
+		}
 	}
 	baseJoin := `
 FROM dbo.machines m
 LEFT JOIN dbo.registrations r ON r.machine_id=m.machine_id AND r.state='active'
 LEFT JOIN dbo.csp_states c ON c.machine_id=m.machine_id
-OUTER APPLY (SELECT TOP 1 report_id,status,collected_at,applied_sources FROM dbo.reports rep WHERE rep.machine_id=m.machine_id ORDER BY rep.scan_seq DESC) rp
+OUTER APPLY (SELECT TOP 1 report_id,status,collected_at,applied_sources FROM dbo.reports rep WHERE rep.machine_id=m.machine_id ORDER BY rep.scan_epoch DESC, rep.scan_seq DESC) rp
 WHERE ` + strings.Join(where, " AND ")
 	countArgs := append([]any(nil), args...)
 	var total int
@@ -355,7 +379,8 @@ WHERE ` + strings.Join(where, " AND ")
 	queryArgs := append([]any(nil), args...)
 	queryArgs = append(queryArgs, (page-1)*pageSize, pageSize)
 	query := `
-SELECT m.machine_id, m.display_name, m.created_at,
+SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
+       m.archived_at, COALESCE(m.archived_by,''), COALESCE(m.archive_reason,''),
        r.uuid, r.hostname, r.state, r.last_seen_at, r.last_source_ip, r.last_dns_status,
        c.present, c.product_version, c.core_version, c.license_kind, c.license_kind_raw, c.license_state, c.term_kind, c.is_trial, c.valid_to_utc,
        rp.report_id, rp.status, rp.collected_at, COALESCE(rp.applied_sources,0),
@@ -377,6 +402,9 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		var item MachineSummary
 		var id mssql.NullUniqueIdentifier
 		var created time.Time
+		var archived sql.NullTime
+		var displayNameCustom bool
+		var archivedBy, archiveReason sql.NullString
 		var uuid mssql.NullUniqueIdentifier
 		var hostname, regState sql.NullString
 		var lastSeen sql.NullTime
@@ -388,14 +416,20 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		var reportStatus sql.NullString
 		var collected sql.NullTime
 		var applied, users, certs, conflict, registryCerts, fileCerts, licensedCerts int
-		if err := rows.Scan(&id, &item.DisplayName, &created, &uuid, &hostname, &regState, &lastSeen, &ip, &dns,
+		if err := rows.Scan(&id, &item.DisplayName, &displayNameCustom, &created, &archived, &archivedBy, &archiveReason,
+			&uuid, &hostname, &regState, &lastSeen, &ip, &dns,
 			&cspPresent, &product, &core, &kind, &raw, &state, &term, &trial, &validTo, &reportID, &reportStatus, &collected, &applied,
 			&users, &certs, &conflict, &registryCerts, &fileCerts, &licensedCerts); err != nil {
 			return Page[MachineSummary]{}, err
 		}
 		item.MachineID = uuidString(id.UUID)
+		item.DisplayNameCustom = displayNameCustom
 		createdUTC := created.UTC()
 		item.FirstSeen = &createdUTC
+		item.Archived = archived.Valid
+		item.ArchivedAt = nullTime(archived)
+		item.ArchivedBy = nullString(archivedBy)
+		item.ArchiveReason = nullString(archiveReason)
 		item.UUID = nullUUIDString(uuid)
 		item.Hostname = nullString(hostname)
 		item.RegistrationState = nullString(regState)
@@ -425,7 +459,7 @@ SELECT m.machine_id, m.display_name, m.created_at,
 		item.FileCerts = fileCerts
 		item.LicensedCerts = licensedCerts
 		item.Groups = []MachineGroupRef{}
-		item.Offline = item.LastSeenAt == nil || now.Sub(*item.LastSeenAt) > 20*time.Minute
+		item.Offline = machineOffline(item.LastSeenAt, now)
 		item.DisplayName = machineDisplayName(item.DisplayName, item.UUID, item.MachineID)
 		item.Status = deriveMachineStatus(item.CSPPresent, item.LicenseState, item.IsTrial, item.RegistryCerts, item.LicensedCerts)
 		items = append(items, item)
@@ -482,6 +516,7 @@ type RegistrationInfo struct {
 	UUID           string     `json:"uuid"`
 	Hostname       string     `json:"hostname"`
 	State          string     `json:"state"`
+	ScanEpoch      int        `json:"scan_epoch"`
 	AgentVersion   string     `json:"agent_version,omitempty"`
 	OSVersion      string     `json:"os_version,omitempty"`
 	Architecture   string     `json:"architecture,omitempty"`
@@ -510,6 +545,7 @@ type SourceStateInfo struct {
 	SourceType      string    `json:"source_type"`
 	SourceKey       string    `json:"source_key"`
 	LastScanSeq     int64     `json:"last_scan_seq"`
+	LastScanEpoch   int       `json:"last_scan_epoch"`
 	LastComplete    bool      `json:"last_complete"`
 	LastCollectedAt time.Time `json:"last_collected_at"`
 	LastReportID    string    `json:"last_report_id"`
@@ -519,6 +555,7 @@ type SourceStateInfo struct {
 type ReportInfo struct {
 	ReportID       string    `json:"report_id"`
 	ScanSeq        int64     `json:"scan_seq"`
+	ScanEpoch      int       `json:"scan_epoch"`
 	Status         string    `json:"status"`
 	Applied        bool      `json:"applied"`
 	AppliedSources int       `json:"applied_sources"`
@@ -566,28 +603,30 @@ type HostnameInfo struct {
 }
 
 type MachineDetail struct {
-	Machine       MachineSummary     `json:"machine"`
-	Registrations []RegistrationInfo `json:"registrations"`
-	Users         []MachineUserInfo  `json:"users"`
-	Sources       []SourceStateInfo  `json:"sources"`
-	CSP           map[string]any     `json:"csp"`
-	Reports       []ReportInfo       `json:"reports"`
-	Events        []EventInfo        `json:"events"`
-	Jobs          []JobInfo          `json:"jobs"`
-	Hostnames     []HostnameInfo     `json:"hostnames"`
+	Machine              MachineSummary        `json:"machine"`
+	Registrations        []RegistrationInfo    `json:"registrations"`
+	PendingInstallations []PendingInstallation `json:"pending_installations"`
+	Users                []MachineUserInfo     `json:"users"`
+	Sources              []SourceStateInfo     `json:"sources"`
+	CSP                  map[string]any        `json:"csp"`
+	Reports              []ReportInfo          `json:"reports"`
+	Events               []EventInfo           `json:"events"`
+	Jobs                 []JobInfo             `json:"jobs"`
+	Hostnames            []HostnameInfo        `json:"hostnames"`
 }
 
 func (s *Store) MachineDetail(ctx context.Context, machineID string) (*MachineDetail, error) {
-	page, err := s.ListMachines(ctx, AdminMachineFilter{MachineID: machineID, Page: 1, PageSize: 1})
+	page, err := s.ListMachines(ctx, AdminMachineFilter{MachineID: machineID, IncludeArchived: true, Page: 1, PageSize: 1})
 	if err != nil {
 		return nil, err
 	}
 	if len(page.Items) == 0 {
 		return nil, sql.ErrNoRows
 	}
-	detail := &MachineDetail{Machine: page.Items[0], Registrations: []RegistrationInfo{}, Users: []MachineUserInfo{}, Sources: []SourceStateInfo{}, Reports: []ReportInfo{}, Events: []EventInfo{}, Jobs: []JobInfo{}, Hostnames: []HostnameInfo{}, CSP: map[string]any{}}
+	detail := &MachineDetail{Machine: page.Items[0], Registrations: []RegistrationInfo{}, PendingInstallations: []PendingInstallation{}, Users: []MachineUserInfo{}, Sources: []SourceStateInfo{}, Reports: []ReportInfo{}, Events: []EventInfo{}, Jobs: []JobInfo{}, Hostnames: []HostnameInfo{}, CSP: map[string]any{}}
+	detail.PendingInstallations, _ = s.PendingInstallationsForMachine(ctx, machineID)
 	rows, err := s.DB.QueryContext(ctx, `
-SELECT registration_id, uuid, hostname, state, public_key_sha256,
+SELECT registration_id, uuid, hostname, state, scan_epoch, public_key_sha256,
        COALESCE(agent_version,''), COALESCE(os_version,''), COALESCE(architecture,''),
        created_at, last_seen_at, last_source_ip, last_dns_status,
        previous_registration_id, replaced_by_registration_id, revoked_at
@@ -602,7 +641,7 @@ FROM dbo.registrations WHERE machine_id=@p1 ORDER BY registration_id`, machineID
 		var ip []byte
 		var dns sql.NullString
 		var prev, replaced sql.NullInt64
-		if err := rows.Scan(&item.RegistrationID, &uuid, &item.Hostname, &item.State, &item.KeyFingerprint,
+		if err := rows.Scan(&item.RegistrationID, &uuid, &item.Hostname, &item.State, &item.ScanEpoch, &item.KeyFingerprint,
 			&item.AgentVersion, &item.OSVersion, &item.Architecture,
 			&item.CreatedAt, &lastSeen, &ip, &dns, &prev, &replaced, &revoked); err != nil {
 			rows.Close()
@@ -640,7 +679,7 @@ FROM dbo.machine_users WHERE machine_id=@p1 ORDER BY name`, machineID)
 	}
 	userRows.Close()
 	sourceRows, err := s.DB.QueryContext(ctx, `
-SELECT source_type, source_key, last_scan_seq, last_complete, last_collected_at, last_report_id
+SELECT source_type, source_key, last_scan_seq, last_scan_epoch, last_complete, last_collected_at, last_report_id
 FROM dbo.source_states WHERE machine_id=@p1 ORDER BY source_type, source_key`, machineID)
 	if err != nil {
 		return nil, err
@@ -648,7 +687,7 @@ FROM dbo.source_states WHERE machine_id=@p1 ORDER BY source_type, source_key`, m
 	for sourceRows.Next() {
 		var item SourceStateInfo
 		var report mssql.UniqueIdentifier
-		if err := sourceRows.Scan(&item.SourceType, &item.SourceKey, &item.LastScanSeq, &item.LastComplete, &item.LastCollectedAt, &report); err != nil {
+		if err := sourceRows.Scan(&item.SourceType, &item.SourceKey, &item.LastScanSeq, &item.LastScanEpoch, &item.LastComplete, &item.LastCollectedAt, &report); err != nil {
 			sourceRows.Close()
 			return nil, err
 		}
@@ -661,15 +700,15 @@ FROM dbo.source_states WHERE machine_id=@p1 ORDER BY source_type, source_key`, m
 		detail.CSP = csp
 	}
 	reportRows, err := s.DB.QueryContext(ctx, `
-SELECT TOP 20 report_id, scan_seq, status, applied, applied_sources, collected_at, received_at
-FROM dbo.reports WHERE machine_id=@p1 ORDER BY scan_seq DESC`, machineID)
+SELECT TOP 20 report_id, scan_seq, scan_epoch, status, applied, applied_sources, collected_at, received_at
+FROM dbo.reports WHERE machine_id=@p1 ORDER BY scan_epoch DESC, scan_seq DESC`, machineID)
 	if err != nil {
 		return nil, err
 	}
 	for reportRows.Next() {
 		var item ReportInfo
 		var id mssql.UniqueIdentifier
-		if err := reportRows.Scan(&id, &item.ScanSeq, &item.Status, &item.Applied, &item.AppliedSources, &item.CollectedAt, &item.ReceivedAt); err != nil {
+		if err := reportRows.Scan(&id, &item.ScanSeq, &item.ScanEpoch, &item.Status, &item.Applied, &item.AppliedSources, &item.CollectedAt, &item.ReceivedAt); err != nil {
 			reportRows.Close()
 			return nil, err
 		}
@@ -680,9 +719,11 @@ FROM dbo.reports WHERE machine_id=@p1 ORDER BY scan_seq DESC`, machineID)
 	detail.Events, _ = s.listEventsForMachine(ctx, machineID, 30)
 	detail.Jobs, _ = s.listJobsForMachine(ctx, machineID, 30)
 	if len(detail.Reports) > 0 {
+		latestEpoch := detail.Reports[0].ScanEpoch
 		latestSeq := detail.Reports[0].ScanSeq
 		for i := range detail.Sources {
-			detail.Sources[i].Stale = detail.Sources[i].LastScanSeq < latestSeq
+			detail.Sources[i].Stale = detail.Sources[i].LastScanEpoch < latestEpoch ||
+				(detail.Sources[i].LastScanEpoch == latestEpoch && detail.Sources[i].LastScanSeq < latestSeq)
 		}
 	}
 	detail.Hostnames, _ = s.ListHostnames(ctx)
@@ -709,11 +750,12 @@ func (s *Store) cspInfo(ctx context.Context, machineID string) (map[string]any, 
 	var scanned, complete, present bool
 	var product, core, kind, raw, source, state, validRaw, validUTC, basis, term, trial, src, errText, products, lastAttemptError, collected sql.NullString
 	var lastSeq sql.NullInt64
+	var lastEpoch int
 	err := s.DB.QueryRowContext(ctx, `
 SELECT scanned, complete, present, product_version, core_version, license_kind, license_kind_raw, license_kind_source,
        license_state, CONVERT(nvarchar(33), valid_to_utc, 127), valid_to_raw, time_basis, term_kind, is_trial, source, error,
-       products_json, last_scan_seq, CONVERT(nvarchar(33), collected_at, 127), last_attempt_error
-FROM dbo.csp_states WHERE machine_id=@p1`, machineID).Scan(&scanned, &complete, &present, &product, &core, &kind, &raw, &source, &state, &validUTC, &validRaw, &basis, &term, &trial, &src, &errText, &products, &lastSeq, &collected, &lastAttemptError)
+       products_json, last_scan_seq, last_scan_epoch, CONVERT(nvarchar(33), collected_at, 127), last_attempt_error
+FROM dbo.csp_states WHERE machine_id=@p1`, machineID).Scan(&scanned, &complete, &present, &product, &core, &kind, &raw, &source, &state, &validUTC, &validRaw, &basis, &term, &trial, &src, &errText, &products, &lastSeq, &lastEpoch, &collected, &lastAttemptError)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -727,7 +769,7 @@ FROM dbo.csp_states WHERE machine_id=@p1`, machineID).Scan(&scanned, &complete, 
 		"license_state": nullString(state), "valid_to_utc": nullString(validUTC), "valid_to_raw": nullString(validRaw),
 		"time_basis": nullString(basis), "term_kind": nullString(term), "is_trial": nullString(trial),
 		"source": nullString(src), "error": nullString(errText), "products_json": nullString(products),
-		"last_scan_seq": lastSeq.Int64, "collected_at": nullString(collected), "last_attempt_error": nullString(lastAttemptError),
+		"last_scan_seq": lastSeq.Int64, "last_scan_epoch": lastEpoch, "collected_at": nullString(collected), "last_attempt_error": nullString(lastAttemptError),
 	}, nil
 }
 
@@ -969,7 +1011,7 @@ func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
 		target *int
 		query  string
 	}{
-		{&out.Machines, `SELECT COUNT(*) FROM dbo.machines`},
+		{&out.Machines, `SELECT COUNT(*) FROM dbo.machines WHERE archived_at IS NULL`},
 		{&out.ActiveRegistrations, `SELECT COUNT(*) FROM dbo.registrations WHERE state='active'`},
 		{&out.Users, `SELECT COUNT(*) FROM dbo.machine_users WHERE present=1`},
 		{&out.Certificates, `SELECT COUNT(*) FROM dbo.certificates`},

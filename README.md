@@ -48,6 +48,14 @@ HTTPS-listener `8446`, префикс `/api/integration/v1`, Bearer-ключи
 [docs/admin.md](docs/admin.md), [docs/configuration.md](docs/configuration.md);
 приёмка на стенде: [docs/acceptance/INTEGRATION-API-0.5.0.md](docs/acceptance/INTEGRATION-API-0.5.0.md).
 
+Управляемый жизненный цикл установки агента добавлен поверх 0.5.0: повторная
+установка с занятым именем создаёт заявку, администратор подтверждает замену
+в карточке АРМ с сохранением `machine_id` и истории, а исторические карточки
+архивируются отдельным действием. Отображаемое имя АРМ можно переименовать
+через «…» в таблице или карточку; hostname и идентичность при этом не
+меняются. Правила: [docs/protocol.md](docs/protocol.md),
+[docs/admin.md](docs/admin.md), [docs/decisions.md](docs/decisions.md), [приёмка](docs/acceptance/INSTALLATION-LIFECYCLE.md).
+
 ## Сборка
 
 Кроссплатформенные команды `make`, установка инструментов Windows/Linux и

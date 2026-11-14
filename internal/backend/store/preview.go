@@ -375,7 +375,7 @@ func (s *Store) loadPersonalFacts(ctx context.Context, machineID string, freshCu
 	var collected time.Time
 	err := s.DB.QueryRowContext(ctx, `
 SELECT TOP 1 payload_json,profiles_complete,personal_complete,collected_at
-FROM dbo.reports WHERE machine_id=@p1 ORDER BY scan_seq DESC,received_at DESC`, machineID).
+FROM dbo.reports WHERE machine_id=@p1 ORDER BY scan_epoch DESC,scan_seq DESC,received_at DESC`, machineID).
 		Scan(&payload, &profilesComplete, &personalComplete, &collected)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil

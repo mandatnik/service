@@ -67,7 +67,7 @@ export function stateLabel(value) {
     complete: 'полный', partial: 'частичный', empty: 'пустой',
     pending: 'ожидает', delivered: 'доставлено', completed: 'выполнено',
     not_installed: 'Не установлен', missing: 'Отсутствует', perpetual: 'Бессрочная',
-    failed: 'ошибка', revoked: 'отозвана', replaced: 'заменена'
+    failed: 'ошибка', revoked: 'отозвана', replaced: 'заменена', renamed: 'переименована'
   }
   return map[value] || value || '—'
 }

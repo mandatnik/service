@@ -192,7 +192,30 @@ button.metric-card:hover { border-color: #aac7d2; transform: translateY(-1px); }
 
 /* Inventory policies and readable summary cells. */
 .selection-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:16px; }
-
+.installation-queue { margin-bottom: 16px; }
+.installation-request { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; padding:12px 0; border-top:1px solid var(--line); }
+.installation-request:first-of-type { border-top:0; }
+.installation-request > div:first-child { min-width:0; display:grid; gap:4px; }
+.installation-review { margin:16px 0; }
+.installation-review h4 { margin:0 0 10px; font-size:14px; letter-spacing:.02em; }
+.installation-review .two-column { align-items:start; margin-bottom:16px; }
+.installation-review .field { margin:8px 0; }
+.installation-review .alert { margin:10px 0; }
+.fingerprint { overflow-wrap:anywhere; word-break:break-all; }
+.confirm-row { display:flex; align-items:flex-start; gap:10px; margin:14px 0; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2, rgba(127,127,127,.06)); }
+.confirm-row input { margin-top:3px; flex:none; }
+.confirm-row span { line-height:1.45; }
+.actions-cell { width: 42px; text-align: right; }
+.row-actions-trigger { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 18px; line-height: 1; }
+.row-actions-trigger:hover, .row-actions-trigger[aria-expanded="true"] { background: var(--hover); color: var(--ink); }
+.row-actions-menu { position: fixed; z-index: 90; min-width: 196px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: 0 12px 32px #0f172a2e; }
+.row-actions-menu button { display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font: inherit; font-size: 13px; }
+.row-actions-menu button:hover { background: var(--hover); }
+.rename-dialog { width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 28px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); box-shadow: 0 24px 80px #00000030; }
+.rename-dialog::backdrop { background: #031a2bb3; }
+.rename-dialog .authors-dialog-heading { margin-bottom: 18px; }
+.rename-dialog .authors-dialog-heading h2 { font-size: 22px; }
+.rename-facts { margin: 0 0 18px; }
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, .55); z-index: 80; display: flex; align-items: flex-start; justify-content: center; padding: 4vh 16px; overflow: auto; }
 .modal { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 24px 80px rgba(15, 23, 42, .3); width: min(1120px, 100%); max-height: 92vh; overflow: auto; padding: 22px; }
