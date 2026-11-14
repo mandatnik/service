@@ -40,12 +40,13 @@ TELEHACK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
 
 TELEHACK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
   go test ./internal/backend/store -run TestTasksSQLServer -v
-# PASS: 8 SQL integration subtests
+# PASS: 9 SQL integration subtests
 ```
 
 Подтесты:
 
 - preview, атомарный резерв двух ключей и идемпотентное создание задачи;
+- legacy `AddJob`/`AckJob` обновляют одно и то же task item;
 - дефицит: вся задача отклонена, частичных task/items/резервов нет;
 - claim, затем отмена: начатый item не cancelled, его ключ остаётся reserved;
   неначатый item освобождён;
