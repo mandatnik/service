@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatDate, formatTime } from '../format'
@@ -9,11 +10,14 @@ const props = defineProps({ sha256: { type: String, required: true } })
 const emit = defineEmits(['back', 'open-machine'])
 const data = ref(null)
 const error = ref('')
+const loading = ref(false)
 async function load() {
+  loading.value = true
   error.value = ''
-  try { data.value = await api.certificate(props.sha256) } catch (e) { error.value = e.message }
+  try { data.value = await api.certificate(props.sha256) } catch (e) { error.value = e.message } finally { loading.value = false }
 }
 onMounted(load)
+useAutoRefresh(load, () => loading.value)
 </script>
 <template>
   <section>

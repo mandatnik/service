@@ -1,4 +1,5 @@
 <script setup>
+import { useAutoRefresh } from '../autoRefresh'
 import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatDate, formatTime, licenseKindLabel, stateLabel, trialLabel } from '../format'
@@ -67,6 +68,7 @@ async function assign(hostname, registrationID) {
   } catch (e) { actionError.value = e.message }
 }
 onMounted(load)
+useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value || !!publicKey.value.trim())
 </script>
 <template>
   <section>

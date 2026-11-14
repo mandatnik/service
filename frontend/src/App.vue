@@ -152,7 +152,7 @@ onUnmounted(() => {
     <main id="main-content" class="content" tabindex="-1">
       <header class="topbar">
         <div class="topbar-title"><button class="btn menu-toggle" aria-controls="main-navigation" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen"><NavIcon name="menu" /> Меню</button><div><span class="eyebrow">Инвентаризация / {{ title }}</span><h1>{{ title }}</h1></div></div>
-        <div class="topbar-controls"><RefreshControl v-if="['overview','machines','certificates','licensing','tasks','hostnames','events','groups','policies','api-keys'].includes(view)" /><ThemePicker /></div>
+        <div class="topbar-controls"><RefreshControl v-if="['overview','machines','machine','certificate','certificates','licensing','tasks','hostnames','events','groups','policies','api-keys'].includes(view)" /><ThemePicker /></div>
       </header>
       <div class="content-body">
         <OverviewView v-if="view === 'overview'" @navigate="navigate" />
