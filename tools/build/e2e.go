@@ -49,10 +49,18 @@ func endToEnd(o options) (err error) {
 		agent.Close()
 		return err
 	}
+	integration, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		agent.Close()
+		admin.Close()
+		return err
+	}
 	agentAddress, adminAddress := agent.Addr().String(), admin.Addr().String()
+	integrationAddress := integration.Addr().String()
 	agent.Close()
 	admin.Close()
-	config := map[string]any{"agent_listen": agentAddress, "admin_listen": adminAddress, "tls_cert_file": certPath, "tls_key_file": keyPath, "log_file": filepath.Join(tmp, "backend.txt"), "db": acceptance["db"]}
+	integration.Close()
+	config := map[string]any{"agent_listen": agentAddress, "admin_listen": adminAddress, "integration_listen": integrationAddress, "tls_cert_file": certPath, "tls_key_file": keyPath, "log_file": filepath.Join(tmp, "backend.txt"), "db": acceptance["db"]}
 	backendConfig := filepath.Join(tmp, "backend.json")
 	data, _ := json.Marshal(config)
 	if err = os.WriteFile(backendConfig, data, 0600); err != nil {
