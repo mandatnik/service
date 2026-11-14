@@ -172,7 +172,8 @@ export function groupBadges(groups, limit = 2) {
   }
 }
 
-export function machineStatusView(status) {
+export function machineStatusView(status, offline = false) {
+  if (status === 'ok' && offline) return { label: 'В норме', tone: 'neutral' }
   const labels = {
     csp_missing: { label: 'CSP не установлен', tone: 'danger' },
     trial: { label: 'Пробная версия', tone: 'warning' },
@@ -193,6 +194,6 @@ export function machineRowView(machine, now = Date.now()) {
     groups: groupBadges(machine?.groups || []),
     license: licenseView(machine, now),
     certificates: certificatesView(machine),
-    status: machineStatusView(machine?.status)
+    status: machineStatusView(machine?.status, machine?.offline)
   }
 }

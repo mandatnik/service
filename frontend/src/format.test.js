@@ -127,6 +127,9 @@ test('machineStatusView maps every status to the required label and colour', () 
   assert.deepEqual(machineStatusView('trial'), { label: 'Пробная версия', tone: 'warning' })
   assert.deepEqual(machineStatusView('license_required'), { label: 'Требуется лицензия', tone: 'danger' })
   assert.deepEqual(machineStatusView('ok'), { label: 'Работает', tone: 'ok' })
+  assert.deepEqual(machineStatusView('ok', true), { label: 'В норме', tone: 'neutral' })
+  assert.deepEqual(machineStatusView('csp_missing', true), { label: 'CSP не установлен', tone: 'danger' })
+  assert.deepEqual(machineStatusView('trial', true), { label: 'Пробная версия', tone: 'warning' })
   assert.equal(badgeClass('danger'), 'badge-error')
 })
 
@@ -158,4 +161,16 @@ test('machineRowView composes the whole table row', () => {
   assert.equal(row.certificates.primary, '2 реестр, 1 файлы')
   assert.equal(row.status.label, 'Работает')
   assert.equal(row.groups.visible[0].name, 'Бухгалтерия')
+})
+
+test('machineRowView shows a gray normal status for an offline healthy machine', () => {
+  const row = machineRowView({
+    display_name: 'WORKSTATION-2',
+    machine_id: 'machine-2',
+    offline: true,
+    last_seen_at: isoMinutesAgo(120),
+    status: 'ok'
+  }, NOW)
+  assert.equal(row.online.label, 'Не в сети')
+  assert.deepEqual(row.status, { label: 'В норме', tone: 'neutral' })
 })
