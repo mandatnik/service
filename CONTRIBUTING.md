@@ -79,6 +79,10 @@ $env:WIX_DIR = 'C:\Tools\wix314'
 make package
 ```
 
+WiX 3.14 использует .NET Framework 4.x; на Windows 10 / Server 2022 он обычно
+уже установлен. Windows SSH-сборщику также нужен OpenSSH Server и доступ
+пользователя к временному каталогу и WiX.
+
 Команды запускаются в обычном PowerShell или cmd.exe; Git Bash/WSL не нужны.
 Makefile выбирает cmd.exe для рецептов Windows. Сборка не устанавливает MSI
 и не требует прав администратора; права нужны при установке инструментов

@@ -30,25 +30,12 @@ const (
 const certStoreSuffix = `Software\Microsoft\SystemCertificates\My`
 
 var (
-	crypt32                        = windows.NewLazySystemDLL("crypt32.dll")
-	procCertOpenStore              = crypt32.NewProc("CertOpenStore")
-	procCertEnumCertificates       = crypt32.NewProc("CertEnumCertificatesInStore")
-	procCertCloseStore             = crypt32.NewProc("CertCloseStore")
-	procCertFreeCertificateContext = crypt32.NewProc("CertFreeCertificateContext")
+	crypt32            = windows.NewLazySystemDLL("crypt32.dll")
+	procCertOpenStore  = crypt32.NewProc("CertOpenStore")
+	procCertCloseStore = crypt32.NewProc("CertCloseStore")
 )
 
 var cryptENotFound = syscall.Errno(0x80092004)
-
-// certContext mirrors CERT_CONTEXT on 64-bit Windows.
-type certContext struct {
-	EncodingType uint32
-	_            uint32
-	Encoded      *byte
-	EncodedLen   uint32
-	_            uint32
-	Info         uintptr
-	Store        uintptr
-}
 
 // ReadUserStore reads the personal MY store of one profile. For an unloaded
 // profile it temporarily mounts NTUSER.DAT. The store is opened read-only with
@@ -311,27 +298,27 @@ func openStoreFromKey(key registry.Key) (uintptr, error) {
 
 func enumerateCertificates(store uintptr) ([][]byte, error) {
 	var certificates [][]byte
-	var current uintptr
+	var current *windows.CertContext
 	for {
-		next, _, lastErr := procCertEnumCertificates.Call(store, current)
-		if next == 0 {
+		next, lastErr := windows.CertEnumCertificatesInStore(windows.Handle(store), current)
+		if next == nil {
 			if lastErr == nil || lastErr == windows.ERROR_SUCCESS || lastErr == windows.ERROR_NO_MORE_FILES || errors.Is(lastErr, cryptENotFound) {
 				return certificates, nil
 			}
 			return certificates, fmt.Errorf("CertEnumCertificatesInStore: %w", lastErr)
 		}
 		current = next
-		ctx := (*certContext)(unsafe.Pointer(current))
-		if ctx.Encoded == nil || ctx.EncodedLen == 0 {
+		ctx := current
+		if ctx.EncodedCert == nil || ctx.Length == 0 {
 			continue
 		}
-		if ctx.EncodedLen > maxCertificateDER {
+		if ctx.Length > maxCertificateDER {
 			// The enumeration owns the context; freeing it here would make the
 			// next call use a stale pointer. Record the error and stop.
-			procCertFreeCertificateContext.Call(current)
+			_ = windows.CertFreeCertificateContext(current)
 			return certificates, fmt.Errorf("certificate DER exceeds %d bytes", maxCertificateDER)
 		}
-		der := append([]byte(nil), unsafe.Slice(ctx.Encoded, int(ctx.EncodedLen))...)
+		der := append([]byte(nil), unsafe.Slice(ctx.EncodedCert, int(ctx.Length))...)
 		certificates = append(certificates, der)
 	}
 }
