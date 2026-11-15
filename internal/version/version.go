@@ -9,7 +9,7 @@ const Version = "0.5.0"
 
 // Commit and BuildDate are injected at build time:
 //
-//	go build -ldflags "-X telehack2026/internal/version.Commit=<sha>"
+//	go build -ldflags "-X mandatnik/internal/version.Commit=<sha>"
 var (
 	Commit    = "dev"
 	BuildDate = "unknown"

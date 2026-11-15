@@ -1,8 +1,8 @@
 # Проверка CI/CD — 14.11.2026
 
 Репозиторий: http://10.10.26.11/pdoexception/telehack2026.
-Раннеры: telehack-linux-140 (Ubuntu, пользователь mimbol) и
-telehack-windows-138 (Windows Server, SYSTEM для WiX ICE).
+Раннеры: mandatnik-linux-140 (Ubuntu, пользователь mimbol) и
+mandatnik-windows-138 (Windows Server, SYSTEM для WiX ICE).
 Регистрация ограничена этим репозиторием. Оба запускаются автоматически при
 старте ОС. Производственные службы агента и бэкенда при настройке не заменялись.
 

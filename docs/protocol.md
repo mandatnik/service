@@ -253,8 +253,8 @@ key_fingerprint + machine_id + old_registration_id`. Если заявка из�
 
 ```json
 {
-  "license_id": "a5dc754d2ff42421ccbfaa9b91f1cb0bbb980b7534a8ec42b32e6fce31ae3fc6",
-  "serial_masked": "50509X00000130DFD8EV*****",
+  "license_id": "cc4036b72546fa95edf6de0c9196e60153f72212a1eae180aaef208fb8b06e0d",
+  "serial_masked": "99999X00000999ZZZZZ0*****",
   "product": "csp",
   "product_code": 0,
   "product_name": "CryptoPro CSP",
@@ -377,7 +377,7 @@ JSON (RFC 8785) со всеми полями:
 
 ```json
 {
-  "protocol": "telehack2026/task-parameters/v1",
+  "protocol": "mandatnik/task-parameters/v1",
   "purpose": "task_item_parameters",
   "task_id": "uuid",
   "item_id": "uuid",

@@ -6,7 +6,7 @@
 
 ## Среда и результат
 
-- Реальный SQL Server 2019 на `192.168.189.138`, БД `Telehack2026`.
+- Реальный SQL Server 2019 на `192.168.189.138`, БД `Mandatnik`.
 - Бэкенд portable EXE, административный HTTPS `:8444`, агентский HTTPS `:8443`.
 - `.136`: LocalSystem-служба, CSP 5.0.13003, клиентская лицензия.
 - `.137`: LocalSystem-служба, CSP 4.0.9963, серверная лицензия.
@@ -62,7 +62,7 @@ TLS-предупреждение не обходилось. Реальные HTT
 ```sh
 go test ./...
 go vet ./...
-TELEHACK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
+MANDATNIK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
   go test ./internal/backend/store -run TestPoliciesSQLServer -v
 
 go run ./cmd/acceptance contract -config .secrets/acceptance.json \
@@ -72,7 +72,7 @@ go run ./cmd/acceptance contract -config .secrets/acceptance.json \
 Для повторения реального файлового сценария используется
 `tools/stand/test-folder-policies.py`: prepare → сбор → check → reinclusion →
 сбор → check → revoke → сбор → check → cleanup. Перед prepare разместить пять
-тестовых файлов в выделенной `C:/ProgramData/Telehack2026/policy-acceptance/`:
+тестовых файлов в выделенной `C:/ProgramData/Mandatnik/policy-acceptance/`:
 keep/a.cer, trash/b.CER, other/c.cer, keep/ignored.crt, keep/ignored.pem.
 Используйте разные публичные сертификаты. После каждого сбора дождаться приёма
 отчёта сервером (агент отправляет очередь через свой интервал доставки).

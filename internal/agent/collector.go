@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // ErrUnsupportedPlatform is returned by builds without a real collector.

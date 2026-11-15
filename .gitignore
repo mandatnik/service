@@ -39,3 +39,8 @@ evidence/local/
 
 # Local Windows BSOD research fixture (large binaries and dumps)
 /test-bsod/
+
+# Full test campaign evidence and local test-instance artifacts
+/evidence/test-campaign/
+/artifacts/testcamp/
+/artifacts/deploy/

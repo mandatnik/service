@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-root=/home/mimbol/telehack-ci
+root=/home/mimbol/mandatnik-ci
 export PATH="$root/tools/go/bin:$root/tools/node-v22.22.3-linux-x64/bin:$root/tools/make/usr/bin:$PATH"
 export GOPATH="$root/cache/go" GOCACHE="$root/cache/go-build" npm_config_cache="$root/cache/npm"
 cd "$root/runner"

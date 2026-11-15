@@ -17,10 +17,10 @@ import (
 	"golang.org/x/sys/windows/registry"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
-	"telehack2026/internal/platform"
+	"mandatnik/internal/platform"
 )
 
-// InstallService registers TelehackAgent as an automatic LocalSystem service.
+// InstallService registers MandatnikAgent as an automatic LocalSystem service.
 func InstallService(configPath string) error {
 	if configPath == "" {
 		configPath = platform.AgentConfigPath()
@@ -51,7 +51,7 @@ func InstallService(configPath string) error {
 	}
 	args := []string{"run", "-config", absoluteConfig}
 	service, err := manager.CreateService(ServiceName, exe, mgr.Config{
-		DisplayName: "Telehack 2026 Agent",
+		DisplayName: "Мандатник — агент",
 		Description: "Collects personal certificate inventory and CryptoPro CSP state.",
 		StartType:   mgr.StartAutomatic,
 	}, args...)
@@ -149,7 +149,7 @@ func installedMSIProduct() (string, bool) {
 		displayName, _, _ := key.GetStringValue("DisplayName")
 		publisher, _, _ := key.GetStringValue("Publisher")
 		key.Close()
-		if strings.EqualFold(displayName, "Telehack 2026 Agent") && strings.EqualFold(publisher, "Telehack 2026") {
+		if strings.EqualFold(displayName, "Мандатник — агент") && strings.EqualFold(publisher, "Мандатник") {
 			return strings.ToUpper(name), true
 		}
 	}
@@ -160,7 +160,7 @@ func startMSIUninstall(productCode string) (string, error) {
 	if !msiProductCodePattern.MatchString(productCode) {
 		return "", fmt.Errorf("invalid MSI product code")
 	}
-	logPath := filepath.Join(os.TempDir(), "telehack-agent-uninstall-"+time.Now().UTC().Format("20060102T150405Z")+".log")
+	logPath := filepath.Join(os.TempDir(), "mandatnik-agent-uninstall-"+time.Now().UTC().Format("20060102T150405Z")+".log")
 	msiexec := filepath.Join(os.Getenv("SystemRoot"), "System32", "msiexec.exe")
 	cmd := exec.Command(msiexec, "/x", productCode, "/qn", "/norestart", "/l*v", logPath)
 	cmd.Dir = os.TempDir()

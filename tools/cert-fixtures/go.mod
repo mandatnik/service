@@ -1,4 +1,4 @@
-module telehack2026/cert-fixtures
+module mandatnik/cert-fixtures
 
 go 1.26.3
 

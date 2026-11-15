@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"encoding/asn1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,8 +11,7 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/certparse"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // Integration API sentinel errors. The HTTP layer maps them to 400/404.
@@ -362,7 +360,9 @@ func (s *Store) ListIntegrationCertificates(ctx context.Context, filter Integrat
 SELECT c.sha256,c.serial_hex,c.serial_number,c.subject,c.issuer,c.owner_cn,c.inn,c.snils,c.not_before,c.not_after,
        c.embedded_license,c.created_at,c.updated_at,c.der,
        (SELECT COUNT(DISTINCT o.machine_id) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1),
-       (SELECT COUNT(*) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1)
+       (SELECT COUNT(*) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1),
+       (SELECT COUNT(DISTINCT o.machine_id) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1 AND o.source_type=N'user_store'),
+       (SELECT COUNT(DISTINCT o.machine_id) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1 AND o.source_type=N'folder')
 `+base+fmt.Sprintf(" ORDER BY c.not_after DESC, c.sha256 OFFSET @p%d ROWS FETCH NEXT @p%d ROWS ONLY", len(args)+1, len(args)+2), queryArgs...)
 	if err != nil {
 		return Page[CertificateSummary]{}, err
@@ -375,7 +375,7 @@ SELECT c.sha256,c.serial_hex,c.serial_number,c.subject,c.issuer,c.owner_cn,c.inn
 		var before, after sql.NullTime
 		var machines, observations int
 		var der []byte
-		if err := rows.Scan(&item.SHA256, &serial, &serialNum, &subject, &issuer, &cn, &inn, &snils, &before, &after, &embedded, &item.CreatedAt, &item.UpdatedAt, &der, &machines, &observations); err != nil {
+		if err := rows.Scan(&item.SHA256, &serial, &serialNum, &subject, &issuer, &cn, &inn, &snils, &before, &after, &embedded, &item.CreatedAt, &item.UpdatedAt, &der, &machines, &observations, &item.RegistryMachines, &item.FileMachines); err != nil {
 			return Page[CertificateSummary]{}, err
 		}
 		item.SerialHex = nullString(serial)
@@ -383,11 +383,7 @@ SELECT c.sha256,c.serial_hex,c.serial_number,c.subject,c.issuer,c.owner_cn,c.inn
 		item.Subject = nullString(subject)
 		item.Issuer = nullString(issuer)
 		item.OwnerCN = nullString(cn)
-		if parsed, err := certparse.Parse(der); err == nil {
-			item.Organization, _ = parsed.Subject.FindAttribute(asn1.ObjectIdentifier{2, 5, 4, 10})
-			item.Department, _ = parsed.Subject.FindAttribute(asn1.ObjectIdentifier{2, 5, 4, 11})
-			item.IssuerCN = parsed.Issuer.CommonName()
-		}
+		enrichCertificateNames(&item, der)
 		item.INN = nullString(inn)
 		item.SNILS = nullString(snils)
 		item.EmbeddedLicense = nullString(embedded)

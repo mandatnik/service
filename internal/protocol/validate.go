@@ -3,7 +3,7 @@ package protocol
 import (
 	"fmt"
 	"strings"
-	"telehack2026/internal/folderpolicy"
+	"mandatnik/internal/folderpolicy"
 	"time"
 
 	"github.com/google/uuid"

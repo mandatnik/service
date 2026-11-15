@@ -34,11 +34,11 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c ./internal/agent ./internal/a
 ### SQL Server 2019 (реальный стенд)
 
 ```text
-TELEHACK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
+MANDATNIK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
   go test ./internal/backend/store -run TestPoliciesSQLServer -v
 # PASS: migrations 0004/0005 applied, повторная миграция безопасна
 
-TELEHACK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
+MANDATNIK_POLICY_TEST_CONFIG="$PWD/.secrets/acceptance.json" \
   go test ./internal/backend/store -run TestTasksSQLServer -v
 # PASS: 9 SQL integration subtests
 ```
@@ -112,7 +112,7 @@ deployment.
 
 1. Остановить backend, сделать резервную копию БД.
 2. Создать keyring и HMAC-ключ:
-   `telehack-backend.exe license-init -config backend.json`.
+   `mandatnik-backend.exe license-init -config backend.json`.
 3. Запустить backend: миграции 0004/0005 применятся автоматически и сохранят
    исторические jobs как tasks с `legacy_job_id` (включая jobs, созданные
    старым backend во время rolling upgrade).

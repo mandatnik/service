@@ -8,7 +8,7 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // AckJob records the terminal state of a manual job. It is idempotent for the

@@ -5,7 +5,7 @@ package agent
 import (
 	"context"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 type unsupportedCollector struct{}

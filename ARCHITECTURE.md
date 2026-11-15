@@ -1,7 +1,7 @@
 ---
 schema_version: "1.8"
 document_type: "architecture_concept"
-task_id: "telehack2026-case-03-grchc"
+task_id: "mandatnik-case-03-grchc"
 updated_at: "2026-11-14"
 status: "architecture_updated_from_research_implementation_planned"
 sources:

@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 	"testing"
 )
 

@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"telehack2026/internal/platform"
-	"telehack2026/internal/protocol"
-	"telehack2026/internal/version"
+	"mandatnik/internal/platform"
+	"mandatnik/internal/protocol"
+	"mandatnik/internal/version"
 )
 
 // agentRuntime is the normal Windows service loop. It owns the outbound

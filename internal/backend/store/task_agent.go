@@ -8,8 +8,8 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/backend/licensecrypto"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/licensecrypto"
+	"mandatnik/internal/protocol"
 )
 
 type agentTaskRow struct {

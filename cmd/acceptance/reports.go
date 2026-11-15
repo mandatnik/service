@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"telehack2026/internal/certparse"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/certparse"
+	"mandatnik/internal/protocol"
 )
 
 const (

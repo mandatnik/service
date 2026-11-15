@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"telehack2026/internal/agent"
-	"telehack2026/internal/version"
+	"mandatnik/internal/agent"
+	"mandatnik/internal/version"
 )
 
 func main() {
@@ -110,17 +110,17 @@ func main() {
 }
 
 func usage() {
-	fmt.Print(`telehack-agent - Windows service certificate and CryptoPro inventory agent
+	fmt.Print(`mandatnik-agent - Windows service certificate and CryptoPro inventory agent
 
 Usage:
-  telehack-agent.exe version
-  telehack-agent.exe install [-config PATH]
-  telehack-agent.exe uninstall [-purge]
-  telehack-agent.exe service-config
-  telehack-agent.exe run [-config PATH]
-  telehack-agent.exe start | stop | status | diag
-  telehack-agent.exe reset-identity --confirm
-  telehack-agent.exe rotate-encryption-key
+  mandatnik-agent.exe version
+  mandatnik-agent.exe install [-config PATH]
+  mandatnik-agent.exe uninstall [-purge]
+  mandatnik-agent.exe service-config
+  mandatnik-agent.exe run [-config PATH]
+  mandatnik-agent.exe start | stop | status | diag
+  mandatnik-agent.exe reset-identity --confirm
+  mandatnik-agent.exe rotate-encryption-key
 
 uninstall preserves the agent identity and state unless -purge is explicitly
 specified. Repair and upgrade always preserve it. reset-identity archives the

@@ -13,7 +13,7 @@ import (
 
 	mssql "github.com/microsoft/go-mssqldb"
 	"github.com/microsoft/go-mssqldb/msdsn"
-	"telehack2026/internal/backend/config"
+	"mandatnik/internal/backend/config"
 )
 
 // Open opens the application database with the runtime credentials.
@@ -42,7 +42,7 @@ func OpenAs(ctx context.Context, cfg config.DB, user, password, database string)
 		TLSConfig:              tlsConfig,
 		TrustServerCertificate: cfg.TrustServerCertificate,
 		Protocols:              []string{"tcp"},
-		AppName:                "Telehack2026Backend",
+		AppName:                "MandatnikBackend",
 		DialTimeout:            time.Duration(cfg.ConnectTimeoutSeconds) * time.Second,
 		ConnTimeout:            time.Duration(cfg.ConnectTimeoutSeconds) * time.Second,
 	})

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/bcrypt"
-	"telehack2026/internal/backend/store"
+	"mandatnik/internal/backend/store"
 )
 
 func TestHashAdminPassword(t *testing.T) {

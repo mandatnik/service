@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func validTestReport(t *testing.T, seq int64) protocol.Report {

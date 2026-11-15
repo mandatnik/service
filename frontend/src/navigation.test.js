@@ -21,3 +21,14 @@ test('clean paths and legacy machine paths use the canonical ARM path', () => {
   assert.equal(routePath('machines'), '/arm')
   assert.deepEqual(parseRoute(`/machines/${id}`), { view: 'machine', id })
 })
+
+test('removed hostname section redirects predictably to ARM', () => {
+  assert.deepEqual(parseRoute('/hostnames'), { view: 'machines', id: '' })
+  assert.deepEqual(parseRoute('/hostnames/old-value'), { view: 'machines', id: '' })
+  assert.equal(routePath('hostnames'), '/arm')
+})
+
+test('administrator section is a first-class route', () => {
+  assert.deepEqual(parseRoute('/admins'), { view: 'admins', id: '' })
+  assert.equal(routePath('admins'), '/admins')
+})

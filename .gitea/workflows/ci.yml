@@ -8,7 +8,7 @@ permissions:
   contents: read
 # The SQL stand is shared. Never cancel its cleanup halfway through a test.
 concurrency:
-  group: telehack-ci
+  group: mandatnik-ci
   cancel-in-progress: false
 jobs:
   linux:
@@ -50,7 +50,10 @@ jobs:
         run: make package
       - name: Real SQL and candidate-backend end-to-end tests
         if: gitea.ref == 'refs/heads/main' || startsWith(gitea.ref, 'refs/tags/v')
-        run: make test-e2e E2E_CONFIG="$env:TELEHACK_E2E_CONFIG"
+        run: |
+          $config = $env:MANDATNIK_E2E_CONFIG
+          if (-not $config) { $config = $env:TELEHACK_E2E_CONFIG }
+          make test-e2e E2E_CONFIG="$config"
       - uses: https://github.com/actions/upload-artifact@v4
         with:
           name: windows-exe-and-msi

@@ -7,19 +7,20 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"mandatnik/internal/platform"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"time"
 
-	"telehack2026/internal/backend/api"
-	"telehack2026/internal/backend/config"
-	"telehack2026/internal/backend/db"
-	"telehack2026/internal/backend/licensecrypto"
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/protocol"
-	"telehack2026/internal/version"
+	"mandatnik/internal/backend/api"
+	"mandatnik/internal/backend/config"
+	"mandatnik/internal/backend/db"
+	"mandatnik/internal/backend/licensecrypto"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/protocol"
+	"mandatnik/internal/version"
 )
 
 // Run loads configuration, applies migrations and serves both listeners in
@@ -132,7 +133,7 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 }
 
 // Bootstrap creates the application database and runtime login. The
-// administrative password is supplied via TELEHACK_SA_PASSWORD.
+// administrative password is supplied via MANDATNIK_SA_PASSWORD.
 func Bootstrap(configPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -143,9 +144,9 @@ func Bootstrap(configPath string) error {
 		return err
 	}
 	defer logger.Close()
-	saPassword := os.Getenv("TELEHACK_SA_PASSWORD")
+	saPassword := platform.Env("MANDATNIK_SA_PASSWORD")
 	if saPassword == "" {
-		return errors.New("TELEHACK_SA_PASSWORD is not set")
+		return errors.New("MANDATNIK_SA_PASSWORD is not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()

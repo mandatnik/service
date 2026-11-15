@@ -3,7 +3,7 @@ package store
 import (
 	"testing"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func TestAggregateTaskStates(t *testing.T) {

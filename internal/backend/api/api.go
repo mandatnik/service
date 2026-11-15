@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"telehack2026/internal/backend/config"
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/config"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/protocol"
 )
 
 // Logger is the minimal logging interface used by the API.
@@ -128,12 +128,13 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, body []b
 		return
 	}
 	sourceIP := sourceIP(r)
-	dnsStatus := s.dns.status(r.Context(), request.Data.Hostname, sourceIP)
-	result, apiErr := s.store.Register(r.Context(), request, sourceIP, dnsStatus)
+	dnsVerification := s.dns.verification(r.Context(), request.Data.Hostname, sourceIP)
+	result, apiErr := s.store.Register(r.Context(), request, sourceIP, dnsVerification.Forward)
 	if apiErr != nil {
 		writeAPIError(w, apiErr)
 		return
 	}
+	s.store.RecordDNSVerification(r.Context(), result.UUID, dnsVerification)
 	writeJSON(w, http.StatusOK, protocol.RegisterResponse{
 		MachineID: result.MachineID, UUID: result.UUID, Hostname: result.Hostname,
 		RegisteredAt: result.RegisteredAt.UTC().Format(time.RFC3339Nano),
@@ -143,18 +144,19 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, body []b
 }
 
 func (s *Server) handleRename(w http.ResponseWriter, r *http.Request, body []byte) {
-	identity, request, apiErr := s.verifyRequest(r.Context(), body, protocol.PathRename)
+	_, request, apiErr := s.verifyRequest(r.Context(), body, protocol.PathRename)
 	if apiErr != nil {
 		writeAPIError(w, apiErr)
 		return
 	}
 	sourceIP := sourceIP(r)
-	dnsStatus := s.dns.status(r.Context(), identity.Hostname, sourceIP)
-	result, apiErr := s.store.Rename(r.Context(), request, sourceIP, dnsStatus)
+	dnsVerification := s.dns.verification(r.Context(), request.Data.NewHostname, sourceIP)
+	result, apiErr := s.store.Rename(r.Context(), request, sourceIP, dnsVerification.Forward)
 	if apiErr != nil {
 		writeAPIError(w, apiErr)
 		return
 	}
+	s.store.RecordDNSVerification(r.Context(), result.UUID, dnsVerification)
 	writeJSON(w, http.StatusOK, protocol.RegisterResponse{
 		MachineID: result.MachineID, UUID: result.UUID, Hostname: result.Hostname,
 		RegisteredAt: result.RegisteredAt.UTC().Format(time.RFC3339Nano),
@@ -170,12 +172,13 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request, body []byte)
 		return
 	}
 	sourceIP := sourceIP(r)
-	dnsStatus := s.dns.status(r.Context(), identity.Hostname, sourceIP)
-	result, apiErr := s.store.Sync(r.Context(), identity, request, sourceIP, dnsStatus)
+	dnsVerification := s.dns.verification(r.Context(), identity.Hostname, sourceIP)
+	result, apiErr := s.store.Sync(r.Context(), identity, request, sourceIP, dnsVerification.Forward)
 	if apiErr != nil {
 		writeAPIError(w, apiErr)
 		return
 	}
+	s.store.RecordDNSVerification(r.Context(), identity.UUID, dnsVerification)
 	response := protocol.SyncResponse{
 		ServerTime: result.ServerTime.Format(time.RFC3339Nano),
 		ConfigHash: result.ConfigHash,
@@ -186,7 +189,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request, body []byte)
 		cfg := *result.Config
 		response.Config = &cfg
 	}
-	s.store.RecordDNSWarning(r.Context(), identity.MachineID, dnsStatus)
+	s.store.RecordDNSWarning(r.Context(), identity.MachineID, dnsVerification.Forward)
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -200,18 +203,21 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request, body []byt
 	case s.reports <- struct{}{}:
 		defer func() { <-s.reports }()
 	default:
-		writeError(w, http.StatusServiceUnavailable, protocol.CodeInternal, "report processing is busy")
+		w.Header().Set("Retry-After", "1")
+		s.logf("report rejected: busy (capacity=%d)", cap(s.reports))
+		writeError(w, http.StatusServiceUnavailable, protocol.CodeServerBusy, "report processing is busy")
 		return
 	}
 	sourceIP := sourceIP(r)
-	dnsStatus := s.dns.status(r.Context(), identity.Hostname, sourceIP)
-	response, apiErr := s.store.SubmitReport(r.Context(), identity, request, sourceIP, dnsStatus)
+	dnsVerification := s.dns.verification(r.Context(), identity.Hostname, sourceIP)
+	response, apiErr := s.store.SubmitReport(r.Context(), identity, request, sourceIP, dnsVerification.Forward)
 	if apiErr != nil {
 		writeAPIError(w, apiErr)
 		return
 	}
-	s.store.UpdateNetworkTrust(r.Context(), identity, sourceIP, dnsStatus)
-	s.store.RecordDNSWarning(r.Context(), identity.MachineID, dnsStatus)
+	s.store.UpdateNetworkTrust(r.Context(), identity, sourceIP, dnsVerification.Forward)
+	s.store.RecordDNSVerification(r.Context(), identity.UUID, dnsVerification)
+	s.store.RecordDNSWarning(r.Context(), identity.MachineID, dnsVerification.Forward)
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -270,7 +276,11 @@ func (s *Server) verifyRequest(ctx context.Context, body []byte, path string) (*
 }
 
 func readBody(w http.ResponseWriter, r *http.Request) ([]byte, *protocol.APIError) {
-	r.Body = http.MaxBytesReader(w, r.Body, protocol.MaxRequestBytes)
+	limit := int64(protocol.MaxSmallRequestBytes)
+	if r.URL.Path == protocol.PathReport {
+		limit = protocol.MaxRequestBytes
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		var maxErr *http.MaxBytesError
@@ -376,43 +386,151 @@ type dnsCache struct {
 	mu      sync.Mutex
 	ttl     time.Duration
 	entries map[string]dnsEntry
+	refresh chan struct{}
 }
 
 type dnsEntry struct {
-	status    string
-	expires   time.Time
-	addresses []string
+	status        string
+	reverseStatus string
+	checkedAt     time.Time
+	expires       time.Time
+	addresses     []string
+	refreshing    bool
 }
 
 func newDNSCache(ttl time.Duration) *dnsCache {
-	return &dnsCache{ttl: ttl, entries: make(map[string]dnsEntry)}
+	return &dnsCache{ttl: ttl, entries: make(map[string]dnsEntry), refresh: make(chan struct{}, 4)}
 }
 
+func dnsCacheKey(hostname string, source net.IP) string {
+	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(hostname), ".")) + "|" + source.String()
+}
+
+// status returns the cached forward trust signal and never blocks on DNS. It
+// is kept for callers that only need the hostname -> source IP direction.
 func (d *dnsCache) status(ctx context.Context, hostname string, source net.IP) string {
-	if d == nil || hostname == "" || source == nil {
-		return "unknown"
+	return d.verification(ctx, hostname, source).Forward
+}
+
+// verification returns the cached mutual DNS result and never blocks on DNS.
+// A missing or expired entry is refreshed in the background; the request sees
+// "unknown" or the previous value. Reverse lookup is part of the same refresh,
+// so the machine list does not perform network DNS requests.
+func (d *dnsCache) verification(ctx context.Context, hostname string, source net.IP) store.DNSVerification {
+	verification := store.DNSVerification{
+		Forward:  "unknown",
+		Reverse:  "unknown",
+		Hostname: strings.TrimSuffix(strings.TrimSpace(hostname), "."),
+		SourceIP: source,
 	}
-	key := strings.ToLower(hostname)
+	if d == nil || verification.Hostname == "" || source == nil {
+		return verification
+	}
+	key := dnsCacheKey(verification.Hostname, source)
 	d.mu.Lock()
 	entry, ok := d.entries[key]
 	d.mu.Unlock()
 	if ok && time.Now().Before(entry.expires) {
-		return compareDNS(entry.addresses, source, entry.status)
+		return verificationFromEntry(verification, entry)
 	}
-	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	addresses, err := net.DefaultResolver.LookupHost(lookupCtx, hostname)
-	status := "verified"
-	if err != nil {
-		status = "error"
-		addresses = nil
-	} else if !containsIP(addresses, source) {
-		status = "mismatch"
+	d.refreshAsync(key, verification.Hostname, source)
+	if !ok {
+		return verification
 	}
+	return verificationFromEntry(verification, entry)
+}
+
+func verificationFromEntry(verification store.DNSVerification, entry dnsEntry) store.DNSVerification {
+	verification.Forward = entry.status
+	verification.Reverse = entry.reverseStatus
+	verification.CheckedAt = entry.checkedAt
+	return verification
+}
+
+func (d *dnsCache) refreshAsync(key, hostname string, source net.IP) {
 	d.mu.Lock()
-	d.entries[key] = dnsEntry{status: status, expires: time.Now().Add(d.ttl), addresses: addresses}
+	entry, ok := d.entries[key]
+	if entry.refreshing {
+		d.mu.Unlock()
+		return
+	}
+	if !ok {
+		entry.status = "unknown"
+		entry.reverseStatus = "unknown"
+		entry.expires = time.Now()
+	}
+	entry.refreshing = true
+	d.entries[key] = entry
 	d.mu.Unlock()
-	return compareDNS(addresses, source, status)
+	select {
+	case d.refresh <- struct{}{}:
+	default:
+		// A bounded number of lookups is already in flight. Keep serving the
+		// cached value and let the next request schedule the refresh.
+		d.mu.Lock()
+		entry.refreshing = false
+		d.entries[key] = entry
+		d.mu.Unlock()
+		return
+	}
+	go func() {
+		defer func() { <-d.refresh }()
+		lookupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		reverse := "error"
+		var reverseWait sync.WaitGroup
+		reverseWait.Add(1)
+		go func() {
+			defer reverseWait.Done()
+			names, reverseErr := net.DefaultResolver.LookupAddr(lookupCtx, source.String())
+			if reverseErr != nil {
+				return
+			}
+			reverse = "mismatch"
+			if reverseMatchesHostname(names, hostname) {
+				reverse = "verified"
+			}
+		}()
+		addresses, err := net.DefaultResolver.LookupHost(lookupCtx, hostname)
+		status := "verified"
+		if err != nil {
+			status = "error"
+			addresses = nil
+		}
+		reverseWait.Wait()
+		forward := compareDNS(addresses, source, status)
+		checkedAt := time.Now().UTC()
+		d.mu.Lock()
+		d.entries[key] = dnsEntry{
+			status: forward, reverseStatus: reverse, checkedAt: checkedAt,
+			expires: time.Now().Add(d.ttl), addresses: addresses,
+		}
+		d.mu.Unlock()
+	}()
+}
+
+// reverseMatchesHostname accepts the exact PTR name or an FQDN whose first
+// label is the short hostname. This keeps short NetBIOS-style names useful
+// without treating an unrelated prefix such as "ws-10" as "ws-1".
+func reverseMatchesHostname(names []string, hostname string) bool {
+	host := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(hostname), "."))
+	if host == "" {
+		return false
+	}
+	for _, raw := range names {
+		name := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(raw), "."))
+		if name == host {
+			return true
+		}
+		// A PTR usually returns an FQDN even when the agent reports a short
+		// NetBIOS-style name. Accept that only for short names; an FQDN must
+		// match exactly, otherwise "example.com.evil" would match
+		// "example.com".
+		if !strings.Contains(host, ".") && strings.HasPrefix(name, host+".") {
+			return true
+		}
+	}
+	return false
 }
 
 func compareDNS(addresses []string, source net.IP, cached string) string {

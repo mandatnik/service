@@ -10,6 +10,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// This value is part of the persisted encryption format; changing it loses existing identities.
 const dpapiEntropy = "Telehack2026.Agent.Key.v1"
 
 // ProtectData encrypts data with DPAPI in the current service account's user
@@ -21,7 +22,7 @@ func ProtectData(data []byte) ([]byte, error) {
 	entropy := []byte(dpapiEntropy)
 	in := windows.DataBlob{Size: uint32(len(data)), Data: &data[0]}
 	ent := windows.DataBlob{Size: uint32(len(entropy)), Data: &entropy[0]}
-	description, _ := windows.UTF16PtrFromString("Telehack 2026 agent key")
+	description, _ := windows.UTF16PtrFromString("Мандатник agent key")
 	var out windows.DataBlob
 	if err := windows.CryptProtectData(&in, description, &ent, 0, nil, windows.CRYPTPROTECT_UI_FORBIDDEN, &out); err != nil {
 		return nil, fmt.Errorf("CryptProtectData: %w", err)

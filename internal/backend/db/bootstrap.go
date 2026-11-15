@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"telehack2026/internal/backend/config"
+	"mandatnik/internal/backend/config"
 )
 
 var identifierPattern = regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`)

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // InstallSnapshot is the in-memory state read before/after a license write. The

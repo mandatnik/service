@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // Logger writes plain-text significant events and errors to current.txt and
@@ -57,7 +57,7 @@ func (l *Logger) Logf(format string, args ...any) {
 	line := fmt.Sprintf("%s - %s\n", time.Now().Format("2006-01-02 15:04:05.000"), message)
 	if l.size+int64(len(line)) > l.maxBytes {
 		if err := l.rotateLocked(); err != nil {
-			fmt.Fprintln(os.Stderr, "telehack-agent log rotation:", err)
+			fmt.Fprintln(os.Stderr, "mandatnik-agent log rotation:", err)
 		}
 	}
 	if l.file == nil {
@@ -65,7 +65,7 @@ func (l *Logger) Logf(format string, args ...any) {
 	}
 	n, err := l.file.WriteString(line)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "telehack-agent log write:", err)
+		fmt.Fprintln(os.Stderr, "mandatnik-agent log write:", err)
 		return
 	}
 	l.size += int64(n)

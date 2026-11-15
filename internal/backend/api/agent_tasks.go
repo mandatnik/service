@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request, body []byte) {

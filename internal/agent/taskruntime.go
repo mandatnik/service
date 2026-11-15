@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"telehack2026/internal/protocol"
-	"telehack2026/internal/version"
+	"mandatnik/internal/protocol"
+	"mandatnik/internal/version"
 )
 
 // taskRuntime owns the encrypted task channel, the durable local journal and

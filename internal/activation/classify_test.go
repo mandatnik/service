@@ -3,7 +3,7 @@ package activation
 import (
 	"testing"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func base(environment string) MachineFacts {

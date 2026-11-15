@@ -15,8 +15,8 @@ if suffix != '136':
     raise SystemExit('Only WORKSTATION-1 (136) is authorized')
 socket = sys.argv[2]
 host = f'agent@192.168.189.{suffix}'
-remote = 'C:\\ProgramData\\TelehackActivationProbe-' + uuid.uuid4().hex[:12]
-service = 'TelehackResearchProbe'
+remote = 'C:\\ProgramData\\MandatnikActivationProbe-' + uuid.uuid4().hex[:12]
+service = 'MandatnikResearchProbe'
 candidate_file = root / '.secrets/csp5-workstation1-license.txt'
 attempt_file = root / '.secrets/csp5-workstation1-license-attempt.json'
 if not candidate_file.is_file():

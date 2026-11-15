@@ -83,7 +83,7 @@ C:/ProgramData/
 
 | Метод | Путь | Тело/результат |
 |---|---|---|
-| GET | `/inventory-settings` | `machines:[{id,name}]`, `groups`, `policies` с назначениями |
+| GET | `/inventory-settings` | `machines:[{id,name,archived,active_registration}]`, `groups`, `policies` с назначениями |
 | POST | `/groups` | `{name,machine_ids:[]}` → `{id}` |
 | PUT | `/groups/{id}` | `{name,machine_ids:[]}`: заменить название/состав |
 | POST | `/groups/{id}/members` | `{machine_ids:[]}`: идемпотентно добавить, не заменить |

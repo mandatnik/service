@@ -69,6 +69,7 @@ const (
 	CodeUnsupported          = "unsupported"
 	CodeInternal             = "internal_error"
 	CodeDatabase             = "database_error"
+	CodeServerBusy           = "server_busy"
 	CodeConfigInvalid        = "config_invalid"
 	CodeRegistrationDeny     = "registration_denied"
 	CodeProtocolVersion      = "protocol_version_unsupported"
@@ -121,24 +122,28 @@ const (
 	LogFileMaxBytes                  = 10 * 1024 * 1024
 	MaxRequestBytes                  = 16 * 1024 * 1024
 	MaxReportBytes                   = 8 * 1024 * 1024
-	MaxCertificatesPerReport         = 5000
-	MaxSourcesPerReport              = 256
-	MaxProfilesPerReport             = 256
-	MaxLicensesPerReport             = 32
-	MaxFilesPerFolder                = 10000
-	MaxDERBytes                      = 1024 * 1024
-	MaxPublicKeyPEMBytes             = 4096
-	MaxHostnameBytes                 = 253
-	MaxUsernameBytes                 = 256
-	MaxPathBytes                     = 1024
-	MaxVersionBytes                  = 128
-	MaxErrorBytes                    = 2048
-	MaxJobMessageBytes               = 1024
-	MaxCertificateSubject            = 8192
-	HTTPReadHeaderTimeout            = 10 * time.Second
-	HTTPReadTimeout                  = 60 * time.Second
-	HTTPWriteTimeout                 = 120 * time.Second
-	HTTPIdleTimeout                  = 120 * time.Second
-	HTTPMaxHeaderBytes               = 1 << 20
-	DBConnectTimeout                 = 15 * time.Second
+	// MaxSmallRequestBytes bounds endpoints whose payload is a small signed
+	// envelope (register, rename, sync, acknowledgements, task control).
+	// Only report submission needs the large body limit.
+	MaxSmallRequestBytes     = 1 * 1024 * 1024
+	MaxCertificatesPerReport = 5000
+	MaxSourcesPerReport      = 256
+	MaxProfilesPerReport     = 256
+	MaxLicensesPerReport     = 32
+	MaxFilesPerFolder        = 10000
+	MaxDERBytes              = 1024 * 1024
+	MaxPublicKeyPEMBytes     = 4096
+	MaxHostnameBytes         = 253
+	MaxUsernameBytes         = 256
+	MaxPathBytes             = 1024
+	MaxVersionBytes          = 128
+	MaxErrorBytes            = 2048
+	MaxJobMessageBytes       = 1024
+	MaxCertificateSubject    = 8192
+	HTTPReadHeaderTimeout    = 10 * time.Second
+	HTTPReadTimeout          = 60 * time.Second
+	HTTPWriteTimeout         = 120 * time.Second
+	HTTPIdleTimeout          = 120 * time.Second
+	HTTPMaxHeaderBytes       = 1 << 20
+	DBConnectTimeout         = 15 * time.Second
 )

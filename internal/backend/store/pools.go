@@ -12,8 +12,8 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/backend/licensecrypto"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/licensecrypto"
+	"mandatnik/internal/protocol"
 )
 
 // LicensePool is the administrator-visible pool metadata with counters.
@@ -537,19 +537,20 @@ func (s *Store) ResolveLicenseSerial(ctx context.Context, licenseID string) (str
 		return "", &protocol.APIError{Code: protocol.CodeNotFound, Message: "invalid license id"}
 	}
 	var sealed []byte
-	var poolID string
+	var poolIDValue mssql.UniqueIdentifier
 	var csp int
 	var kind, term string
 	err = s.DB.QueryRowContext(ctx, `
 SELECT l.encrypted_serial,l.pool_id,p.csp_major_version,p.license_kind,p.term
 FROM dbo.licenses l JOIN dbo.license_pools p ON p.pool_id=l.pool_id WHERE l.license_id=@p1`, id).
-		Scan(&sealed, &poolID, &csp, &kind, &term)
+		Scan(&sealed, &poolIDValue, &csp, &kind, &term)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", &protocol.APIError{Code: protocol.CodeNotFound, Message: "license not found"}
 	}
 	if err != nil {
 		return "", &protocol.APIError{Code: protocol.CodeDatabase, Message: "load license"}
 	}
+	poolID := uuidString(poolIDValue)
 	aad, err := licensecrypto.LicenseAAD(licensecrypto.LicenseBinding{LicenseID: id, PoolID: poolID, CSPMajorVersion: csp, LicenseKind: kind, Term: term})
 	if err != nil {
 		return "", &protocol.APIError{Code: protocol.CodeInternal, Message: "bind license encryption"}

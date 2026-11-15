@@ -14,7 +14,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-	"telehack2026/internal/licenseclass"
+	"mandatnik/internal/licenseclass"
 )
 
 var procCertSetCertificateContextProperty = crypt32.NewProc("CertSetCertificateContextProperty")

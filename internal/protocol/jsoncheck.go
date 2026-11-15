@@ -31,7 +31,7 @@ func RejectDuplicateKeys(raw []byte) error {
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
-	if err := scanJSONValue(dec); err != nil {
+	if err := scanJSONValue(dec, 0); err != nil {
 		return err
 	}
 	if _, err := dec.Token(); err != io.EOF {
@@ -43,7 +43,19 @@ func RejectDuplicateKeys(raw []byte) error {
 	return nil
 }
 
-func scanJSONValue(dec *json.Decoder) error {
+// Limits on JSON shape. RFC 8785 canonicalization sorts object members, and a
+// naive implementation is quadratic in the number of members of a single
+// object. The protocol objects are small and fixed, so a per-object cap keeps
+// unauthenticated input from burning CPU before the signature is checked.
+const (
+	MaxJSONDepth         = 64
+	MaxJSONObjectMembers = 512
+)
+
+func scanJSONValue(dec *json.Decoder, depth int) error {
+	if depth > MaxJSONDepth {
+		return errors.New("JSON nesting is too deep")
+	}
 	tok, err := dec.Token()
 	if err != nil {
 		return err
@@ -55,7 +67,12 @@ func scanJSONValue(dec *json.Decoder) error {
 	switch delim {
 	case '{':
 		seen := make(map[string]struct{})
+		members := 0
 		for dec.More() {
+			members++
+			if members > MaxJSONObjectMembers {
+				return errors.New("JSON object has too many members")
+			}
 			keyToken, err := dec.Token()
 			if err != nil {
 				return err
@@ -68,7 +85,7 @@ func scanJSONValue(dec *json.Decoder) error {
 				return &DuplicateKeyError{Key: key}
 			}
 			seen[key] = struct{}{}
-			if err := scanJSONValue(dec); err != nil {
+			if err := scanJSONValue(dec, depth+1); err != nil {
 				return err
 			}
 		}
@@ -81,7 +98,7 @@ func scanJSONValue(dec *json.Decoder) error {
 		}
 	case '[':
 		for dec.More() {
-			if err := scanJSONValue(dec); err != nil {
+			if err := scanJSONValue(dec, depth+1); err != nil {
 				return err
 			}
 		}

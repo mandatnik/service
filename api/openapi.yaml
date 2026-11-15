@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Telehack 2026 agent API
+  title: Мандатник agent API
   version: "1"
   description: |
     Версионированный REST/HTTPS контракт агента. Все тела запросов —

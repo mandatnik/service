@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"golang.org/x/sys/windows/registry"
-	"telehack2026/internal/licenseclass"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/licenseclass"
+	"mandatnik/internal/protocol"
 )
 
 // CollectLicense is kept for the activation-task observation path. It returns

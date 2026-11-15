@@ -4,11 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"mandatnik/internal/platform"
 	"os"
 
-	"telehack2026/internal/backend"
-	"telehack2026/internal/backend/config"
-	"telehack2026/internal/version"
+	"mandatnik/internal/backend"
+	"mandatnik/internal/backend/config"
+	"mandatnik/internal/version"
 )
 
 func main() {
@@ -43,9 +44,9 @@ func main() {
 		name := fs.String("name", "", "administrator display name")
 		role := fs.String("role", "admin", "administrator role (admin or superadmin)")
 		_ = fs.Parse(args)
-		password := os.Getenv("TELEHACK_ADMIN_PASSWORD")
+		password := platform.Env("MANDATNIK_ADMIN_PASSWORD")
 		if password == "" {
-			fmt.Fprintln(os.Stderr, "admin-create: TELEHACK_ADMIN_PASSWORD is not set")
+			fmt.Fprintln(os.Stderr, "admin-create: MANDATNIK_ADMIN_PASSWORD is not set")
 			os.Exit(2)
 		}
 		if err := backend.CreateOrUpdateAdmin(*configPath, *email, *name, *role, password); err != nil {
@@ -53,9 +54,9 @@ func main() {
 			os.Exit(1)
 		}
 	case "hash-password":
-		password := os.Getenv("TELEHACK_ADMIN_PASSWORD")
+		password := platform.Env("MANDATNIK_ADMIN_PASSWORD")
 		if password == "" {
-			fmt.Fprintln(os.Stderr, "hash-password: TELEHACK_ADMIN_PASSWORD is not set")
+			fmt.Fprintln(os.Stderr, "hash-password: MANDATNIK_ADMIN_PASSWORD is not set")
 			os.Exit(2)
 		}
 		hash, err := backend.HashAdminPassword(password)
@@ -100,22 +101,22 @@ func main() {
 }
 
 func usage() {
-	fmt.Print(`telehack-backend - single-process inventory backend
+	fmt.Print(`mandatnik-backend - single-process inventory backend
 
 Usage:
-  telehack-backend.exe version
-  telehack-backend.exe bootstrap [-config PATH]
-  telehack-backend.exe migrate [-config PATH]
-  telehack-backend.exe health [-config PATH]
-  telehack-backend.exe admin-create -config PATH -email EMAIL -name "DISPLAY NAME" [-role admin|superadmin]
-  telehack-backend.exe hash-password
-  telehack-backend.exe license-init [-config PATH]
-  telehack-backend.exe license-keyring-rotate [-config PATH]
-  telehack-backend.exe run [-config PATH]
+  mandatnik-backend.exe version
+  mandatnik-backend.exe bootstrap [-config PATH]
+  mandatnik-backend.exe migrate [-config PATH]
+  mandatnik-backend.exe health [-config PATH]
+  mandatnik-backend.exe admin-create -config PATH -email EMAIL -name "DISPLAY NAME" [-role admin|superadmin]
+  mandatnik-backend.exe hash-password
+  mandatnik-backend.exe license-init [-config PATH]
+  mandatnik-backend.exe license-keyring-rotate [-config PATH]
+  mandatnik-backend.exe run [-config PATH]
 
-Bootstrap uses TELEHACK_SA_PASSWORD. Runtime uses the DB password referenced
+Bootstrap uses MANDATNIK_SA_PASSWORD. Runtime uses the DB password referenced
 by backend.json (environment variable or ACL-protected file).
 admin-create and hash-password read the administrator password from
-TELEHACK_ADMIN_PASSWORD; plaintext passwords are never command-line args.
+MANDATNIK_ADMIN_PASSWORD; plaintext passwords are never command-line args.
 `)
 }

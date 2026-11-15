@@ -2,33 +2,35 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
      xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
   <Product Id="$(var.ProductCode)"
-           Name="Telehack 2026 Agent"
+           Name="Мандатник — агент"
            Language="1049"
+           Codepage="1251"
            Version="$(var.ProductVersion)"
-           Manufacturer="Telehack 2026"
+           Manufacturer="Мандатник"
            UpgradeCode="$(var.UpgradeCode)">
     <Package InstallerVersion="500"
+             SummaryCodepage="1251"
              Compressed="yes"
              InstallScope="perMachine"
              Platform="x64"
-             Description="Telehack 2026 certificate and CryptoPro inventory agent"
+             Description="Мандатник certificate and CryptoPro inventory agent"
              Comments="LocalSystem service. Reads personal certificate stores and CSP state; never exports private keys." />
-    <MajorUpgrade DowngradeErrorMessage="A newer Telehack 2026 Agent is already installed."
+    <MajorUpgrade DowngradeErrorMessage="A newer Мандатник — агент is already installed."
                   Schedule="afterInstallValidate"
                   MigrateFeatures="yes" />
     <MediaTemplate EmbedCab="yes" />
 
     <Property Id="ARPNOREPAIR" Value="0" />
-    <Property Id="ARPCOMMENTS" Value="Telehack 2026 inventory agent" />
+    <Property Id="ARPCOMMENTS" Value="Мандатник inventory agent" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
-        <Directory Id="CompanyFolder" Name="Telehack2026">
+        <Directory Id="CompanyFolder" Name="Mandatnik">
           <Directory Id="INSTALLFOLDER" Name="Agent" />
         </Directory>
       </Directory>
       <Directory Id="CommonAppDataFolder">
-        <Directory Id="DataFolder" Name="Telehack2026">
+        <Directory Id="DataFolder" Name="Mandatnik">
           <Directory Id="AgentDataFolder" Name="Agent">
             <Directory Id="LogsFolder" Name="logs" />
             <Directory Id="QueueFolder" Name="queue" />
@@ -39,18 +41,18 @@
 
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="AgentServiceComponent" Guid="{3B4743C0-6F7A-4E89-9CAF-E994B0F63D11}" Win64="yes">
-        <File Id="AgentExe" Source="$(var.AgentExe)" Name="telehack-agent.exe" KeyPath="yes" Vital="yes" />
-        <ServiceInstall Id="TelehackAgentService"
-                        Name="TelehackAgent"
-                        DisplayName="Telehack 2026 Agent"
+        <File Id="AgentExe" Source="$(var.AgentExe)" Name="mandatnik-agent.exe" KeyPath="yes" Vital="yes" />
+        <ServiceInstall Id="MandatnikAgentService"
+                        Name="MandatnikAgent"
+                        DisplayName="Мандатник — агент"
                         Description="Collects personal certificate inventory and CryptoPro CSP state."
                         Type="ownProcess"
                         Start="auto"
                         ErrorControl="normal"
                         Account="LocalSystem"
                         Arguments="run -config &quot;[DataFolder]agent-config.json&quot;" />
-        <ServiceControl Id="TelehackAgentControl"
-                        Name="TelehackAgent"
+        <ServiceControl Id="MandatnikAgentControl"
+                        Name="MandatnikAgent"
                         Start="install"
                         Stop="both"
                         Remove="uninstall"
@@ -65,7 +67,7 @@
           <util:PermissionEx User="SYSTEM" GenericAll="yes" />
           <util:PermissionEx User="Administrators" GenericAll="yes" />
         </CreateFolder>
-        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="DataRoot" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Mandatnik\Agent" Name="DataRoot" Type="integer" Value="1" KeyPath="yes" />
       </Component>
       <Component Id="ExampleConfigComponent" Guid="{63EFB577-F545-4929-88A6-E6D94644A48B}" Win64="yes" NeverOverwrite="yes">
         <File Id="ExampleConfig" Source="$(var.ExampleConfig)" KeyPath="yes" />
@@ -78,7 +80,7 @@
           <util:PermissionEx User="SYSTEM" GenericAll="yes" />
           <util:PermissionEx User="Administrators" GenericAll="yes" />
         </CreateFolder>
-        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="AgentData" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Mandatnik\Agent" Name="AgentData" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
@@ -88,7 +90,7 @@
           <util:PermissionEx User="SYSTEM" GenericAll="yes" />
           <util:PermissionEx User="Administrators" GenericAll="yes" />
         </CreateFolder>
-        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="Logs" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Mandatnik\Agent" Name="Logs" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
@@ -98,7 +100,7 @@
           <util:PermissionEx User="SYSTEM" GenericAll="yes" />
           <util:PermissionEx User="Administrators" GenericAll="yes" />
         </CreateFolder>
-        <RegistryValue Root="HKLM" Key="Software\Telehack2026\Agent" Name="Queue" Type="integer" Value="1" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="Software\Mandatnik\Agent" Name="Queue" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
@@ -112,7 +114,7 @@
       <Custom Action="ConfigureAgentServiceRecovery" After="InstallServices">NOT Installed OR REINSTALL</Custom>
     </InstallExecuteSequence>
 
-    <Feature Id="AgentFeature" Title="Telehack 2026 Agent" Level="1" Absent="disallow">
+    <Feature Id="AgentFeature" Title="Мандатник — агент" Level="1" Absent="disallow">
       <ComponentRef Id="AgentServiceComponent" />
       <ComponentRef Id="DataRootComponent" />
       <ComponentRef Id="ExampleConfigComponent" />

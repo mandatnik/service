@@ -14,9 +14,9 @@ Windows 10 `192.168.189.137` (CSP 4.0.9963). SSH-пользователь Window
   `LocalMachine\Root` на `.136`, `.137` и `.138` (необходимо для HTTPS
   агента и административного API);
 - серверный сертификат бэкенда: SAN `192.168.189.138`,
-  `SERVER-WINDOWS`, `backend.telehack.test`;
+  `SERVER-WINDOWS`, `backend.mandatnik.test`;
 - серверный сертификат SQL Server: SAN `192.168.189.138`,
-  `SERVER-WINDOWS`, `sql.telehack.test`; закрытый ключ получает право чтения
+  `SERVER-WINDOWS`, `sql.mandatnik.test`; закрытый ключ получает право чтения
   для `NT SERVICE\MSSQL$SQLEXPRESS`; отпечаток прописывается в
   `SuperSocketNetLib\Certificate`, служба SQL перезапускается.
 
@@ -27,32 +27,32 @@ Windows 10 `192.168.189.137` (CSP 4.0.9963). SSH-пользователь Window
 ## 2. База данных
 
 ```powershell
-$env:TELEHACK_SA_PASSWORD = '<sa-password>'
-telehack-backend.exe bootstrap -config C:\ProgramData\Telehack2026\Backend\backend.json
+$env:MANDATNIK_SA_PASSWORD = '<sa-password>'
+mandatnik-backend.exe bootstrap -config C:\ProgramData\Mandatnik\Backend\backend.json
 ```
 
-Создаётся отдельная БД `Telehack2026` и runtime-логин `telehack_app`.
+Создаётся отдельная БД `Mandatnik` и runtime-логин `mandatnik_app`.
 Приложение не использует `master` для таблиц.
 
 ## 3. Бэкенд
 
 `backend.json` размещается в
-`C:\ProgramData\Telehack2026\Backend\backend.json` с ACL только для SYSTEM и
+`C:\ProgramData\Mandatnik\Backend\backend.json` с ACL только для SYSTEM и
 Administrators. Пароль БД — в отдельном ACL-защищённом файле, имя которого
-задано `db.password_file`; переменная окружения `TELEHACK_DB_PASSWORD`
+задано `db.password_file`; переменная окружения `MANDATNIK_DB_PASSWORD`
 поддерживается как альтернатива. Бэкенд — портативный EXE, не реализующий
 SCM-диспетчер, поэтому на стенде он запускается планировщиком как SYSTEM:
 
 ```powershell
-$action = New-ScheduledTaskAction -Execute 'C:\ProgramData\Telehack2026\Backend\telehack-backend.exe' `
-  -Argument 'run -config "C:\ProgramData\Telehack2026\Backend\backend.json"' `
-  -WorkingDirectory 'C:\ProgramData\Telehack2026\Backend'
+$action = New-ScheduledTaskAction -Execute 'C:\ProgramData\Mandatnik\Backend\mandatnik-backend.exe' `
+  -Argument 'run -config "C:\ProgramData\Mandatnik\Backend\backend.json"' `
+  -WorkingDirectory 'C:\ProgramData\Mandatnik\Backend'
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero)
-Register-ScheduledTask -TaskName 'TelehackBackend' -Action $action -Trigger $trigger `
+Register-ScheduledTask -TaskName 'MandatnikBackend' -Action $action -Trigger $trigger `
   -Principal $principal -Settings $settings
-Start-ScheduledTask -TaskName 'TelehackBackend'
+Start-ScheduledTask -TaskName 'MandatnikBackend'
 ```
 
 Это не является обязательным контейнером/службой продукта: EXE можно
@@ -65,14 +65,14 @@ Start-ScheduledTask -TaskName 'TelehackBackend'
 ## 4. Агент
 
 ```powershell
-telehack-agent.exe install -config C:\ProgramData\Telehack2026\agent-config.json
-Start-Service TelehackAgent
-telehack-agent.exe status
+mandatnik-agent.exe install -config C:\ProgramData\Mandatnik\agent-config.json
+Start-Service MandatnikAgent
+mandatnik-agent.exe status
 ```
 
 Служба работает как LocalSystem. Первый сбор запускается сразу после
-регистрации. Диагностика: `telehack-agent.exe diag`, логи —
-`C:\ProgramData\Telehack2026\Agent\logs`.
+регистрации. Диагностика: `mandatnik-agent.exe diag`, логи —
+`C:\ProgramData\Mandatnik\Agent\logs`.
 
 ## 5. Тестовые фикстуры
 
@@ -81,7 +81,7 @@ telehack-agent.exe status
    `CertAddEncodedCertificateToStore`.
 2. В личное хранилище вошедшего `agent` импортируются выбранные `.cer` через
    `Import-Certificate -CertStoreLocation Cert:\CurrentUser\My`.
-3. В `C:\ProgramData\Telehack2026\test-certs` копируются DER/PEM-файлы.
+3. В `C:\ProgramData\Mandatnik\test-certs` копируются DER/PEM-файлы.
 4. Перед импортом фиксируется исходный список; после приёмки удаляются только
    добавленные SHA-256, проверяется восстановление списка, hive выгружается.
 

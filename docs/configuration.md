@@ -4,7 +4,7 @@
 
 ### 1.1. Файл GPO/ручного запуска
 
-По умолчанию: `C:\ProgramData\Telehack2026\agent-config.json`.
+По умолчанию: `C:\ProgramData\Mandatnik\agent-config.json`.
 Путь переопределяется параметром `-config` (диагностика/стенд).
 
 ```json
@@ -48,7 +48,7 @@
 ### 1.3. Каталоги состояния
 
 ```
-C:\ProgramData\Telehack2026\
+C:\ProgramData\Mandatnik\
   agent-config.json          # GPO/ручной файл, не удаляется агентом
   Agent\
     identity.dpapi           # единый DPAPI-bundle: UUID, hostname, ключ
@@ -67,7 +67,7 @@ C:\ProgramData\Telehack2026\
 `encryption.dpapi` привязан к `installation_id` внутри identity bundle. При
 переустановке с новой идентичностью старый ring архивируется и не наследуется.
 Для явной ротации остановите службу, выполните
-`telehack-agent.exe rotate-encryption-key` и запустите службу снова: сервер
+`mandatnik-agent.exe rotate-encryption-key` и запустите службу снова: сервер
 примет новый ключ только по подписанному запросу `capabilities`, старые ключи
 останутся в ring для незавершённых конвертов.
 `task-journal.dpapi` содержит исходное значение `ProductID`, необходимое для
@@ -81,12 +81,12 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
 ### 1.3.1. Обслуживание, удаление и сброс идентичности
 
 - `upgrade`, `repair` и `uninstall` без `-purge` сохраняют
-  `%ProgramData%\Telehack2026\Agent` (identity, encryption ring, журнал,
+  `%ProgramData%\Mandatnik\Agent` (identity, encryption ring, журнал,
   очередь). Повторная установка продолжает существующую машину.
 - Полная очистка выполняется только явной командой
-  `telehack-agent.exe uninstall -purge` (или удалением каталога
+  `mandatnik-agent.exe uninstall -purge` (или удалением каталога
   администратором). После неё следующая установка создаёт новую identity.
-- `telehack-agent.exe reset-identity --confirm` архивирует identity, ключ
+- `mandatnik-agent.exe reset-identity --confirm` архивирует identity, ключ
   шифрования, журнал, очередь и state в `Agent\identity-backup-<UTC>`.
   Следующий запуск создаёт новый UUID и ключ; это **новая установка**. Если
   её hostname совпадает с существующей машиной, сервер создаст заявку
@@ -139,7 +139,7 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
 
 ## 2. Бэкенд
 
-По умолчанию: `C:\ProgramData\Telehack2026\Backend\backend.json`.
+По умолчанию: `C:\ProgramData\Mandatnik\Backend\backend.json`.
 Путь задаётся `-config`.
 
 ```json
@@ -147,21 +147,21 @@ DACL каталога и файлов: SYSTEM и Administrators, наследо�
   "agent_listen": "0.0.0.0:8443",
   "admin_listen": "0.0.0.0:8444",
   "integration_listen": "0.0.0.0:8446",
-  "tls_cert_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.crt",
-  "tls_key_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.key",
-  "log_file": "C:\\ProgramData\\Telehack2026\\Backend\\logs\\backend.txt",
-  "license_keyring_file": "C:\\ProgramData\\Telehack2026\\Backend\\license-keyring.json",
-  "license_fingerprint_key_file": "C:\\ProgramData\\Telehack2026\\Backend\\license-fingerprint.key",
+  "tls_cert_file": "C:\\ProgramData\\Mandatnik\\Backend\\tls\\backend.crt",
+  "tls_key_file": "C:\\ProgramData\\Mandatnik\\Backend\\tls\\backend.key",
+  "log_file": "C:\\ProgramData\\Mandatnik\\Backend\\logs\\backend.txt",
+  "license_keyring_file": "C:\\ProgramData\\Mandatnik\\Backend\\license-keyring.json",
+  "license_fingerprint_key_file": "C:\\ProgramData\\Mandatnik\\Backend\\license-fingerprint.key",
   "db": {
     "server": "192.168.189.138",
     "port": 1433,
-    "database": "Telehack2026",
-    "user": "telehack_app",
-    "password_env": "TELEHACK_DB_PASSWORD",
+    "database": "Mandatnik",
+    "user": "mandatnik_app",
+    "password_env": "MANDATNIK_DB_PASSWORD",
     "encrypt": true,
     "trust_server_certificate": false,
-    "server_name": "sql.telehack.test",
-    "ca_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\tls-ca.crt"
+    "server_name": "sql.mandatnik.test",
+    "ca_file": "C:\\ProgramData\\Mandatnik\\Backend\\tls\\tls-ca.crt"
   },
   "max_concurrent_reports": 8,
   "max_concurrent_requests": 64,
@@ -197,8 +197,8 @@ Backend\license-fingerprint.key    # отдельный HMAC-SHA-256 ключ
 Инициализация и ротация:
 
 ```bash
-telehack-backend.exe license-init -config backend.json
-telehack-backend.exe license-keyring-rotate -config backend.json
+mandatnik-backend.exe license-init -config backend.json
+mandatnik-backend.exe license-keyring-rotate -config backend.json
 ```
 
 - `license-init` отказывается перезаписывать существующий keyring или HMAC-ключ.
@@ -215,20 +215,20 @@ telehack-backend.exe license-keyring-rotate -config backend.json
 ### 2.1. Bootstrap и миграции
 
 ```bash
-# Создание БД и runtime-логина (использует TELEHACK_SA_PASSWORD).
-telehack-backend.exe bootstrap -config backend.json
+# Создание БД и runtime-логина (использует MANDATNIK_SA_PASSWORD).
+mandatnik-backend.exe bootstrap -config backend.json
 
 # Только миграции (использует runtime-логин из config).
-telehack-backend.exe migrate -config backend.json
+mandatnik-backend.exe migrate -config backend.json
 
 # Запуск (миграции выполняются автоматически).
-telehack-backend.exe run -config backend.json
+mandatnik-backend.exe run -config backend.json
 
 # Проверка версии.
-telehack-backend.exe version
+mandatnik-backend.exe version
 ```
 
-Bootstrap создаёт БД, если её нет, логин `telehack_app` и пользователя в этой
+Bootstrap создаёт БД, если её нет, логин `mandatnik_app` и пользователя в этой
 БД с ролями `db_datareader`, `db_datawriter`, `db_ddladmin`. Таблицы
 создаются миграциями в выбранной БД, не в `master`.
 
@@ -236,9 +236,9 @@ Bootstrap создаёт БД, если её нет, логин `telehack_app` �
 
 | Переменная | Где | Назначение |
 | --- | --- | --- |
-| `TELEHACK_SA_PASSWORD` | bootstrap | пароль `sa` только на время создания БД/логина |
-| `TELEHACK_DB_PASSWORD` | backend | runtime-пароль приложения |
-| `TELEHACK_GITEA_TOKEN` | публикация | не читается продуктом; только для git push |
+| `MANDATNIK_SA_PASSWORD` | bootstrap | пароль `sa` только на время создания БД/логина |
+| `MANDATNIK_DB_PASSWORD` | backend | runtime-пароль приложения |
+| `MANDATNIK_GITEA_TOKEN` | публикация | не читается продуктом; только для git push |
 
 Секреты не попадают в исходники, конфиги, логи и коммиты.
 

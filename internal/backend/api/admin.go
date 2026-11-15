@@ -19,21 +19,22 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/backend/web"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/backend/web"
+	"mandatnik/internal/protocol"
 )
 
 const (
-	adminSessionCookie = "telehack_admin"
-	adminCSRFCookie    = "telehack_csrf"
-	adminAPIPrefix     = "/api/admin/v1/"
-	adminLoginFailures = 5
-	adminLoginWindow   = 5 * time.Minute
+	adminSessionCookie   = "mandatnik_admin"
+	adminCSRFCookie      = "mandatnik_csrf"
+	adminAPIPrefix       = "/api/admin/v1/"
+	adminLoginFailures   = 5
+	adminLoginIPFailures = 200
+	adminLoginWindow     = 5 * time.Minute
 )
 
 var dummyPasswordHash = func() []byte {
-	hash, err := bcrypt.GenerateFromPassword([]byte("telehack-invalid-password"), 12)
+	hash, err := bcrypt.GenerateFromPassword([]byte("mandatnik-invalid-password"), 12)
 	if err != nil {
 		panic(err)
 	}
@@ -49,9 +50,13 @@ func newAdminLoginLimiter() *adminLoginLimiter {
 	return &adminLoginLimiter{failures: make(map[string][]time.Time)}
 }
 
-func (l *adminLoginLimiter) blocked(key string, now time.Time) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+func adminLoginAccountKey(ip, email string) string {
+	return "acct|" + ip + "|" + strings.ToLower(email)
+}
+func adminLoginIPKey(ip string) string { return "ip|" + ip }
+
+// pruneLocked drops entries older than the window and returns the live count.
+func (l *adminLoginLimiter) pruneLocked(key string, now time.Time) int {
 	entries := l.failures[key]
 	cutoff := now.Add(-adminLoginWindow)
 	kept := entries[:0]
@@ -61,19 +66,32 @@ func (l *adminLoginLimiter) blocked(key string, now time.Time) bool {
 		}
 	}
 	l.failures[key] = kept
-	return len(kept) >= adminLoginFailures
+	return len(kept)
 }
 
-func (l *adminLoginLimiter) fail(key string, now time.Time) {
+func (l *adminLoginLimiter) blocked(ip, email string, now time.Time) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.failures[key] = append(l.failures[key], now)
+	// Per account and source: a shared NAT address must not lock every
+	// administrator out because one account is under attack. The broader
+	// per-IP cap still limits spraying across many account names.
+	if l.pruneLocked(adminLoginAccountKey(ip, email), now) >= adminLoginFailures {
+		return true
+	}
+	return l.pruneLocked(adminLoginIPKey(ip), now) >= adminLoginIPFailures
 }
 
-func (l *adminLoginLimiter) reset(key string) {
+func (l *adminLoginLimiter) fail(ip, email string, now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	delete(l.failures, key)
+	l.failures[adminLoginAccountKey(ip, email)] = append(l.failures[adminLoginAccountKey(ip, email)], now)
+	l.failures[adminLoginIPKey(ip)] = append(l.failures[adminLoginIPKey(ip)], now)
+}
+
+func (l *adminLoginLimiter) reset(ip, email string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.failures, adminLoginAccountKey(ip, email))
 }
 
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +207,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case parts[0] == "admins":
+		s.adminAccounts(w, r, session, parts)
 	case parts[0] == "api-keys":
 		s.adminAPIKeys(w, r, session, parts)
 	case parts[0] == "inventory-settings" || parts[0] == "groups" || parts[0] == "folder-policies":
@@ -209,6 +229,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.adminCreateJob(w, r, session, parts[1])
 	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "archive" && r.Method == http.MethodPost:
 		s.adminArchiveMachine(w, r, session, parts[1])
+	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "deactivate" && r.Method == http.MethodPost:
+		s.adminDeactivateMachine(w, r, session, parts[1])
 	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "display-name" && r.Method == http.MethodPost:
 		s.adminRenameMachine(w, r, session, parts[1])
 	case path == "installations" && r.Method == http.MethodGet:
@@ -293,10 +315,9 @@ func adminIdentityResponse(email, displayName, role string, expires time.Time, c
 	}
 }
 
-// requireAdminRole is the authorization extension point for future
-// superadmin-only administrator management endpoints. No such routes are
-// registered yet; new handlers should call this helper with
-// store.AdminRoleSuperAdmin before mutating administrator accounts.
+// requireAdminRole is the authorization helper for role-restricted admin
+// endpoints. Administrator management calls it with
+// store.AdminRoleSuperAdmin before reading a body or mutating an account.
 func (s *Server) requireAdminRole(w http.ResponseWriter, session *store.AdminSession, roles ...string) bool {
 	for _, role := range roles {
 		if session.Role == role {
@@ -325,9 +346,9 @@ func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
 	}
-	key := remoteHost(r)
+	ip := remoteHost(r)
 	now := time.Now()
-	if s.adminLimiter.blocked(key, now) {
+	if s.adminLimiter.blocked(ip, input.Email, now) {
 		writeAdminError(w, http.StatusTooManyRequests, "rate_limited", "too many failed login attempts; try again later")
 		return
 	}
@@ -348,11 +369,11 @@ func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 		hash = []byte(account.PasswordHash)
 	}
 	if bcrypt.CompareHashAndPassword(hash, []byte(input.Password)) != nil || lookupErr != nil || account == nil || account.Disabled {
-		s.adminLimiter.fail(key, now)
+		s.adminLimiter.fail(ip, input.Email, now)
 		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
 	}
-	s.adminLimiter.reset(key)
+	s.adminLimiter.reset(ip, input.Email)
 	token, err := randomToken()
 	if err != nil {
 		writeAdminError(w, http.StatusInternalServerError, protocol.CodeInternal, "could not create session")
@@ -426,10 +447,27 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 func (s *Server) adminMachines(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
-	page, err := s.store.ListMachines(ctx, store.AdminMachineFilter{
-		Query: r.URL.Query().Get("query"), Status: r.URL.Query().Get("status"),
+	params := r.URL.Query()
+	filter := store.AdminMachineFilter{
+		Query: params.Get("query"), Status: params.Get("status"),
 		Page: queryInt(r, "page", 1), PageSize: queryInt(r, "page_size", 25),
-	})
+		Monitor: params.Get("monitor"), Connection: params.Get("connection"), CSP: params.Get("csp"),
+		License: params.Get("license"), GroupID: params.Get("group_id"), Certificate: params.Get("certificate"),
+		MachineStatus: params.Get("machine_status"), Name: params.Get("name"), Hostname: params.Get("hostname"), SourceIP: params.Get("source_ip"),
+	}
+	if value := params.Get("as_of"); value != "" {
+		at, parseErr := time.Parse(time.RFC3339Nano, value)
+		if parseErr != nil {
+			writeAdminError(w, http.StatusBadRequest, "invalid_filter", "invalid monitoring timestamp")
+			return
+		}
+		filter.AsOf = &at
+	}
+	if err := store.ValidateAdminMachineFilter(filter); err != nil {
+		writeAdminError(w, http.StatusBadRequest, "invalid_filter", err.Error())
+		return
+	}
+	page, err := s.store.ListMachines(ctx, filter)
 	if err != nil {
 		s.logf("admin machines failed: %v", err)
 		writeAdminError(w, http.StatusServiceUnavailable, protocol.CodeDatabase, "could not load machines")
@@ -580,6 +618,33 @@ func (s *Server) adminArchiveMachine(w http.ResponseWriter, r *http.Request, ses
 			return
 		}
 		writeAdminError(w, http.StatusUnprocessableEntity, "archive_failed", err.Error())
+		return
+	}
+	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) adminDeactivateMachine(w http.ResponseWriter, r *http.Request, session *store.AdminSession, machineID string) {
+	id, err := protocol.NormalizeUUID(machineID)
+	if err != nil {
+		writeAdminError(w, http.StatusBadRequest, "invalid_machine", "invalid machine identifier")
+		return
+	}
+	var input struct {
+		Reason string `json:"reason"`
+	}
+	if err := readAdminJSON(w, r, &input); err != nil {
+		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
+		return
+	}
+	ctx, cancel := contextWithTimeout(r, 15*time.Second)
+	defer cancel()
+	if err := s.store.DeactivateMachine(ctx, id, input.Reason, session.Email); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeAdminError(w, http.StatusNotFound, protocol.CodeNotFound, "machine not found")
+			return
+		}
+		s.logf("admin deactivate machine failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "deactivate_failed", "could not deactivate machine")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -760,7 +825,8 @@ func (s *Server) adminAssignHostname(w http.ResponseWriter, r *http.Request, ses
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
 	if err := s.store.AssignHostname(ctx, hostname, input.RegistrationID, session.Email); err != nil {
-		writeAdminError(w, http.StatusUnprocessableEntity, "hostname_assign_failed", err.Error())
+		s.logf("hostname assign failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "hostname_assign_failed", "hostname assignment failed")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -775,7 +841,8 @@ func (s *Server) adminRevokeRegistration(w http.ResponseWriter, r *http.Request,
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
 	if err := s.store.RevokeRegistration(ctx, registrationID, session.Email); err != nil {
-		writeAdminError(w, http.StatusUnprocessableEntity, "revoke_failed", err.Error())
+		s.logf("registration revoke failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "revoke_failed", "registration revoke failed")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -804,7 +871,8 @@ func (s *Server) adminRebind(w http.ResponseWriter, r *http.Request, session *st
 	defer cancel()
 	fingerprint, err := s.store.RebindRegistrationKey(ctx, machineID, registrationID, input.PublicKeyPEM, session.Email)
 	if err != nil {
-		writeAdminError(w, http.StatusUnprocessableEntity, "rebind_failed", err.Error())
+		s.logf("registration rebind failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "rebind_failed", "registration rebind failed")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true, "key_fingerprint": fingerprint})
@@ -888,9 +956,9 @@ func contextWithTimeout(r *http.Request, timeout time.Duration) (ctx context.Con
 func isAdminPagePath(path string) bool {
 	parts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(path, "/"), "/"), "/")
 	switch parts[0] {
-	case "arm", "machines", "certificates", "groups":
+	case "arm", "machines", "certificates", "groups", "hostnames":
 		return len(parts) == 1 || (len(parts) == 2 && parts[1] != "" && !strings.Contains(parts[1], "."))
-	case "overview", "policies", "licensing", "tasks", "hostnames", "events", "api-keys", "settings":
+	case "overview", "policies", "licensing", "tasks", "events", "api-keys", "admins", "settings":
 		return len(parts) == 1
 	default:
 		return false

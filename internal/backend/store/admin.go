@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/asn1"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -12,16 +11,15 @@ import (
 	"net"
 	"net/mail"
 	"strings"
-	"telehack2026/internal/certparse"
 	"time"
 	"unicode/utf8"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
-// Administrator roles. The superadmin role is the extension point for the
-// future administrator-management section; no such routes exist yet.
+// Administrator roles. Only the local bootstrap path can create or change a
+// superadmin; the administrator-management API is limited to regular admins.
 const (
 	AdminRoleAdmin      = "admin"
 	AdminRoleSuperAdmin = "superadmin"
@@ -90,6 +88,7 @@ type AdminAccount struct {
 	Role         string
 	PasswordHash string
 	Disabled     bool
+	CreatedAt    time.Time
 }
 
 // AdminSession is an authenticated browser session.
@@ -111,8 +110,8 @@ func (s *Store) AdminByEmail(ctx context.Context, email string) (*AdminAccount, 
 	}
 	var account AdminAccount
 	err = s.DB.QueryRowContext(ctx, `
-SELECT admin_id, email, display_name, role, password_hash, disabled FROM dbo.administrators WHERE email=@p1`, email).
-		Scan(&account.ID, &account.Email, &account.DisplayName, &account.Role, &account.PasswordHash, &account.Disabled)
+SELECT admin_id, email, display_name, role, password_hash, disabled, created_at FROM dbo.administrators WHERE email=@p1`, email).
+		Scan(&account.ID, &account.Email, &account.DisplayName, &account.Role, &account.PasswordHash, &account.Disabled, &account.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, sql.ErrNoRows
 	}
@@ -148,7 +147,7 @@ MERGE dbo.administrators WITH (HOLDLOCK) AS target
 USING (SELECT @p1 AS email) AS source ON target.email=source.email
 WHEN MATCHED THEN UPDATE SET display_name=@p2, role=@p3, password_hash=@p4, disabled=0
 WHEN NOT MATCHED THEN INSERT (username, email, display_name, role, password_hash, disabled, created_at)
-VALUES (LEFT(@p1,128), @p1, @p2, @p3, @p4, 0, @p5)
+VALUES (CONCAT(N'admin-',CONVERT(nvarchar(36),NEWID())), @p1, @p2, @p3, @p4, 0, @p5)
 OUTPUT INSERTED.admin_id;`, email, displayName, role, passwordHash, s.now()).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("upsert administrator: %w", err)
@@ -243,6 +242,9 @@ type MachineSummary struct {
 	LastSeenAt        *time.Time        `json:"last_seen_at,omitempty"`
 	SourceIP          string            `json:"source_ip,omitempty"`
 	DNSStatus         string            `json:"dns_status,omitempty"`
+	DNSReverseStatus  string            `json:"dns_reverse_status,omitempty"`
+	DNSVerified       bool              `json:"dns_verified"`
+	DNSVerifiedAt     *time.Time        `json:"dns_verified_at,omitempty"`
 	HostnameConflict  bool              `json:"hostname_conflict"`
 	CSPPresent        bool              `json:"csp_present"`
 	ProductVersion    string            `json:"product_version,omitempty"`
@@ -281,6 +283,12 @@ type Page[T any] struct {
 func normalizePage(page, pageSize int) (int, int) {
 	if page < 1 {
 		page = 1
+	}
+	// A page number near MaxInt overflows (page-1)*pageSize and turns the SQL
+	// OFFSET negative. Clamp instead of surfacing a database error to clients.
+	const maxPage = 1_000_000
+	if page > maxPage {
+		page = maxPage
 	}
 	if pageSize < 1 {
 		pageSize = 25
@@ -321,6 +329,17 @@ func ipString(value []byte) string {
 }
 
 type AdminMachineFilter struct {
+	Monitor         string
+	Connection      string
+	CSP             string
+	License         string
+	GroupID         string
+	Certificate     string
+	MachineStatus   string
+	Name            string
+	Hostname        string
+	SourceIP        string
+	AsOf            *time.Time
 	Query           string
 	Status          string
 	Page            int
@@ -360,28 +379,33 @@ func (s *Store) ListMachines(ctx context.Context, filter AdminMachineFilter) (Pa
 		case "active":
 			where = append(where, "r.state='active'")
 		case "offline":
-			where = append(where, fmt.Sprintf("r.state='active' AND (r.last_seen_at IS NULL OR r.last_seen_at <= DATEADD(minute, -%d, SYSUTCDATETIME()))", machineOfflineMinutes))
+			where = append(where, fmt.Sprintf("r.state='active' AND (r.last_seen_at IS NULL OR r.last_seen_at <= DATEADD(minute, -%d, @asof))", machineOfflineMinutes))
 		case "conflict":
 			where = append(where, "EXISTS (SELECT 1 FROM dbo.registrations r2 WHERE r2.hostname_norm=r.hostname_norm AND r2.state='active' AND r2.registration_id<>r.registration_id)")
 		}
 	}
-	baseJoin := `
-FROM dbo.machines m
-LEFT JOIN dbo.registrations r ON r.machine_id=m.machine_id AND r.state='active'
-LEFT JOIN dbo.csp_states c ON c.machine_id=m.machine_id
+	now := s.now()
+	if filter.AsOf != nil {
+		now = filter.AsOf.UTC()
+	}
+	if err := applyAdminMachineColumns(filter, &where, add); err != nil {
+		return Page[MachineSummary]{}, err
+	}
+	baseJoin := adminMachineLiveJoins + `
 OUTER APPLY (SELECT TOP 1 report_id,status,collected_at,applied_sources FROM dbo.reports rep WHERE rep.machine_id=m.machine_id ORDER BY rep.scan_epoch DESC, rep.scan_seq DESC) rp
 WHERE ` + strings.Join(where, " AND ")
-	countArgs := append([]any(nil), args...)
+	countArgs := append(append([]any(nil), args...), sql.Named("asof", now))
 	var total int
 	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(1) "+baseJoin, countArgs...).Scan(&total); err != nil {
 		return Page[MachineSummary]{}, err
 	}
 	queryArgs := append([]any(nil), args...)
-	queryArgs = append(queryArgs, (page-1)*pageSize, pageSize)
+	queryArgs = append(queryArgs, (page-1)*pageSize, pageSize, sql.Named("asof", now))
 	query := `
 SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
        m.archived_at, COALESCE(m.archived_by,''), COALESCE(m.archive_reason,''),
        r.uuid, r.hostname, r.state, r.last_seen_at, r.last_source_ip, r.last_dns_status,
+       r.last_dns_reverse_status, r.last_dns_mutual_forward_status, r.last_dns_hostname, r.last_dns_source_ip, r.last_dns_mutual_checked_at,
        c.present, c.product_version, c.core_version, c.license_kind, c.license_kind_raw, c.license_state, c.term_kind, c.is_trial, c.valid_to_utc,
        rp.report_id, rp.status, rp.collected_at, COALESCE(rp.applied_sources,0),
        (SELECT COUNT(*) FROM dbo.machine_users mu WHERE mu.machine_id=m.machine_id),
@@ -397,7 +421,6 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 	}
 	defer rows.Close()
 	items := []MachineSummary{}
-	now := s.now()
 	for rows.Next() {
 		var item MachineSummary
 		var id mssql.NullUniqueIdentifier
@@ -408,9 +431,10 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		var uuid mssql.NullUniqueIdentifier
 		var hostname, regState sql.NullString
 		var lastSeen sql.NullTime
-		var ip []byte
+		var ip, dnsIP []byte
 		var cspPresent sql.NullBool
-		var dns, product, core, kind, raw, state, term, trial sql.NullString
+		var dns, dnsReverse, dnsMutualForward, dnsHostname, product, core, kind, raw, state, term, trial sql.NullString
+		var dnsChecked sql.NullTime
 		var validTo sql.NullTime
 		var reportID mssql.NullUniqueIdentifier
 		var reportStatus sql.NullString
@@ -418,6 +442,7 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		var applied, users, certs, conflict, registryCerts, fileCerts, licensedCerts int
 		if err := rows.Scan(&id, &item.DisplayName, &displayNameCustom, &created, &archived, &archivedBy, &archiveReason,
 			&uuid, &hostname, &regState, &lastSeen, &ip, &dns,
+			&dnsReverse, &dnsMutualForward, &dnsHostname, &dnsIP, &dnsChecked,
 			&cspPresent, &product, &core, &kind, &raw, &state, &term, &trial, &validTo, &reportID, &reportStatus, &collected, &applied,
 			&users, &certs, &conflict, &registryCerts, &fileCerts, &licensedCerts); err != nil {
 			return Page[MachineSummary]{}, err
@@ -436,6 +461,19 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		item.LastSeenAt = nullTime(lastSeen)
 		item.SourceIP = ipString(ip)
 		item.DNSStatus = nullString(dns)
+		item.DNSReverseStatus = nullString(dnsReverse)
+		if regState.Valid && regState.String == "active" {
+			var checkedAt *time.Time
+			if dnsChecked.Valid {
+				value := dnsChecked.Time.UTC()
+				checkedAt = &value
+			}
+			if strings.EqualFold(item.DNSStatus, "verified") && dnsVerificationConfirmed(nullString(dnsMutualForward), item.DNSReverseStatus, nullString(dnsHostname), item.Hostname,
+				ipString(dnsIP), item.SourceIP, checkedAt, now) {
+				item.DNSVerified = true
+				item.DNSVerifiedAt = checkedAt
+			}
+		}
 		item.HostnameConflict = conflict != 0
 		item.CSPPresent = cspPresent.Valid && cspPresent.Bool
 		item.ProductVersion = nullString(product)
@@ -967,6 +1005,17 @@ func (s *Store) RebindRegistrationKey(ctx context.Context, machineID string, reg
 		return "", err
 	}
 	defer tx.Rollback()
+	var reuse int
+	if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM dbo.registrations
+WHERE public_key_sha256=@p1 AND state='active'
+  AND NOT (registration_id=@p2 AND machine_id=@p3)`,
+		fingerprint, registrationID, machineID).Scan(&reuse); err != nil {
+		return "", err
+	}
+	if reuse > 0 {
+		return "", fmt.Errorf("public key is already active on another registration")
+	}
 	result, err := tx.ExecContext(ctx, `
 UPDATE dbo.registrations SET public_key_pem=@p1, public_key_sha256=@p2
 WHERE registration_id=@p3 AND machine_id=@p4 AND state='active'`, normalized, fingerprint, registrationID, machineID)
@@ -991,18 +1040,19 @@ VALUES(@p1,@p2,N'key_rebound',N'warning',N'administrator rebound the agent publi
 
 // Overview is the admin dashboard summary.
 type AdminOverview struct {
-	Machines            int        `json:"machines"`
-	ActiveRegistrations int        `json:"active_registrations"`
-	Users               int        `json:"users"`
-	Certificates        int        `json:"certificates"`
-	ActiveObservations  int        `json:"active_observations"`
-	PendingJobs         int        `json:"pending_jobs"`
-	Events24h           int        `json:"events_24h"`
-	Reports24h          int        `json:"reports_24h"`
-	LastReportAt        *time.Time `json:"last_report_at,omitempty"`
-	ConfigVersion       int        `json:"config_version"`
-	ConfigHash          string     `json:"config_hash"`
-	DBOK                bool       `json:"db_ok"`
+	Monitoring          AdminMonitoring `json:"monitoring"`
+	Machines            int             `json:"machines"`
+	ActiveRegistrations int             `json:"active_registrations"`
+	Users               int             `json:"users"`
+	Certificates        int             `json:"certificates"`
+	ActiveObservations  int             `json:"active_observations"`
+	PendingJobs         int             `json:"pending_jobs"`
+	Events24h           int             `json:"events_24h"`
+	Reports24h          int             `json:"reports_24h"`
+	LastReportAt        *time.Time      `json:"last_report_at,omitempty"`
+	ConfigVersion       int             `json:"config_version"`
+	ConfigHash          string          `json:"config_hash"`
+	DBOK                bool            `json:"db_ok"`
 }
 
 func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
@@ -1011,7 +1061,7 @@ func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
 		target *int
 		query  string
 	}{
-		{&out.Machines, `SELECT COUNT(*) FROM dbo.machines WHERE archived_at IS NULL`},
+		{&out.Machines, `SELECT COUNT(*) ` + adminMachineLiveJoins + ` WHERE ` + currentMonitoringMachineSQL},
 		{&out.ActiveRegistrations, `SELECT COUNT(*) FROM dbo.registrations WHERE state='active'`},
 		{&out.Users, `SELECT COUNT(*) FROM dbo.machine_users WHERE present=1`},
 		{&out.Certificates, `SELECT COUNT(*) FROM dbo.certificates`},
@@ -1037,6 +1087,11 @@ func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
 	}
 	out.ConfigVersion = version
 	out.ConfigHash = strings.TrimSpace(hash)
+	monitoring, err := s.adminMonitoring(ctx, s.now())
+	if err != nil {
+		return out, err
+	}
+	out.Monitoring = monitoring
 	out.DBOK = s.DB.PingContext(ctx) == nil
 	return out, nil
 }
@@ -1044,25 +1099,29 @@ func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
 // ListCertificates -------------------------------------------------------------
 
 type CertificateSummary struct {
-	Organization    string     `json:"organization,omitempty"`
-	Department      string     `json:"department,omitempty"`
-	IssuerCN        string     `json:"issuer_cn,omitempty"`
-	SHA256          string     `json:"sha256"`
-	SerialHex       string     `json:"serial_hex"`
-	SerialNumber    string     `json:"serial_number"`
-	Subject         string     `json:"subject"`
-	Issuer          string     `json:"issuer"`
-	OwnerCN         string     `json:"owner_cn,omitempty"`
-	INN             string     `json:"inn,omitempty"`
-	SNILS           string     `json:"snils,omitempty"`
-	NotBefore       *time.Time `json:"not_before,omitempty"`
-	NotAfter        *time.Time `json:"not_after,omitempty"`
-	EmbeddedLicense string     `json:"embedded_license,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	Machines        int        `json:"machines"`
-	Observations    int        `json:"observations"`
-	Active          bool       `json:"active"`
+	OwnerDetails     CertificateNameDetails `json:"owner_details"`
+	IssuerDetails    CertificateNameDetails `json:"issuer_details"`
+	RegistryMachines int                    `json:"registry_machines"`
+	FileMachines     int                    `json:"file_machines"`
+	Organization     string                 `json:"organization,omitempty"`
+	Department       string                 `json:"department,omitempty"`
+	IssuerCN         string                 `json:"issuer_cn,omitempty"`
+	SHA256           string                 `json:"sha256"`
+	SerialHex        string                 `json:"serial_hex"`
+	SerialNumber     string                 `json:"serial_number"`
+	Subject          string                 `json:"subject"`
+	Issuer           string                 `json:"issuer"`
+	OwnerCN          string                 `json:"owner_cn,omitempty"`
+	INN              string                 `json:"inn,omitempty"`
+	SNILS            string                 `json:"snils,omitempty"`
+	NotBefore        *time.Time             `json:"not_before,omitempty"`
+	NotAfter         *time.Time             `json:"not_after,omitempty"`
+	EmbeddedLicense  string                 `json:"embedded_license,omitempty"`
+	CreatedAt        time.Time              `json:"created_at"`
+	UpdatedAt        time.Time              `json:"updated_at"`
+	Machines         int                    `json:"machines"`
+	Observations     int                    `json:"observations"`
+	Active           bool                   `json:"active"`
 }
 
 type CertificateObservationInfo struct {
@@ -1121,7 +1180,9 @@ func (s *Store) ListCertificates(ctx context.Context, query, status string, page
 SELECT c.sha256,c.serial_hex,c.serial_number,c.subject,c.issuer,c.owner_cn,c.inn,c.snils,c.not_before,c.not_after,
        c.embedded_license,c.created_at,c.updated_at,c.der,
        (SELECT COUNT(DISTINCT o.machine_id) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1),
-       (SELECT COUNT(*) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1)
+       (SELECT COUNT(*) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1),
+       (SELECT COUNT(DISTINCT o.machine_id) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1 AND o.source_type=N'user_store'),
+       (SELECT COUNT(DISTINCT o.machine_id) FROM dbo.certificate_observations o WHERE o.certificate_sha256=c.sha256 AND o.active=1 AND o.source_type=N'folder')
 `+base+fmt.Sprintf(` ORDER BY c.not_after DESC, c.sha256 OFFSET @p%d ROWS FETCH NEXT @p%d ROWS ONLY`, len(args)+1, len(args)+2), queryArgs...)
 	if err != nil {
 		return Page[CertificateSummary]{}, err
@@ -1134,7 +1195,7 @@ SELECT c.sha256,c.serial_hex,c.serial_number,c.subject,c.issuer,c.owner_cn,c.inn
 		var before, after sql.NullTime
 		var machines, observations int
 		var der []byte
-		if err := rows.Scan(&item.SHA256, &serial, &serialNum, &subject, &issuer, &cn, &inn, &snils, &before, &after, &embedded, &item.CreatedAt, &item.UpdatedAt, &der, &machines, &observations); err != nil {
+		if err := rows.Scan(&item.SHA256, &serial, &serialNum, &subject, &issuer, &cn, &inn, &snils, &before, &after, &embedded, &item.CreatedAt, &item.UpdatedAt, &der, &machines, &observations, &item.RegistryMachines, &item.FileMachines); err != nil {
 			return Page[CertificateSummary]{}, err
 		}
 		item.SerialHex = nullString(serial)
@@ -1142,11 +1203,7 @@ SELECT c.sha256,c.serial_hex,c.serial_number,c.subject,c.issuer,c.owner_cn,c.inn
 		item.Subject = nullString(subject)
 		item.Issuer = nullString(issuer)
 		item.OwnerCN = nullString(cn)
-		if parsed, err := certparse.Parse(der); err == nil {
-			item.Organization, _ = parsed.Subject.FindAttribute(asn1.ObjectIdentifier{2, 5, 4, 10})
-			item.Department, _ = parsed.Subject.FindAttribute(asn1.ObjectIdentifier{2, 5, 4, 11})
-			item.IssuerCN = parsed.Issuer.CommonName()
-		}
+		enrichCertificateNames(&item, der)
 		item.INN = nullString(inn)
 		item.SNILS = nullString(snils)
 		item.EmbeddedLicense = nullString(embedded)

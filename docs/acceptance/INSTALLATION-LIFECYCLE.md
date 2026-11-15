@@ -8,7 +8,7 @@ HTTPS `127.0.0.1:9444`). Данные существующих машин не �
 ## Автоматические проверки
 
 ```bash
-TELEHACK_POLICY_TEST_CONFIG=/path/to/authorized-acceptance.json \
+MANDATNIK_POLICY_TEST_CONFIG=/path/to/authorized-acceptance.json \
   go test ./internal/backend/store \
   -run 'Test(AdminIdentity|ListMachinesSummary|Policies|Tasks|InstallationReplacement|MachineRename)SQLServer' \
   -count=1 -v

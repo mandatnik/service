@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func (c *contract) policyReportTransitions(ctx context.Context, id *identity, a, b protocol.ObservedCertificate) {

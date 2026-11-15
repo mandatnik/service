@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"golang.org/x/sys/windows/registry"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 const installerUserDataProducts = `SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products`

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"telehack2026/internal/version"
+	"mandatnik/internal/version"
 )
 
 func TestPublishDraftBecomesVisibleOnlyAfterAssets(t *testing.T) {
@@ -45,7 +45,7 @@ func TestPublishDraftBecomesVisibleOnlyAfterAssets(t *testing.T) {
 			}
 			defer file.Close()
 			data, _ := io.ReadAll(file)
-			if header.Filename != "telehack-agent.exe" || string(data) != "test artifact" {
+			if header.Filename != "mandatnik-agent.exe" || string(data) != "test artifact" {
 				t.Error("wrong artifact")
 			}
 			uploaded = true
@@ -73,7 +73,7 @@ func TestPublishDraftBecomesVisibleOnlyAfterAssets(t *testing.T) {
 	t.Setenv("GITEA_TOKEN", "unit-only-token")
 	t.Setenv("GITEA_REF_NAME", "v"+version.Version)
 	out := t.TempDir()
-	if err := os.WriteFile(filepath.Join(out, "telehack-agent.exe"), []byte("test artifact"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(out, "mandatnik-agent.exe"), []byte("test artifact"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	if err := publish(options{out: out}); err != nil {

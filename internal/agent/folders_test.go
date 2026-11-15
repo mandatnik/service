@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func copyFixture(t *testing.T, source, destination string) {

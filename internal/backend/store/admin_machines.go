@@ -1,6 +1,14 @@
 package store
 
-import "strings"
+import (
+	"net"
+	"strings"
+	"time"
+
+	"mandatnik/internal/protocol"
+)
+
+const dnsVerificationMaxAge = 15 * time.Minute
 
 // Machine status values returned by the admin machine list. The UI maps them
 // to labels and tones without duplicating the precedence rules below.
@@ -52,4 +60,36 @@ func deriveMachineStatus(cspPresent bool, licenseState, trial string, registryCe
 		return MachineStatusLicenseRequired
 	}
 	return MachineStatusOK
+}
+
+// dnsVerificationConfirmed is deliberately conservative: only a mutual DNS
+// result recorded for the same hostname and source IP, and recent enough to
+// describe the current connection, may turn into the green "Проверен DNS"
+// badge. Legacy rows with a forward-only "verified" value have no reverse
+// result and remain unconfirmed.
+func dnsVerificationConfirmed(forward, reverse, verifiedHostname, hostname, verifiedIP, sourceIP string, checkedAt *time.Time, now time.Time) bool {
+	if !strings.EqualFold(forward, "verified") || !strings.EqualFold(reverse, "verified") {
+		return false
+	}
+	if checkedAt == nil || checkedAt.IsZero() {
+		return false
+	}
+	if now.Sub(*checkedAt) > dnsVerificationMaxAge {
+		return false
+	}
+	if checkedAt.After(now.Add(time.Minute)) {
+		return false
+	}
+	if sourceIP == "" || verifiedIP == "" || !sameIPAddress(verifiedIP, sourceIP) {
+		return false
+	}
+	return protocol.HostnamesEqual(verifiedHostname, hostname)
+}
+
+func sameIPAddress(a, b string) bool {
+	parsedA, parsedB := net.ParseIP(a), net.ParseIP(b)
+	if parsedA != nil && parsedB != nil {
+		return parsedA.Equal(parsedB)
+	}
+	return strings.EqualFold(a, b)
 }

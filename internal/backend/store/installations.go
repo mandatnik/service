@@ -10,7 +10,7 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // InstallationRegistrationInfo is the registration view shown to an
@@ -1073,6 +1073,92 @@ UPDATE dbo.machines SET archived_at=@p1,archived_by=@p2,archive_reason=@p3,updat
 	if err := insertEvent(ctx, tx, id, nil, nil, nil, "machine_archived", "warning",
 		"administrator archived a historical machine card",
 		map[string]any{"admin": admin, "reason": reason, "display_name": displayName}, now); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DeactivateMachine is the soft-delete action for an acting workstation. It
+// uses the same archive columns as ArchiveMachine, but also revokes every
+// active registration so a deactivated agent immediately loses access. The
+// machine card, reports, observations, tasks, events and authors stay intact.
+func (s *Store) DeactivateMachine(ctx context.Context, machineID, reason, admin string) error {
+	id, err := protocol.NormalizeUUID(machineID)
+	if err != nil {
+		return fmt.Errorf("invalid machine identifier")
+	}
+	reason = truncate(strings.TrimSpace(reason), 1024)
+	if reason == "" {
+		reason = "Деактивирована администратором"
+	}
+	now := s.now()
+	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var displayName string
+	var archived sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT display_name,archived_at FROM dbo.machines WITH (UPDLOCK,HOLDLOCK) WHERE machine_id=@p1`, id).Scan(&displayName, &archived); errors.Is(err, sql.ErrNoRows) {
+		return sql.ErrNoRows
+	} else if err != nil {
+		return err
+	}
+	if archived.Valid {
+		return nil
+	}
+	rows, err := tx.QueryContext(ctx, `
+SELECT registration_id,hostname_norm FROM dbo.registrations WITH (UPDLOCK,HOLDLOCK)
+WHERE machine_id=@p1 AND state=N'active'`, id)
+	if err != nil {
+		return err
+	}
+	var registrationIDs []int64
+	var hostnames []string
+	for rows.Next() {
+		var registrationID int64
+		var hostname string
+		if err := rows.Scan(&registrationID, &hostname); err != nil {
+			rows.Close()
+			return err
+		}
+		registrationIDs = append(registrationIDs, registrationID)
+		hostnames = append(hostnames, hostname)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, registrationID := range registrationIDs {
+		if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.registrations SET state=N'revoked',revoked_at=@p1 WHERE registration_id=@p2 AND state=N'active'`, now, registrationID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.hostnames SET owner_registration_id=NULL,owner_machine_id=NULL WHERE owner_registration_id=@p1`, registrationID); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.agent_encryption_keys SET active=0,revoked_at=COALESCE(revoked_at,@p1)
+WHERE machine_id=@p2 AND active=1`, now, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.jobs SET state=N'canceled',completed_at=COALESCE(completed_at,@p1)
+WHERE machine_id=@p2 AND state IN (N'pending',N'delivered')`, now, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+UPDATE dbo.machines SET archived_at=@p1,archived_by=@p2,archive_reason=@p3,updated_at=@p1 WHERE machine_id=@p4`,
+		now, admin, reason, id); err != nil {
+		return err
+	}
+	if err := insertEvent(ctx, tx, id, nil, nil, nil, "machine_deactivated", "warning",
+		"administrator deactivated a machine card and revoked its active registrations",
+		map[string]any{"admin": admin, "reason": reason, "display_name": displayName,
+			"registration_ids": registrationIDs, "hostnames": hostnames}, now); err != nil {
 		return err
 	}
 	return tx.Commit()

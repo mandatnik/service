@@ -6,23 +6,23 @@ import (
 	"testing"
 )
 
-// The serial and hash are a real workstation pair used by the stand
-// acceptance. The full serial must never appear in any API response; these
+// These values are synthetic. A real workstation serial must never be
+// committed; the full serial must never appear in any API response. These
 // helpers are the only place it is converted.
 func TestLicenseIDFromRealSerial(t *testing.T) {
-	const serial = "50509X00000130DFD8EVURPFW"
+	const serial = "99999X00000999ZZZZZ000000"
 	masked, err := MaskLicenseSerial(serial)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if masked != "50509X00000130DFD8EV*****" {
+	if masked != "99999X00000999ZZZZZ0*****" {
 		t.Fatalf("masked serial = %q", masked)
 	}
 	id, err := LicenseIDFromSerial(serial)
 	if err != nil {
 		t.Fatal(err)
 	}
-	const expected = "a5dc754d2ff42421ccbfaa9b91f1cb0bbb980b7534a8ec42b32e6fce31ae3fc6"
+	const expected = "cc4036b72546fa95edf6de0c9196e60153f72212a1eae180aaef208fb8b06e0d"
 	if id != expected {
 		t.Fatalf("license id = %q", id)
 	}
@@ -33,9 +33,9 @@ func TestLicenseIDFromRealSerial(t *testing.T) {
 
 func TestLicenseSerialNormalization(t *testing.T) {
 	cases := map[string]string{
-		"50509X00000130DFD8EVURPFW":        "50509X00000130DFD8EVURPFW",
-		"50509X-00000130-DFD8-EVURPFW":     "50509X00000130DFD8EVURPFW",
-		"  50509x 00000130 dfd8 evurpfw  ": "50509X00000130DFD8EVURPFW",
+		"99999X00000999ZZZZZ000000":        "99999X00000999ZZZZZ000000",
+		"99999X-00000999-ZZZZ-Z000000":     "99999X00000999ZZZZZ000000",
+		"  99999x 00000999 zzzz z000000  ": "99999X00000999ZZZZZ000000",
 	}
 	for input, expected := range cases {
 		if got := NormalizeLicenseSerial(input); got != expected {
@@ -66,8 +66,8 @@ func TestValidateLicenseIDCanonicalForm(t *testing.T) {
 }
 
 func TestValidateMaskedSerialMismatch(t *testing.T) {
-	const masked = "50509X00000130DFD8EV*****"
-	if err := ValidateMaskedSerial(masked, "a5dc754d2ff42421ccbfaa9b91f1cb0bbb980b7534a8ec42b32e6fce31ae3fc6"); err != nil {
+	const masked = "99999X00000999ZZZZZ0*****"
+	if err := ValidateMaskedSerial(masked, "cc4036b72546fa95edf6de0c9196e60153f72212a1eae180aaef208fb8b06e0d"); err != nil {
 		t.Fatal(err)
 	}
 	if err := ValidateMaskedSerial(masked, "0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
@@ -77,8 +77,8 @@ func TestValidateMaskedSerialMismatch(t *testing.T) {
 
 func TestValidateLicenseRecord(t *testing.T) {
 	valid := LicenseInfo{
-		LicenseID:    "a5dc754d2ff42421ccbfaa9b91f1cb0bbb980b7534a8ec42b32e6fce31ae3fc6",
-		SerialMasked: "50509X00000130DFD8EV*****",
+		LicenseID:    "cc4036b72546fa95edf6de0c9196e60153f72212a1eae180aaef208fb8b06e0d",
+		SerialMasked: "99999X00000999ZZZZZ0*****",
 		Product:      "csp",
 		ProductCode:  0,
 		ProductName:  "CryptoPro CSP",
@@ -93,7 +93,7 @@ func TestValidateLicenseRecord(t *testing.T) {
 	}
 	cases := map[string]func(*LicenseInfo){
 		"bad id":          func(v *LicenseInfo) { v.LicenseID = "short" },
-		"bad mask":        func(v *LicenseInfo) { v.SerialMasked = "50509X00000130DFD8EV" },
+		"bad mask":        func(v *LicenseInfo) { v.SerialMasked = "99999X00000999ZZZZZ0" },
 		"unknown product": func(v *LicenseInfo) { v.Product = "other" },
 		"wrong code":      func(v *LicenseInfo) { v.ProductCode = 2 },
 		"bad state":       func(v *LicenseInfo) { v.State = "broken" },

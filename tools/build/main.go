@@ -21,7 +21,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"telehack2026/internal/version"
+	"mandatnik/internal/version"
 )
 
 type options struct{ out, productVersion, commit, date, host, sshArgs, wix, productCode, config, evidence string }
@@ -81,7 +81,7 @@ See CONTRIBUTING.md for Linux/Windows packages, configuration and CI/CD.
 		}
 		return npm("ci")
 	case "unit":
-		return run(map[string]string{"TELEHACK_POLICY_TEST_CONFIG": ""}, "go", "test", "-count=1", "./...")
+		return run(map[string]string{"MANDATNIK_POLICY_TEST_CONFIG": ""}, "go", "test", "-count=1", "./...")
 	case "lint":
 		return run(nil, "go", "vet", "./...")
 	case "frontend":
@@ -97,7 +97,7 @@ See CONTRIBUTING.md for Linux/Windows packages, configuration and CI/CD.
 		if err := validateConfig(o.config); err != nil {
 			return err
 		}
-		if err := run(map[string]string{"TELEHACK_POLICY_TEST_CONFIG": absolute(o.config)}, "go", "test", "-count=1", "./internal/backend/store", "-run", "Test(Policies|Tasks)SQLServer", "-v"); err != nil {
+		if err := run(map[string]string{"MANDATNIK_POLICY_TEST_CONFIG": absolute(o.config)}, "go", "test", "-count=1", "./internal/backend/store", "-run", "Test(Policies|Tasks)SQLServer", "-v"); err != nil {
 			return err
 		}
 		if args[0] == "integration" {
@@ -207,9 +207,9 @@ func build(o options) error {
 	if err = run(nil, "go", "mod", "verify"); err != nil {
 		return err
 	}
-	flags := fmt.Sprintf("-s -w -X telehack2026/internal/version.Commit=%s -X telehack2026/internal/version.BuildDate=%s", o.commit, o.date)
+	flags := fmt.Sprintf("-s -w -X mandatnik/internal/version.Commit=%s -X mandatnik/internal/version.BuildDate=%s", o.commit, o.date)
 	for _, target := range []string{"agent", "backend", "acceptance"} {
-		if err = run(map[string]string{"GOOS": "windows", "GOARCH": "amd64", "CGO_ENABLED": "0"}, "go", "build", "-trimpath", "-buildvcs=false", "-ldflags", flags, "-o", filepath.Join(o.out, "telehack-"+target+".exe"), "./cmd/"+target); err != nil {
+		if err = run(map[string]string{"GOOS": "windows", "GOARCH": "amd64", "CGO_ENABLED": "0"}, "go", "build", "-trimpath", "-buildvcs=false", "-ldflags", flags, "-o", filepath.Join(o.out, "mandatnik-"+target+".exe"), "./cmd/"+target); err != nil {
 			return err
 		}
 	}
@@ -287,7 +287,7 @@ func productCode(v string) string {
 	namespace, _ := hex.DecodeString("b1ddabdf21514a9d9e0c6bc30e9e9bdb")
 	h := sha1.New()
 	h.Write(namespace)
-	h.Write([]byte("TelehackAgent/" + v))
+	h.Write([]byte("MandatnikAgent/" + v))
 	id := h.Sum(nil)[:16]
 	id[6] = id[6]&0x0f | 0x50
 	id[8] = id[8]&0x3f | 0x80
@@ -299,7 +299,7 @@ func msi(o options) error {
 	if err != nil {
 		return err
 	}
-	exe := filepath.Join(o.out, "telehack-agent.exe")
+	exe := filepath.Join(o.out, "mandatnik-agent.exe")
 	if _, err = os.Stat(exe); err != nil {
 		return fmt.Errorf("agent EXE not found; run make build first: %w", err)
 	}
@@ -309,7 +309,7 @@ func msi(o options) error {
 	if !regexp.MustCompile(`^\{[0-9A-Fa-f-]{36}\}$`).MatchString(o.productCode) {
 		return fmt.Errorf("invalid PRODUCT_CODE")
 	}
-	output := filepath.Join(o.out, "TelehackAgent-"+o.productVersion+".msi")
+	output := filepath.Join(o.out, "MandatnikAgent-"+o.productVersion+".msi")
 	if runtime.GOOS == "windows" && o.host == "" {
 		args := []string{"-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "deploy/msi/build-msi.ps1", "-AgentExe", absolute(exe), "-ProductVersion", o.productVersion, "-ProductCode", o.productCode, "-Output", absolute(output)}
 		if o.wix != "" {
@@ -342,7 +342,7 @@ func remoteMSI(o options, exe, output string) (err error) {
 	if strings.HasPrefix(o.host, "-") || strings.ContainsAny(o.host, " \t\r\n'\"") {
 		return fmt.Errorf("invalid MSI_HOST")
 	}
-	tmp, err := os.MkdirTemp("", "telehack-msi-")
+	tmp, err := os.MkdirTemp("", "mandatnik-msi-")
 	if err != nil {
 		return err
 	}
@@ -353,7 +353,7 @@ func remoteMSI(o options, exe, output string) (err error) {
 		return err
 	}
 	zw := zip.NewWriter(file)
-	paths := map[string]string{"telehack-agent.exe": exe, "build-msi.ps1": "deploy/msi/build-msi.ps1", "TelehackAgent.wxs": "deploy/msi/TelehackAgent.wxs", "agent-config.example.json": "deploy/msi/agent-config.example.json"}
+	paths := map[string]string{"mandatnik-agent.exe": exe, "build-msi.ps1": "deploy/msi/build-msi.ps1", "MandatnikAgent.wxs": "deploy/msi/MandatnikAgent.wxs", "agent-config.example.json": "deploy/msi/agent-config.example.json"}
 	for name, path := range paths {
 		entry, e := zw.Create(name)
 		if e != nil {
@@ -394,7 +394,7 @@ func remoteMSI(o options, exe, output string) (err error) {
 	if err = run(nil, "scp", append(append([]string{}, sshArgs...), bundle, o.host+":"+remote+"/input.zip")...); err != nil {
 		return err
 	}
-	command := "Expand-Archive -LiteralPath " + psQuote(remote+"/input.zip") + " -DestinationPath " + psQuote(remote) + " -Force; & " + psQuote(remote+"/build-msi.ps1") + " -AgentExe " + psQuote(remote+"/telehack-agent.exe") + " -ProductVersion " + psQuote(o.productVersion) + " -ProductCode " + psQuote(o.productCode) + " -Output " + psQuote(remote+"/output.msi")
+	command := "Expand-Archive -LiteralPath " + psQuote(remote+"/input.zip") + " -DestinationPath " + psQuote(remote) + " -Force; & " + psQuote(remote+"/build-msi.ps1") + " -AgentExe " + psQuote(remote+"/mandatnik-agent.exe") + " -ProductVersion " + psQuote(o.productVersion) + " -ProductCode " + psQuote(o.productCode) + " -Output " + psQuote(remote+"/output.msi")
 	if o.wix != "" {
 		command += " -WixDir " + psQuote(o.wix)
 	}

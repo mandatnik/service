@@ -14,8 +14,8 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/certparse"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/certparse"
+	"mandatnik/internal/protocol"
 )
 
 // scanNewer compares an installation-local scan sequence together with the
@@ -383,13 +383,13 @@ MERGE dbo.certificates WITH (HOLDLOCK) AS target
 USING (SELECT @p1 AS sha256) AS source
 ON target.sha256=source.sha256
 WHEN MATCHED THEN UPDATE SET
-    der=@p2, serial_hex=@p3, serial_number=@p4, subject=@p5, issuer=@p6, issuer_hash=@p7,
+    der=@p2, serial_hex=@p3, serial_number=@p4, subject=@p5, issuer=@p6, issuer_hash=CAST(@p7 AS VARBINARY(32)),
     owner_cn=@p8, inn=@p9, snils=@p10, public_key_bits=@p11, signature_algorithm=@p12,
     embedded_license=@p13, not_before=@p14, not_after=@p15, parse_error=@p16, updated_at=@p17
 WHEN NOT MATCHED THEN INSERT
     (sha256, der, serial_hex, serial_number, subject, issuer, issuer_hash, owner_cn, inn, snils,
      public_key_bits, signature_algorithm, embedded_license, not_before, not_after, parse_error, created_at, updated_at)
-VALUES (@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@p17,@p17);`,
+VALUES (@p1,@p2,@p3,@p4,@p5,@p6,CAST(@p7 AS VARBINARY(32)),@p8,@p9,@p10,@p11,@p12,@p13,@p14,@p15,@p16,@p17,@p17);`,
 		observed.SHA256, der, serialHex, serialNumber, subject, issuer, issuerHash, ownerCN, inn, snils,
 		publicBits, sigAlg, embedded, notBefore, notAfter, truncate(parseError, 2048), now)
 	if err != nil {

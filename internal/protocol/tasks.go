@@ -140,7 +140,7 @@ type TaskBinding struct {
 	ExpiresAt         string `json:"expires_at"`
 }
 
-const TaskBindingProtocol = "telehack2026/task-parameters/v1"
+const TaskBindingProtocol = "mandatnik/task-parameters/v1"
 
 // TaskBindingAAD returns the canonical binding bytes.
 func TaskBindingAAD(binding TaskBinding) ([]byte, error) {

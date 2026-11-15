@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // MachineFacts is the evidence used for one machine. Every "fresh" or

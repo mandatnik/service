@@ -7,7 +7,7 @@ import (
 
 func TestAdminPageFallback(t *testing.T) {
 	s := &Server{}
-	for _, path := range []string{"/arm", "/arm/5297a534-08b3-418c-823c-be2e8ec01160", "/certificates/abcdef", "/groups", "/settings"} {
+	for _, path := range []string{"/arm", "/arm/5297a534-08b3-418c-823c-be2e8ec01160", "/certificates/abcdef", "/groups", "/settings", "/admins", "/hostnames", "/hostnames/old-value"} {
 		w := httptest.NewRecorder()
 		s.serveAdminStatic(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != 200 || w.Header().Get("Content-Type") != "text/html; charset=utf-8" {

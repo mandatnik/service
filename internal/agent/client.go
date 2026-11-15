@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"telehack2026/internal/protocol"
-	"telehack2026/internal/version"
+	"mandatnik/internal/protocol"
+	"mandatnik/internal/version"
 )
 
 // APIClient is the outbound-only agent HTTP client. TLS uses the operating
@@ -58,7 +58,7 @@ func (c *APIClient) post(ctx context.Context, path string, data protocol.SignedD
 		return response{Error: &protocol.APIError{Code: "client_build", Message: err.Error()}}
 	}
 	request.Header.Set("Content-Type", protocol.ContentTypeJSON)
-	request.Header.Set("User-Agent", "Telehack2026-Agent/"+version.Version)
+	request.Header.Set("User-Agent", "Mandatnik-Agent/"+version.Version)
 	httpResponse, err := c.http.Do(request)
 	if err != nil {
 		return response{Error: &protocol.APIError{Code: "network_error", Message: err.Error()}}

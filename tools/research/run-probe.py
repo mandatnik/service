@@ -13,16 +13,16 @@ import uuid
 PROJECT = Path(__file__).resolve().parents[2]
 suffix = sys.argv[1]
 host = f"agent@192.168.189.{suffix}"
-socket = f"/tmp/telehack-admin-{suffix}.sock"
+socket = f"/tmp/mandatnik-admin-{suffix}.sock"
 collect_only = len(sys.argv) > 2 and sys.argv[2] == "--collect"
-run_id = "TelehackResearch-" + uuid.uuid4().hex[:12]
+run_id = "MandatnikResearch-" + uuid.uuid4().hex[:12]
 remote = "C:\\ProgramData\\" + run_id
 destination = PROJECT / "research" / "2026-11-14" / suffix
 destination.mkdir(parents=True, exist_ok=True)
 if collect_only or (len(sys.argv) > 2 and sys.argv[2] == "--rerun"):
     remote = json.loads((destination / "run.json").read_text())["directory"]
 else:
-    (destination / "run.json").write_text(json.dumps({"host": host, "directory": remote, "service": "TelehackResearchProbe"}, indent=2))
+    (destination / "run.json").write_text(json.dumps({"host": host, "directory": remote, "service": "MandatnikResearchProbe"}, indent=2))
 
 
 def powershell(script, timeout=60):
@@ -39,7 +39,7 @@ def powershell(script, timeout=60):
 if not collect_only:
     powershell(f"""
     $ErrorActionPreference='Stop';$ProgressPreference='SilentlyContinue'
-    if((Get-Service TelehackResearchProbe -ErrorAction SilentlyContinue).Status -eq 'Running'){{throw 'Research service already running'}}
+    if((Get-Service MandatnikResearchProbe -ErrorAction SilentlyContinue).Status -eq 'Running'){{throw 'Research service already running'}}
     New-Item -ItemType Directory -Path '{remote}\\fixtures' -Force|Out-Null
     & icacls.exe '{remote}' /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'|Out-Null
     if($LASTEXITCODE -ne 0){{throw 'ACL setup failed'}}
@@ -57,15 +57,15 @@ if not collect_only:
     & 'C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe' /nologo /target:exe /platform:x64 /reference:System.ServiceProcess.dll /out:'{remote}\\ServiceProbe.exe' '{remote}\\ServiceProbe.cs'
     if($LASTEXITCODE -ne 0){{throw 'Compilation failed'}}
     $bin='"{remote}\\ServiceProbe.exe" "{remote}"'
-    if(-not (Get-Service TelehackResearchProbe -ErrorAction SilentlyContinue)){{New-Service -Name TelehackResearchProbe -BinaryPathName $bin -StartupType Manual|Out-Null}}
+    if(-not (Get-Service MandatnikResearchProbe -ErrorAction SilentlyContinue)){{New-Service -Name MandatnikResearchProbe -BinaryPathName $bin -StartupType Manual|Out-Null}}
     Get-ChildItem '{remote}\\runner.*.txt','{remote}\\report.json' -ErrorAction SilentlyContinue|Remove-Item -Force
-    Start-Service TelehackResearchProbe
+    Start-Service MandatnikResearchProbe
     """)
     print(f"{suffix}: actual LocalSystem service started", flush=True)
 for _ in range(30):
     status = powershell(f"""
 $ProgressPreference='SilentlyContinue'
-if(Test-Path '{remote}\\runner.exit.txt'){{'DONE'}}elseif(Test-Path '{remote}\\runner.failure.txt'){{'FAILED'}}else{{(Get-Service TelehackResearchProbe).Status.ToString()}}
+if(Test-Path '{remote}\\runner.exit.txt'){{'DONE'}}elseif(Test-Path '{remote}\\runner.failure.txt'){{'FAILED'}}else{{(Get-Service MandatnikResearchProbe).Status.ToString()}}
 """)
     if status in ("DONE", "FAILED"):
         break
@@ -84,9 +84,9 @@ print(f"Report saved: {destination}", flush=True)
 # Always remove temporary service. Keep evidence directory on failure for cleanup investigation.
 powershell("""
 $ErrorActionPreference='Stop'
-$service=Get-Service TelehackResearchProbe -ErrorAction SilentlyContinue
-if($service -and $service.Status -ne 'Stopped'){Stop-Service TelehackResearchProbe}
-& sc.exe delete TelehackResearchProbe
+$service=Get-Service MandatnikResearchProbe -ErrorAction SilentlyContinue
+if($service -and $service.Status -ne 'Stopped'){Stop-Service MandatnikResearchProbe}
+& sc.exe delete MandatnikResearchProbe
 if($LASTEXITCODE -ne 0){throw 'Service deletion failed'}
 """)
 offline = report.get("OfflineTest", {})

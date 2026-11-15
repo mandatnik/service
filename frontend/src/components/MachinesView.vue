@@ -1,7 +1,8 @@
 <script setup>
 import { useAutoRefresh } from '../autoRefresh'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
+import { emptyMachineFilters, normalizeMachineFilters, monitoringLabels } from '../machineFilters'
 import { badgeClass, formatTime, machineRowView, pluralRu } from '../format'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
@@ -9,8 +10,11 @@ import Pager from './Pager.vue'
 import RefreshControl from './RefreshControl.vue'
 import InstallationReview from './InstallationReview.vue'
 import MachineRenameDialog from './MachineRenameDialog.vue'
+import MachineDeactivateDialog from './MachineDeactivateDialog.vue'
 
-const emit = defineEmits(['open-machine', 'open-group'])
+const props = defineProps({ filters: { type: Object, default: () => ({}) } })
+const emit = defineEmits(['open-machine', 'open-group', 'filters-change'])
+const columnFilters = reactive(normalizeMachineFilters(props.filters))
 const selected = ref([]), catalog = ref({ groups: [] }), targetGroup = ref(''), newGroup = ref(''), adding = ref(false), message = ref('')
 const groupNotice = ref(null)
 const pollSeconds = ref(60)
@@ -19,7 +23,9 @@ const pollText = computed(() => `Опрос агента — раз в ${pollSec
 const pendingInstallations = ref([])
 const reviewing = ref(null)
 const renameTarget = ref(null)
+const deactivateTarget = ref(null)
 const actionMenu = ref(null)
+const menuElement = ref(null)
 const selectableRows = computed(() => data.value.items.filter(m => !m.archived))
 const allSelected = computed(() => selectableRows.value.length > 0 && selectableRows.value.every(m => selected.value.includes(m.machine_id)))
 const rows = computed(() => data.value.items.map(machine => ({ machine, view: machineRowView(machine) })))
@@ -54,8 +60,8 @@ async function startScan() {
     message.value = `Задача scan создана: ${task.task.id}.`
   } catch (e) { error.value = e.message } finally { scanBusy.value = false }
 }
-const query = ref('')
-const status = ref('active')
+const query = ref(columnFilters.query)
+const status = ref(columnFilters.status)
 const page = ref(1)
 const data = ref({ items: [], total: 0, page: 1, page_size: 25 })
 const error = ref('')
@@ -64,29 +70,76 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const results = await Promise.all([api.machines({ query: query.value, status: status.value, page: page.value, page_size: 25 }), api.inventorySettings(), api.installations({ status: 'pending' })]); data.value = results[0]; catalog.value = results[1]; pendingInstallations.value = results[2]?.items || []
+    const results = await Promise.all([api.machines({ ...columnFilters, query: query.value, status: status.value, page: page.value, page_size: 25 }), api.inventorySettings(), api.installations({ status: 'pending' })]); data.value = results[0]; catalog.value = results[1]; pendingInstallations.value = results[2]?.items || []
   } catch (e) { error.value = e.message } finally { loading.value = false }
 }
-function apply() { page.value = 1; load() }
+function apply() { emit('filters-change', { ...columnFilters, query: query.value, status: status.value }) }
+function clearFilters() { emit('filters-change', emptyMachineFilters()) }
+function clearMonitor() { emit('filters-change', { ...columnFilters, query: query.value, status: status.value, monitor: '', as_of: '' }) }
+watch(() => props.filters, value => {
+ Object.assign(columnFilters, normalizeMachineFilters(value)); query.value = columnFilters.query; status.value = columnFilters.status
+ page.value = 1; selected.value = []; load()
+}, { deep: true })
 function changePage(next) { page.value = next; load() }
 function reviewInstallation(request) { reviewing.value = request; message.value = '' }
 function toggleRowActions(machine, event) {
   event.stopPropagation()
   if (actionMenu.value?.machine.machine_id === machine.machine_id) {
-    actionMenu.value = null
+    closeRowActions()
     return
   }
   const rect = event.currentTarget.getBoundingClientRect()
   actionMenu.value = {
     machine,
-    top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 120)),
-    left: Math.max(8, Math.min(rect.right - 200, window.innerWidth - 208))
+    trigger: event.currentTarget,
+    top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 170)),
+    left: Math.max(8, Math.min(rect.right - 224, window.innerWidth - 232))
   }
+  nextTick(() => menuElement.value?.querySelector('button:not([disabled])')?.focus())
 }
 function closeRowActions() { actionMenu.value = null }
+function closeRowActionsAndRestoreFocus() {
+  const trigger = actionMenu.value?.trigger
+  actionMenu.value = null
+  trigger?.focus?.()
+}
+function menuKeydown(event) {
+  const buttons = [...(event.currentTarget.querySelectorAll('button:not([disabled])'))]
+  const index = buttons.indexOf(document.activeElement)
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeRowActionsAndRestoreFocus()
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    buttons[(index + 1 + buttons.length) % buttons.length]?.focus()
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    buttons[(index < 0 ? buttons.length - 1 : index - 1 + buttons.length) % buttons.length]?.focus()
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    buttons[0]?.focus()
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    buttons[buttons.length - 1]?.focus()
+  }
+}
+function globalKeydown(event) {
+  if (event.key === 'Escape' && actionMenu.value) closeRowActionsAndRestoreFocus()
+}
 function startRename(machine) { actionMenu.value = null; renameTarget.value = machine; message.value = ''; groupNotice.value = null }
+function startDeactivate(machine) { actionMenu.value = null; deactivateTarget.value = machine; message.value = ''; groupNotice.value = null }
 function openFromMenu(machine) { actionMenu.value = null; emit('open-machine', machine.machine_id) }
 async function machineRenamed(result) { renameTarget.value = null; message.value = `Имя АРМ изменено: «${result.display_name}». Hostname и machine_id не изменялись.`; await load() }
+async function machineDeactivated(machine) {
+  deactivateTarget.value = null
+  selected.value = selected.value.filter(id => id !== machine.machine_id)
+  message.value = `АРМ «${machine.display_name || machine.machine_id}» деактивирован. Карточка, история и связанные данные сохранены; активная регистрация отозвана.`
+  await load()
+  if (!data.value.items.length && page.value > 1) {
+    page.value -= 1
+    await load()
+  }
+}
 async function installationResolved(payload) {
   const action = payload?.action
   reviewing.value = null
@@ -108,12 +161,14 @@ onMounted(() => {
   load(); loadPollInterval()
   document.addEventListener('click', closeRowActions)
   window.addEventListener('resize', closeRowActions)
+  window.addEventListener('keydown', globalKeydown)
 })
 onUnmounted(() => {
   document.removeEventListener('click', closeRowActions)
   window.removeEventListener('resize', closeRowActions)
+  window.removeEventListener('keydown', globalKeydown)
 })
-useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!reviewing.value || !!renameTarget.value || !!actionMenu.value)
+useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!reviewing.value || !!renameTarget.value || !!deactivateTarget.value || !!actionMenu.value)
 </script>
 <template>
   <section>
@@ -135,6 +190,8 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
       </form>
       <span class="muted">{{ pollText }}</span>
     </div>
+    <div v-if="columnFilters.monitor" class="alert alert-info monitoring-filter" role="status"><div><strong>{{ monitoringLabels[columnFilters.monitor] }}</strong><div class="small">Показаны только АРМ из выбранного показателя. Фильтры столбцов дополнительно сужают список.</div></div><button class="btn btn-small" @click="clearMonitor">Снять фильтр мониторинга</button></div>
+    <div class="machine-filter-summary"><span class="small muted">Найдено АРМ: {{ data.total }}</span><button class="btn btn-small btn-quiet" @click="clearFilters">Сбросить фильтры</button></div>
     <form v-if="selected.length" class="panel selection-toolbar" @submit.prevent="addToGroup"><strong>Выбрано: {{ selected.length }}</strong><select v-model="targetGroup" aria-label="Группа для выбранных машин" required><option disabled value="">Добавить в группу…</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option><option value="new">+ Создать группу</option></select><input v-if="targetGroup === 'new'" v-model="newGroup" required maxlength="200" placeholder="Название новой группы" aria-label="Название новой группы" /><button class="btn btn-primary" :disabled="adding || !targetGroup">Добавить</button><button class="btn" type="button" :disabled="scanBusy" @click="startScan">Запросить информацию</button><button class="btn" type="button" :disabled="adding" @click="selected = []">Снять выбор</button></form>
     <div v-if="groupNotice" class="alert alert-success" role="status"><strong>{{ groupNotice.title }}</strong><div>{{ groupNotice.text }}</div></div>
     <div v-if="message" class="alert alert-success" role="status">{{ message }}</div>
@@ -161,15 +218,16 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
     </div>
     <InstallationReview v-if="reviewing" :request="reviewing" @resolved="installationResolved" @cancel="reviewing = null" />
     <MachineRenameDialog v-if="renameTarget" :machine="renameTarget" @saved="machineRenamed" @close="renameTarget = null" />
+    <MachineDeactivateDialog v-if="deactivateTarget" :machine="deactivateTarget" @saved="machineDeactivated" @close="deactivateTarget = null" />
     <Teleport to="body">
-      <div v-if="actionMenu" class="row-actions-menu" role="menu" :style="{ top: actionMenu.top + 'px', left: actionMenu.left + 'px' }" @click.stop>
+      <div v-if="actionMenu" ref="menuElement" class="row-actions-menu" role="menu" :style="{ top: actionMenu.top + 'px', left: actionMenu.left + 'px' }" @click.stop @keydown="menuKeydown">
         <button type="button" role="menuitem" @click="startRename(actionMenu.machine)">Переименовать АРМ</button>
         <button type="button" role="menuitem" @click="openFromMenu(actionMenu.machine)">Открыть карточку</button>
+        <button type="button" role="menuitem" class="row-actions-danger" :disabled="actionMenu.machine.archived" :title="actionMenu.machine.archived ? 'Машина уже деактивирована' : ''" @click="startDeactivate(actionMenu.machine)">Деактивировать</button>
       </div>
     </Teleport>
     <div v-if="!reviewing" class="panel table-panel">
       <div v-if="loading && !data.items.length" class="state">Загрузка…</div>
-      <EmptyState v-else-if="!data.items.length" title="АРМ не найдены" text="Проверьте фильтры или зарегистрируйте агент." />
       <table v-else class="data-table machines-table">
         <thead>
           <tr>
@@ -184,8 +242,21 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
             <th>Статус</th>
             <th class="actions-cell"><span class="sr-only">Действия</span></th>
           </tr>
+          <tr class="column-filters">
+            <th></th>
+            <th><input v-model="columnFilters.name" aria-label="Фильтр по названию АРМ" placeholder="Название" maxlength="512" @change="apply" @keydown.enter.prevent="apply" /></th>
+            <th><input v-model="columnFilters.hostname" aria-label="Фильтр по hostname" placeholder="Hostname" maxlength="512" @change="apply" @keydown.enter.prevent="apply" /><input v-model="columnFilters.source_ip" aria-label="Фильтр по IP" placeholder="Точный IP" @change="apply" @keydown.enter.prevent="apply" /></th>
+            <th><select v-model="columnFilters.connection" aria-label="Фильтр по связи" @change="apply"><option value="">Любая связь</option><option value="online">В сети</option><option value="offline">Не в сети</option></select></th>
+            <th><select v-model="columnFilters.csp" aria-label="Фильтр по CSP" @change="apply"><option value="">Любой CSP</option><option value="present">Установлен</option><option value="missing">Не найден</option></select></th>
+            <th><select v-model="columnFilters.group_id" aria-label="Фильтр по группе" @change="apply"><option value="">Все группы</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option></select></th>
+            <th><select v-model="columnFilters.license" aria-label="Фильтр по лицензии" @change="apply"><option value="">Любая лицензия</option><option value="active">Активная</option><option value="needs">Требуется лицензия</option><option value="trial">Пробная</option><option value="expired">Истекла</option><option value="perpetual">Бессрочная</option><option value="unknown">Не определена</option></select></th>
+            <th><select v-model="columnFilters.certificate" aria-label="Фильтр по сертификатам" @change="apply"><option value="">Все сертификаты</option><option value="present">Есть</option><option value="missing">Нет</option><option value="expired_recent">Истекли без замены</option></select></th>
+            <th><select v-model="columnFilters.machine_status" aria-label="Фильтр по статусу АРМ" @change="apply"><option value="">Все статусы</option><option value="ok">Работает</option><option value="trial">Пробная версия</option><option value="license_required">Требуется лицензия</option><option value="csp_missing">CSP не установлен</option></select></th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
+          <tr v-if="!data.items.length"><td colspan="10"><EmptyState title="АРМ не найдены" text="Измените фильтры столбцов или сбросьте их." /></td></tr>
           <tr v-for="row in rows" :key="row.machine.machine_id" class="clickable" tabindex="0" @keydown.enter.self="emit('open-machine', row.machine.machine_id)" @click="emit('open-machine', row.machine.machine_id)">
             <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="row.machine.machine_id" :disabled="row.machine.archived" :aria-label="`Выбрать ${row.view.name}`" /></td>
             <td>
@@ -196,8 +267,8 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
               <code class="small muted machine-uuid">{{ row.view.uuid }}</code>
             </td>
             <td>
-              <div>{{ row.view.hostname }} <span v-if="row.machine.hostname_conflict" class="badge badge-warning">конфликт</span></div>
-              <div class="small muted">{{ row.view.ip }}</div>
+              <div>{{ row.view.hostname }} <span v-if="row.machine.hostname_conflict" class="badge badge-warning">Конфликт</span></div>
+              <div class="machine-source"><span class="small muted">{{ row.view.ip }}</span><span v-if="row.machine.dns_verified" class="badge badge-ok dns-verified" :title="`Взаимное соответствие hostname и IP подтверждено ${formatTime(row.machine.dns_verified_at)}`">Проверен DNS</span></div>
             </td>
             <td>
               <span class="badge" :class="badgeClass(row.view.online.tone)">{{ row.view.online.label }}</span>

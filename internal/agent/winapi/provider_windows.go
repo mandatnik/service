@@ -11,8 +11,8 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-	"telehack2026/internal/licenseclass"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/licenseclass"
+	"mandatnik/internal/protocol"
 )
 
 const (

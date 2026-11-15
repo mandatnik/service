@@ -127,7 +127,7 @@ useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value
         <div class="metric-card static"><span>Связь</span><strong>{{ data.machine.offline ? 'offline' : 'online' }}</strong><small>{{ formatTime(data.machine.last_seen_at) }} · {{ data.machine.source_ip || 'IP неизвестен' }}</small></div>
         <div class="metric-card static"><span>Пользователи</span><strong>{{ data.users.length }}</strong><small>{{ data.users.filter(u => u.present).length }} присутствуют</small></div>
         <div class="metric-card static"><span>Сертификаты</span><strong>{{ data.machine.active_certificates }}</strong><small>активных наблюдений</small></div>
-        <div class="metric-card static"><span>DNS</span><strong>{{ data.machine.dns_status || 'unknown' }}</strong><small>{{ data.machine.dns_status === 'verified' ? 'источник подтверждён' : 'сигнал, не блокировка' }}</small></div>
+        <div class="metric-card static"><span>DNS</span><strong>{{ data.machine.dns_verified ? 'Проверен' : 'Не подтверждён' }}</strong><small>{{ data.machine.dns_verified ? 'взаимное соответствие hostname ↔ IP' : 'сигнал, не блокировка' }}</small></div>
       </div>
 
       <div class="panel">
@@ -159,7 +159,7 @@ useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value
           <tbody><tr v-for="r in data.registrations" :key="r.registration_id">
             <td>{{ r.registration_id }}<div v-if="r.previous_registration_id" class="small muted">ранее {{ r.previous_registration_id }}</div><div v-if="r.replaced_by_registration_id" class="small muted">заменена {{ r.replaced_by_registration_id }}</div></td>
             <td><code class="small">{{ r.uuid }}</code></td><td>{{ r.hostname }}</td><td><span class="badge" :class="r.state === 'active' ? 'badge-ok' : 'badge-neutral'">{{ stateLabel(r.state) }}</span></td>
-            <td><code class="small">{{ r.key_fingerprint?.slice(0, 20) }}…</code></td><td>{{ formatTime(r.last_seen_at) }}<div class="small muted">{{ r.source_ip }} · DNS {{ r.dns_status || 'unknown' }}</div><button v-if="r.state === 'active'" class="btn btn-danger btn-small" @click="revoke(r.registration_id)">Отозвать</button></td>
+            <td><code class="small">{{ r.key_fingerprint?.slice(0, 20) }}…</code></td><td>{{ formatTime(r.last_seen_at) }}<div class="small muted">{{ r.source_ip }} · DNS (прямая): {{ r.dns_status || 'unknown' }}</div><button v-if="r.state === 'active'" class="btn btn-danger btn-small" @click="revoke(r.registration_id)">Отозвать</button></td>
           </tr></tbody>
         </table>
         <details class="advanced">
@@ -210,10 +210,10 @@ useAutoRefresh(load, () => loading.value || manualBusy.value || rebindBusy.value
         <div v-for="h in data.hostnames" :key="h.hostname_norm" class="hostname-row" :class="{ conflict: h.competing.length > 0 }">
           <div><strong>{{ h.hostname_norm }}</strong><div class="small muted">владелец: {{ h.owner_display_name || 'не назначен' }}{{ h.owner_machine_id ? ' · ' + h.owner_machine_id : '' }}</div></div>
           <div v-if="h.competing.length" class="competing">
-            <span class="badge badge-warning">конфликт</span>
+            <span class="badge badge-warning">Конфликт</span>
             <div v-for="c in h.competing" :key="c.registration_id" class="small">Претендует {{ c.display_name }} ({{ c.machine_id }}, reg {{ c.registration_id }}) <button class="link-button" @click="assign(h.hostname_norm, c.registration_id)">назначить</button></div>
           </div>
-          <span v-else class="badge badge-ok">конфликтов нет</span>
+          <span v-else class="badge badge-ok">Конфликтов нет</span>
           <button v-if="activeRegs.length && h.owner_registration_id !== activeRegs[0].registration_id" class="btn btn-small" @click="assign(h.hostname_norm, activeRegs[0].registration_id)">Назначить этой машине</button>
         </div>
       </div>

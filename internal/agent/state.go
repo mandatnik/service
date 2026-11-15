@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"telehack2026/internal/platform"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/platform"
+	"mandatnik/internal/protocol"
 )
 
 // State is durable agent scheduling and configuration state. It contains no

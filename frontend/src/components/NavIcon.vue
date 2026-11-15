@@ -9,7 +9,7 @@ const paths = {
   'license-pools': 'M4 4h16v6H4z M4 14h16v6H4z M8 7h1 M8 17h1',
   tasks: 'M5 3h14v18H5z M8 8l1 1 2-2 M13 8h3 M8 14l1 1 2-2 M13 14h3',
   licensing: 'M12 3l8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6z M8 12l3 3 5-6',
-  hostnames: 'M8 8H6a4 4 0 000 8h3 M16 8h2a4 4 0 010 8h-3 M8 12h8',
+  admins: 'M9 11a4 4 0 100-8 4 4 0 000 8z M2 21c0-4 3-6 7-6s7 2 7 6 M17 4h4v12 M19 2v4',
   events: 'M4 3h16v18H4z M8 7h8 M8 12h8 M8 17h5',
   settings: 'M4 7h16 M4 17h16 M8 4v6 M16 14v6',
   menu: 'M3 6h18 M3 12h18 M3 18h18'

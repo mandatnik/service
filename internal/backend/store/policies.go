@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/folderpolicy"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/folderpolicy"
+	"mandatnik/internal/protocol"
 )
 
 // ErrInvalidRules marks policy rule compilation errors separately from SQL
@@ -29,8 +29,10 @@ type FolderPolicy struct {
 	GroupIDs   []string `json:"group_ids"`
 }
 type MachineTarget struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID                 string `json:"id"`
+	Name               string `json:"name"`
+	Archived           bool   `json:"archived"`
+	ActiveRegistration bool   `json:"active_registration"`
 }
 type InventorySettings struct {
 	Groups   []MachineGroup  `json:"groups"`
@@ -93,14 +95,18 @@ func (s *Store) InventorySettings(ctx context.Context) (InventorySettings, error
 		return out, err
 	}
 	defer tx.Rollback()
-	rows, err := tx.QueryContext(ctx, `SELECT machine_id,display_name FROM dbo.machines ORDER BY display_name,machine_id`)
+	rows, err := tx.QueryContext(ctx, `
+SELECT m.machine_id,m.display_name,
+       CASE WHEN m.archived_at IS NULL THEN 0 ELSE 1 END,
+       CASE WHEN EXISTS(SELECT 1 FROM dbo.registrations r WHERE r.machine_id=m.machine_id AND r.state=N'active') THEN 1 ELSE 0 END
+FROM dbo.machines m ORDER BY m.display_name,m.machine_id`)
 	if err != nil {
 		return out, err
 	}
 	for rows.Next() {
 		var m MachineTarget
 		var id mssql.UniqueIdentifier
-		if err = rows.Scan(&id, &m.Name); err != nil {
+		if err = rows.Scan(&id, &m.Name, &m.Archived, &m.ActiveRegistration); err != nil {
 			rows.Close()
 			return out, err
 		}

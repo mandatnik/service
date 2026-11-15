@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/protocol"
 )
 
 func (s *Server) adminLicensesAndTasks(w http.ResponseWriter, r *http.Request, session *store.AdminSession, parts []string) {
