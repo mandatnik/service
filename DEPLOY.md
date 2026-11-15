@@ -8,13 +8,42 @@ EXE/MSI, поднять сервер с чистой БД и получить и
 
 ## 1. Что подготовить
 
+Сначала выбери постоянный IPv4-адрес WS, доступный с АРМ. Во всех примерах
+ниже **192.168.1.50 — пример, а не адрес готового сервера**. Заменяй его
+на свой адрес в сертификате, URL браузера и конфиге агента. Порты: агент —
+8443, админка — 8444, SQL на сервере — 127.0.0.1:1433.
+
+До выполнения команд установи инструменты:
+
+| Инструмент | Откуда взять и что выбрать |
+| --- | --- |
+| Git for Windows x64 | [Официальный установщик](https://git-scm.com/downloads/win). С ним поставляется OpenSSL: при стандартной установке `C:\Program Files\Git\usr\bin\openssl.exe` |
+| Go | [Установщик Windows amd64](https://go.dev/dl/), версия 1.26+, проверен 1.26.3 |
+| Node.js | [Официальный установщик](https://nodejs.org/en/download), ветка 22, компонент npm оставить включённым |
+| GNU Make 4.x | [Пакет Chocolatey `make`](https://community.chocolatey.org/packages/make). Если Chocolatey ещё нет, сначала установи его по [инструкции Chocolatey](https://chocolatey.org/install), затем в PowerShell администратора выполни `choco install make --version=4.4.1 -y` |
+| WiX Toolset 3.14.1 — Windows Installer XML Toolset | [Архив wix314-binaries.zip](https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip). Распакуй весь архив в `C:\Tools\wix314`: нужны `candle.exe`, `light.exe`, `WixUtilExtension.dll` и остальные файлы. WiX 4/5 не подходит |
+| Microsoft .NET Framework 4.8 Runtime | [Страница Microsoft](https://dotnet.microsoft.com/en-us/download/dotnet-framework/net48), раздел **Runtime**, Windows. Developer Pack и современный .NET SDK для WiX не нужны. Если установщик сообщает, что эта или более новая версия уже есть, повторно ставить не надо |
+
+Если не хочешь устанавливать Chocolatey и Make, ниже есть равнозначные команды
+через Go-инструмент проекта. OpenSSL отдельно скачивать не обязательно:
+добавь поставляемый с Git каталог в PATH **текущего окна PowerShell**:
+
+```powershell
+$env:Path = 'C:\Program Files\Git\usr\bin;' + $env:Path
+openssl version
+```
+
+При нестандартном пути установки Git поправь путь. Повтори настройку в окне,
+где будешь выпускать сертификат. На сервере без Git можно выполнить выпуск
+на сборочной машине и перенести серверный сертификат/ключ по защищённому каналу.
+
 Минимально нужны сервер и одна рабочая станция (можно виртуальные машины).
 Сборочную машину можно совместить с сервером. Для ручной установки домен не
 нужен; для проверки GPO нужны AD, доменная рабочая станция и права на тестовую OU.
 
 | Где | Что требуется |
 | --- | --- |
-| Сборочная Windows x64 | Git, Go 1.26+ (в проекте проверен 1.26.3), Node.js 22 + npm, GNU Make 4.x, WiX **3.14.1**, .NET Framework 4.x для WiX |
+| Сборочная Windows x64 | Git, Go 1.26+ (в проекте проверен 1.26.3), Node.js 22 + npm, GNU Make 4.x (или команды Go ниже), WiX **3.14.1**, .NET Framework 4.x для WiX |
 | Сервер | Windows Server 2022 x64 (проверенный вариант), SQL Server **2019**, например Express, права локального администратора |
 | Рабочая станция | Windows 10 x64 (проверено на 19045), права локального администратора для установки агента |
 | Для HTTPS | OpenSSL с поддержкой `-addext` на сервере или сборочной машине; можно использовать `openssl.exe` из Git for Windows |
@@ -29,17 +58,21 @@ WSL, IIS, SDK КриптоПро и браузерный плагин не тр�
 агента выполняй в PowerShell **от имени администратора**. После установки
 инструментов открой новое окно, чтобы обновился PATH.
 
-Инструменты: [Go](https://go.dev/dl/), [Node.js](https://nodejs.org/en/download),
-[Git](https://git-scm.com/downloads/win),
-[WiX 3.14.1 binaries](https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip).
-Распакуй весь архив WiX в `C:\Tools\wix314`: там должны быть `candle.exe`,
-`light.exe`, `WixUtilExtension.dll`. Нужен именно WiX 3, не WiX 4/5.
-GNU Make можно установить пакетом `make` через уже настроенный Chocolatey.
-
 ## 2. Получить код и собрать
 
 Получи репозиторий по переданной ссылке (или распакуй архив исходников).
 Внутренний адрес репозитория доступен только при наличии маршрута к нашей сети:
+
+Команды выполняй из корня исходников с `go.mod` и `Makefile`, в примере
+`C:\src\mandatnik`. Для Windows-проверок `make check` открой PowerShell
+**от имени администратора**: тесты агента создают файлы с рабочими ACL только
+для SYSTEM и Administrators. В обычном окне возможны `Access is denied` при
+ротации логов и повторном чтении DPAPI-файлов; это не исправляется сменой TEMP.
+
+Первые команды только показывают ревизию и версии инструментов: так проверяем,
+что PATH настроен и собираем нужный код. `Test-Path` должен вернуть `True`.
+Это ещё не запуск продукта. После каждой команды проверяй результат;
+при ошибке не переходи дальше.
 
 ```powershell
 git clone http://10.10.26.11/pdoexception/telehack2026 C:\src\mandatnik
@@ -55,6 +88,7 @@ Test-Path C:\Tools\wix314\candle.exe
 go mod download
 go mod verify
 make check
+if ($LASTEXITCODE -ne 0) { throw 'Проверки не прошли: сборку не продолжаем' }
 make package WIX_DIR=C:/Tools/wix314
 if ($LASTEXITCODE -ne 0) { throw 'Сборка не завершилась успешно' }
 ```
@@ -65,6 +99,22 @@ if ($LASTEXITCODE -ne 0) { throw 'Сборка не завершилась ус�
 Для проверки последних локальных изменений нужен архив текущих исходников
 либо ревизия, в которую они уже включены: обычный clone получает только
 опубликованный код. При ошибке любой команды остановись и разбери её перед следующим шагом.
+
+Если Make не установлен, вместо `make check` и `make package` выполни
+в той же папке следующие команды (это тот же сборочный инструмент):
+
+```powershell
+go run ./tools/build unit
+if ($LASTEXITCODE -ne 0) { throw 'Unit-тесты не прошли' }
+go run ./tools/build lint
+if ($LASTEXITCODE -ne 0) { throw 'Статические проверки не прошли' }
+go run ./tools/build frontend
+if ($LASTEXITCODE -ne 0) { throw 'Не собрался интерфейс' }
+go run ./tools/build build -out artifacts/ci
+if ($LASTEXITCODE -ne 0) { throw 'Не собрались EXE' }
+go run ./tools/build msi -out artifacts/ci -wix C:/Tools/wix314
+if ($LASTEXITCODE -ne 0) { throw 'Не собрался MSI' }
+```
 
 `make check` запускает unit-тесты и `go vet`, без подключения к SQL.
 `make package` собирает интерфейс через `npm ci`/Vite, встраивает его в сервер,
@@ -135,22 +185,29 @@ Set-Location $root
 реального имени/адреса сервера и использовать его PEM-сертификат и PEM-ключ.
 
 Следующие команды выполняются в `C:\ProgramData\Mandatnik\Backend`.
-`openssl` должен быть в PATH; иначе укажи полный путь к `openssl.exe`.
+`openssl` должен быть в PATH (настройка из раздела 1). Сначала введи
+**реальный IP своего WS** в `$ServerIP`. Команды ниже выполняй по одной;
+каждая команда занимает одну строку, визуальный перенос в просмотрщике не
+означает новую команду.
 
 ```powershell
+$ServerIP = Read-Host 'IPv4-адрес WS, по которому будут подключаться браузер и агент'
 openssl req -x509 -newkey rsa:3072 -sha256 -nodes -days 365 -keyout tls\tls-ca.key -out tls\tls-ca.crt -subj '/CN=Mandatnik Test Root' -addext 'basicConstraints=critical,CA:TRUE' -addext 'keyUsage=critical,keyCertSign,cRLSign'
 openssl req -new -newkey rsa:3072 -nodes -keyout tls\backend.key -out tls\backend.csr -subj '/CN=Mandatnik Test Backend'
-@'
-basicConstraints=critical,CA:FALSE
-keyUsage=critical,digitalSignature,keyEncipherment
-extendedKeyUsage=serverAuth
-subjectAltName=IP:192.168.1.50
-'@ | Set-Content -Encoding ascii tls\backend.ext
+Set-Content -Encoding ascii -Path tls\backend.ext -Value @("basicConstraints=critical,CA:FALSE", "keyUsage=critical,digitalSignature,keyEncipherment", "extendedKeyUsage=serverAuth", "subjectAltName=IP:$ServerIP")
 openssl x509 -req -in tls\backend.csr -CA tls\tls-ca.crt -CAkey tls\tls-ca.key -CAcreateserial -out tls\backend.crt -days 180 -sha256 -extfile tls\backend.ext
 openssl verify -CAfile tls\tls-ca.crt tls\backend.crt
+openssl x509 -in tls\backend.crt -noout -ext subjectAltName
 openssl x509 -in tls\tls-ca.crt -outform DER -out tls\tls-ca.cer
 Import-Certificate -FilePath .\tls\tls-ca.cer -CertStoreLocation Cert:\LocalMachine\Root
 ```
+
+В выводе `subjectAltName` должен быть **твой** IP. В браузере открывай
+`https://ТВОЙ-IP:8444/`, в конфиге агента указывай `https://ТВОЙ-IP:8443`.
+Доверие к корню не отменяет проверку адреса: `localhost`, имя WS и IP — разные
+адреса. Если нужен доступ по DNS-имени, добавь его в строку расширений:
+`"subjectAltName=IP:$ServerIP,DNS:имя-сервера"`, затем выпусти серверный
+сертификат заново и обеспечь разрешение имени с АРМ.
 
 Проверь успешное завершение каждой команды. Если используешь DNS-имя, добавь
 в `subjectAltName` также `DNS:имя-сервера` и обеспечь его разрешение с АРМ.
@@ -228,6 +285,26 @@ Remove-Variable adminCredential
 ключи. При повторном запуске стенда эти шаги заново не нужны.
 `admin-create` для того же email обновляет существующего администратора.
 
+### Повторный запуск уже настроенного сервера
+
+Раздел 5 — **однократная подготовка**. При обычном перезапуске не выполняй
+`bootstrap`, `license-init` и `admin-create`, не создавай заново файл пароля.
+Администратор и хеш его пароля сохраняются в БД; `admin-create` меняет пароль,
+а не запускает сервер. Переменная `MANDATNIK_ADMIN_PASSWORD` нужна только
+для создания/изменения администратора, работающему серверу она не требуется.
+
+В новом административном окне достаточно:
+
+```powershell
+Set-Location C:\ProgramData\Mandatnik\Backend
+.\mandatnik-backend.exe health -config .\backend.json
+.\mandatnik-backend.exe run -config .\backend.json
+```
+
+Для входа используй прежний email и пароль. Если сервер уже работает через
+планировщик, вместо второго процесса выполни `Stop-ScheduledTask -TaskName MandatnikBackend`,
+затем `Start-ScheduledTask -TaskName MandatnikBackend` после остановки процесса.
+
 ## 6. Запустить сервер
 
 Открой входящие порты для своей тестовой подсети (замени подсеть):
@@ -268,16 +345,12 @@ create` нельзя. Пароль БД в защищённом файле по�
 **на АРМ**, не на сервере:
 
 ```powershell
+$ServerIP = Read-Host 'IPv4-адрес WS из SAN серверного сертификата'
 Import-Certificate -FilePath C:\MandatnikDeploy\tls-ca.cer -CertStoreLocation Cert:\LocalMachine\Root
 New-Item -ItemType Directory -Force C:\ProgramData\Mandatnik | Out-Null
-@'
-{
-  "server_url": "https://192.168.1.50:8443",
-  "request_timeout_seconds": 30
-}
-'@ | Set-Content -Encoding ascii C:\ProgramData\Mandatnik\agent-config.json
+@{ server_url = "https://${ServerIP}:8443"; request_timeout_seconds = 30 } | ConvertTo-Json | Set-Content -Encoding ascii C:\ProgramData\Mandatnik\agent-config.json
 
-Test-NetConnection 192.168.1.50 -Port 8443
+Test-NetConnection $ServerIP -Port 8443
 $msi = 'C:\MandatnikDeploy\MandatnikAgent-0.5.0.msi'
 $p = Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart /l*v C:\MandatnikDeploy\install.log" -Wait -PassThru
 $p.ExitCode
@@ -386,6 +459,8 @@ EXE должен оставаться по этому пути: служба з�
 | SQL connection refused/timeout | Служба SQL, TCP/IP, фиксированный 1433, `Test-NetConnection`, перезапуск SQL после настройки |
 | SQL login failed | Mixed Mode, включённый `sa`, правильный пароль, файл `db-password.txt`; bootstrap может обновлять пароль существующего `mandatnik_app` |
 | Ошибка SQL TLS | В тестовом локальном варианте нужны оба флага из примера; при строгой проверке — CA, SAN и `server_name` |
+| Браузер: ERR_CERT_COMMON_NAME_INVALID | Сравни адрес в URL с `openssl x509 -in tls\backend.crt -noout -ext subjectAltName`. В присланном сертификате есть только 192.168.189.138; другой адрес требует перевыпуска серверного сертификата и перезапуска backend. Корневой УЦ менять не требуется, если сохранился его ключ |
+| `undefined: machineOffline` в тестах | Ошибка исходников, не прав Windows. В текущем коде функция присутствует в `internal/backend/store/admin.go`; обнови полную согласованную ревизию исходников и повтори `make check`. Не пропускай ошибку |
 | Агент: x509/unknown authority | Корень в `LocalMachine\Root` именно на АРМ, совпадение SAN с URL, срок сертификата и время |
 | АРМ не появился | Порт 8443, адрес без localhost, конфиг до установки, служба, очередь ожидающих подтверждения |
 | Нет сертификатов из папки | Наличие файлов на АРМ, назначенная политика, доступ SYSTEM, новый ручной сбор |
