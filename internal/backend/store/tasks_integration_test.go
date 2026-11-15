@@ -496,6 +496,56 @@ SELECT delivery_version,encryption_key_id,encrypted_parameters FROM dbo.task_ite
 			t.Fatalf("legacy scan jobs = %d, want 1", jobs)
 		}
 	})
+
+	t.Run("group recipients deduplicate directly selected machines and skip archived", func(t *testing.T) {
+		f := newTaskFixture(t, ctx, pool, s, 3, 1)
+		defer f.cleanup()
+		groupName := "TASK-RECIPIENTS-" + strings.ReplaceAll(protocol.NewUUID(), "-", "")[:10]
+		groupID, err := s.SaveGroup(ctx, MachineGroup{
+			Name: groupName, MachineIDs: []string{f.machineIDs[0], f.machineIDs[1], f.machineIDs[2]},
+		}, true, "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			cleanupCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			_, _ = pool.ExecContext(cleanupCtx, `DELETE FROM dbo.machine_group_members WHERE group_id=@p1`, groupID)
+			_, _ = pool.ExecContext(cleanupCtx, `DELETE FROM dbo.machine_groups WHERE group_id=@p1`, groupID)
+		})
+		if _, err := pool.ExecContext(ctx, `
+UPDATE dbo.machines SET archived_at=SYSUTCDATETIME(),archived_by=N'test',archive_reason=N'selection test'
+WHERE machine_id=@p1`, f.machineIDs[1]); err != nil {
+			t.Fatal(err)
+		}
+		selected, apiErr := s.ResolveMachineSelection(ctx, []string{f.machineIDs[0]}, []string{groupID})
+		if apiErr != nil {
+			t.Fatalf("resolve recipients: %v", apiErr)
+		}
+		if len(selected) != 2 || selected[0] != f.machineIDs[0] || selected[1] != f.machineIDs[2] {
+			t.Fatalf("resolved recipients = %v, want [%s %s]", selected, f.machineIDs[0], f.machineIDs[2])
+		}
+		detail, apiErr := s.CreateScanTask(ctx, CreateScanTaskInput{
+			MachineIDs: []string{f.machineIDs[0]}, GroupIDs: []string{groupID},
+			IdempotencyKey: "group-scan-" + protocol.NewUUID(),
+		}, "test")
+		if apiErr != nil {
+			t.Fatalf("create group scan: %v", apiErr)
+		}
+		if len(detail.Items) != 2 {
+			t.Fatalf("group scan item count = %d, want 2", len(detail.Items))
+		}
+		seen := map[string]int{}
+		for _, item := range detail.Items {
+			seen[item.MachineID]++
+		}
+		if seen[f.machineIDs[0]] != 1 || seen[f.machineIDs[2]] != 1 || seen[f.machineIDs[1]] != 0 {
+			t.Fatalf("group scan items = %+v", detail.Items)
+		}
+		if _, apiErr := s.ResolveMachineSelection(ctx, []string{f.machineIDs[1]}, nil); apiErr == nil || apiErr.Code != protocol.CodeMachineNotEligible {
+			t.Fatalf("archived machine was selectable directly: %v", apiErr)
+		}
+	})
 }
 
 type taskFixture struct {

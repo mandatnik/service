@@ -1,11 +1,13 @@
 <script setup>
 import { useAutoRefresh } from '../autoRefresh'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { api } from '../api'
 import { formatTime } from '../format'
+import { selectedRecipientIDs, selectableMachineIDs } from '../recipients'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
 import Pager from './Pager.vue'
+import AssignmentsEditor from './AssignmentsEditor.vue'
 
 const kind = ref('')
 const state = ref('')
@@ -18,9 +20,17 @@ const error = ref('')
 const message = ref('')
 const loading = ref(false)
 const busy = ref(false)
-const scanMachines = ref([])
-const machineCatalog = ref([])
+const selectedMachines = ref([])
+const selectedGroups = ref([])
+const recipientCatalog = ref({ machines: [], groups: [] })
+const recipientError = ref('')
+const recipientLoading = ref(false)
 const scanBusy = ref(false)
+const selectableRecipients = computed(() => selectableMachineIDs(recipientCatalog.value.machines))
+const selectableMachines = computed(() => recipientCatalog.value.machines.filter(machine => selectableRecipients.value.has(machine.id)))
+const directRecipients = computed(() => selectedMachines.value.filter(id => selectableRecipients.value.has(id)))
+const recipients = computed(() => selectedRecipientIDs(selectedMachines.value, selectedGroups.value, recipientCatalog.value.groups, selectableRecipients.value))
+const recipientCount = computed(() => recipients.value.length)
 
 const taskState = value => ({
   queued: 'Ожидает', running: 'Выполняется', requires_attention: 'Нужно внимание',
@@ -56,11 +66,27 @@ const reasonLabel = value => ({
   attempts_exhausted: 'Исчерпаны три попытки'
 })[value] || value || '—'
 
-async function loadCatalog() { try { const result = await api.inventorySettings(); machineCatalog.value = result.machines || [] } catch (e) { /* catalog is optional */ } }
+async function loadCatalog() {
+  recipientLoading.value = true
+  recipientError.value = ''
+  try {
+    const result = await api.inventorySettings()
+    recipientCatalog.value = { machines: result.machines || [], groups: result.groups || [] }
+  } catch (e) {
+    recipientError.value = e.message
+  } finally {
+    recipientLoading.value = false
+  }
+}
 async function createScanTask() {
-  if (!scanMachines.value.length) { error.value = 'Выберите хотя бы одну машину для scan.'; return }
+  if (!recipientCount.value) { error.value = 'Выберите хотя бы одну машину или группу с подходящими получателями.'; return }
   scanBusy.value = true; error.value = ''
-  try { const task = await api.createTask({ kind: 'scan', machine_ids: scanMachines.value, group_ids: [], idempotency_key: crypto.randomUUID() }); message.value = `Задача scan создана: ${task.task.id}.`; scanMachines.value = []; await load() } catch (e) { error.value = e.message } finally { scanBusy.value = false }
+  try {
+    const task = await api.createTask({ kind: 'scan', machine_ids: [...directRecipients.value], group_ids: [...selectedGroups.value], idempotency_key: crypto.randomUUID() })
+    message.value = `Задача scan создана: ${task.task.id}. Получателей: ${recipientCount.value}.`
+    selectedMachines.value = []; selectedGroups.value = []
+    await load()
+  } catch (e) { error.value = e.message } finally { scanBusy.value = false }
 }
 
 async function load() {
@@ -95,13 +121,13 @@ async function reconcile(item) {
 }
 
 onMounted(() => { load(); loadCatalog() })
-useAutoRefresh(async () => { await load(); if (detail.value) { const current = await api.task(detail.value.task.id); if (detail.value?.task.id === current.task.id) detail.value = current } }, () => loading.value || busy.value || scanBusy.value)
+useAutoRefresh(async () => { await load(); if (detail.value) { const current = await api.task(detail.value.task.id); if (detail.value?.task.id === current.task.id) detail.value = current } }, () => loading.value || busy.value || scanBusy.value || recipientLoading.value)
 </script>
 
 <template>
   <section>
     <div class="page-heading"><div><p class="muted">Единая задача содержит отдельные выполнения на машинах. Счётчики и состояния вычисляются по выполнениям.</p></div><button class="btn" :disabled="loading" @click="load">Обновить</button></div>
-    <form class="panel settings-form" @submit.prevent="createScanTask"><h3>Новый scan</h3><p class="muted small">Запуск из раздела задач; выбор машин фиксируется в снимке получателей.</p><label class="field"><span>Машины</span><select v-model="scanMachines" multiple size="4" aria-label="Машины для scan"><option v-for="m in machineCatalog" :key="m.id" :value="m.id">{{ m.name }}</option></select></label><div class="heading-actions"><button class="btn btn-primary" :disabled="scanBusy || !scanMachines.length">Создать scan</button></div></form>
+    <form class="panel settings-form recipient-form" @submit.prevent="createScanTask"><h3>Новый scan</h3><p class="muted small">Выберите машины и группы. Сервер объединяет получателей без дублей и фиксирует снимок при создании задачи; архивные и неактивные машины из групп исключаются.</p><div v-if="recipientError" class="alert alert-error" role="alert"><div>Не удалось загрузить список получателей: {{ recipientError }}</div><button type="button" class="btn" @click="loadCatalog">Повторить</button></div><div v-else-if="recipientLoading && !recipientCatalog.machines.length && !recipientCatalog.groups.length" class="state">Загрузка получателей…</div><div v-else class="recipient-grid"><AssignmentsEditor v-model="selectedMachines" :items="selectableMachines" label="Машины" /><AssignmentsEditor v-model="selectedGroups" :items="recipientCatalog.groups" label="Группы" /></div><div class="recipient-summary"><strong>Выбрано получателей: {{ recipientCount }}</strong><span class="muted">машин напрямую: {{ directRecipients.length }} · групп: {{ selectedGroups.length }}</span></div><div class="heading-actions"><button class="btn btn-primary" :disabled="scanBusy || !recipientCount || !!recipientError">{{ scanBusy ? 'Создание…' : 'Создать scan' }}</button></div></form>
     <div class="toolbar"><form class="search-form" @submit.prevent="apply"><select aria-label="Вид задачи" v-model="kind" @change="apply"><option value="">Все виды</option><option value="scan">scan</option></select><select aria-label="Состояние задачи" v-model="state" @change="apply"><option value="">Все состояния</option><option value="queued">Ожидает</option><option value="running">Выполняется</option><option value="requires_attention">Нужно внимание</option><option value="completed">Завершена</option><option value="partially_failed">Частичный результат</option><option value="failed">Ошибка</option><option value="cancelled">Отменена</option><option value="expired">Истекла</option></select><button class="btn">Найти</button></form></div>
     <div v-if="error" class="alert alert-error">{{ error }}</div>
     <div v-if="message" class="alert alert-info">{{ message }}</div>

@@ -207,6 +207,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	switch {
+	case parts[0] == "admins":
+		s.adminAccounts(w, r, session, parts)
 	case parts[0] == "api-keys":
 		s.adminAPIKeys(w, r, session, parts)
 	case parts[0] == "inventory-settings" || parts[0] == "groups" || parts[0] == "folder-policies":
@@ -227,6 +229,8 @@ func (s *Server) handleAdminAPI(w http.ResponseWriter, r *http.Request) {
 		s.adminCreateJob(w, r, session, parts[1])
 	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "archive" && r.Method == http.MethodPost:
 		s.adminArchiveMachine(w, r, session, parts[1])
+	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "deactivate" && r.Method == http.MethodPost:
+		s.adminDeactivateMachine(w, r, session, parts[1])
 	case len(parts) == 3 && parts[0] == "machines" && parts[2] == "display-name" && r.Method == http.MethodPost:
 		s.adminRenameMachine(w, r, session, parts[1])
 	case path == "installations" && r.Method == http.MethodGet:
@@ -311,10 +315,9 @@ func adminIdentityResponse(email, displayName, role string, expires time.Time, c
 	}
 }
 
-// requireAdminRole is the authorization extension point for future
-// superadmin-only administrator management endpoints. No such routes are
-// registered yet; new handlers should call this helper with
-// store.AdminRoleSuperAdmin before mutating administrator accounts.
+// requireAdminRole is the authorization helper for role-restricted admin
+// endpoints. Administrator management calls it with
+// store.AdminRoleSuperAdmin before reading a body or mutating an account.
 func (s *Server) requireAdminRole(w http.ResponseWriter, session *store.AdminSession, roles ...string) bool {
 	for _, role := range roles {
 		if session.Role == role {
@@ -615,6 +618,33 @@ func (s *Server) adminArchiveMachine(w http.ResponseWriter, r *http.Request, ses
 			return
 		}
 		writeAdminError(w, http.StatusUnprocessableEntity, "archive_failed", err.Error())
+		return
+	}
+	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+func (s *Server) adminDeactivateMachine(w http.ResponseWriter, r *http.Request, session *store.AdminSession, machineID string) {
+	id, err := protocol.NormalizeUUID(machineID)
+	if err != nil {
+		writeAdminError(w, http.StatusBadRequest, "invalid_machine", "invalid machine identifier")
+		return
+	}
+	var input struct {
+		Reason string `json:"reason"`
+	}
+	if err := readAdminJSON(w, r, &input); err != nil {
+		writeAdminError(w, http.StatusBadRequest, protocol.CodeInvalidJSON, err.Error())
+		return
+	}
+	ctx, cancel := contextWithTimeout(r, 15*time.Second)
+	defer cancel()
+	if err := s.store.DeactivateMachine(ctx, id, input.Reason, session.Email); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeAdminError(w, http.StatusNotFound, protocol.CodeNotFound, "machine not found")
+			return
+		}
+		s.logf("admin deactivate machine failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "deactivate_failed", "could not deactivate machine")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -926,9 +956,9 @@ func contextWithTimeout(r *http.Request, timeout time.Duration) (ctx context.Con
 func isAdminPagePath(path string) bool {
 	parts := strings.Split(strings.TrimSuffix(strings.TrimPrefix(path, "/"), "/"), "/")
 	switch parts[0] {
-	case "arm", "machines", "certificates", "groups":
+	case "arm", "machines", "certificates", "groups", "hostnames":
 		return len(parts) == 1 || (len(parts) == 2 && parts[1] != "" && !strings.Contains(parts[1], "."))
-	case "overview", "policies", "licensing", "tasks", "hostnames", "events", "api-keys", "settings":
+	case "overview", "policies", "licensing", "tasks", "events", "api-keys", "admins", "settings":
 		return len(parts) == 1
 	default:
 		return false

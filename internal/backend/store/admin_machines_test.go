@@ -56,6 +56,42 @@ func TestMachineDisplayName(t *testing.T) {
 	}
 }
 
+func TestDNSVerificationConfirmed(t *testing.T) {
+	now := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	fresh := now.Add(-2 * time.Minute)
+	stale := now.Add(-dnsVerificationMaxAge - time.Second)
+	future := now.Add(2 * time.Minute)
+	cases := []struct {
+		name       string
+		forward    string
+		reverse    string
+		verifiedHN string
+		hostname   string
+		verifiedIP string
+		sourceIP   string
+		checkedAt  *time.Time
+		want       bool
+	}{
+		{"mutual fresh binding", "verified", "verified", "ws-1", "WS-1", "192.0.2.10", "192.0.2.10", &fresh, true},
+		{"forward only is not confirmation", "verified", "", "ws-1", "ws-1", "192.0.2.10", "192.0.2.10", &fresh, false},
+		{"unknown reverse is not confirmation", "verified", "unknown", "ws-1", "ws-1", "192.0.2.10", "192.0.2.10", &fresh, false},
+		{"mismatch is not confirmation", "mismatch", "verified", "ws-1", "ws-1", "192.0.2.10", "192.0.2.10", &fresh, false},
+		{"stale result is not confirmation", "verified", "verified", "ws-1", "ws-1", "192.0.2.10", "192.0.2.10", &stale, false},
+		{"future timestamp is rejected", "verified", "verified", "ws-1", "ws-1", "192.0.2.10", "192.0.2.10", &future, false},
+		{"changed IP invalidates result", "verified", "verified", "ws-1", "ws-1", "192.0.2.10", "192.0.2.11", &fresh, false},
+		{"changed hostname invalidates result", "verified", "verified", "ws-1", "ws-2", "192.0.2.10", "192.0.2.10", &fresh, false},
+		{"missing check timestamp", "verified", "verified", "ws-1", "ws-1", "192.0.2.10", "192.0.2.10", nil, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := dnsVerificationConfirmed(tc.forward, tc.reverse, tc.verifiedHN, tc.hostname, tc.verifiedIP, tc.sourceIP, tc.checkedAt, now)
+			if got != tc.want {
+				t.Fatalf("dnsVerificationConfirmed() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDeriveMachineStatus(t *testing.T) {
 	cases := []struct {
 		name          string

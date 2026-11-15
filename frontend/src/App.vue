@@ -17,12 +17,12 @@ import CertificatesView from './components/CertificatesView.vue'
 import CertificateDetail from './components/CertificateDetail.vue'
 import LicensingView from './components/LicensingView.vue'
 import TasksView from './components/TasksView.vue'
-import HostnamesView from './components/HostnamesView.vue'
 import EventsView from './components/EventsView.vue'
 import SettingsView from './components/SettingsView.vue'
 import GroupsView from './components/GroupsView.vue'
 import PoliciesView from './components/PoliciesView.vue'
 import ApiKeysView from './components/ApiKeysView.vue'
+import AdminsView from './components/AdminsView.vue'
 
 const session = ref(null)
 const checking = ref(true)
@@ -36,7 +36,7 @@ const certificateSha = ref('')
 const groupFocusId = ref('')
 let expiryTimer = null
 
-const nav = [
+const navItems = [
   { id: 'overview', label: 'Обзор', hint: 'Сводка' },
   { id: 'machines', label: 'АРМ', hint: 'Агенты и профили' },
   { id: 'groups', label: 'Группы АРМ', hint: 'Состав групп' },
@@ -44,17 +44,19 @@ const nav = [
   { id: 'certificates', label: 'Сертификаты', hint: 'Наблюдения' },
   { id: 'licensing', label: 'Лицензии', hint: 'КриптоПро CSP' },
   { id: 'tasks', label: 'Задачи', hint: 'Сбор и установка' },
-  { id: 'hostnames', label: 'Имена машин', hint: 'Конфликты' },
   { id: 'events', label: 'События', hint: 'Диагностика' },
   { id: 'api-keys', label: 'API-ключи', hint: 'Интеграции' },
   { id: 'settings', label: 'Настройки', hint: 'Сбор' }
 ]
+const nav = computed(() => session.value?.role === 'superadmin'
+  ? [...navItems.slice(0, -1), { id: 'admins', label: 'Админы', hint: 'Учётные записи' }, navItems.at(-1)]
+  : navItems)
 const titles = {
   groups: 'Группы рабочих мест', policies: 'Политики папок',
   overview: 'Обзор', machines: 'Рабочие места', machine: 'Карточка машины',
   certificates: 'Сертификаты', certificate: 'Карточка сертификата', licensing: 'Лицензирование',
-  tasks: 'Задачи',
-  hostnames: 'Hostname и конфликты', events: 'События', 'api-keys': 'API-ключи интеграций',
+  tasks: 'Задачи', admins: 'Администраторы',
+  events: 'События', 'api-keys': 'API-ключи интеграций',
   settings: 'Настройки сбора'
 }
 const title = computed(() => titles[view.value] || 'Админка')
@@ -166,7 +168,7 @@ onUnmounted(() => {
     <main id="main-content" class="content" tabindex="-1">
       <header class="topbar">
         <div class="topbar-title"><button class="btn menu-toggle" aria-controls="main-navigation" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen"><NavIcon name="menu" /> Меню</button><div><span class="eyebrow">Инвентаризация / {{ title }}</span><h1>{{ title }}</h1></div></div>
-        <div class="topbar-controls"><RefreshControl v-if="['overview','machines','machine','certificate','certificates','licensing','tasks','hostnames','events','groups','policies','api-keys'].includes(view)" /><ThemePicker /></div>
+        <div class="topbar-controls"><RefreshControl v-if="['overview','machines','machine','certificate','certificates','licensing','tasks','events','groups','policies','api-keys'].includes(view)" /><ThemePicker /></div>
       </header>
       <div class="content-body">
         <OverviewView v-if="view === 'overview'" @navigate="navigate" @monitor="openMonitor" />
@@ -176,11 +178,11 @@ onUnmounted(() => {
         <CertificateDetail v-else-if="view === 'certificate'" :key="certificateSha" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />
         <LicensingView v-else-if="view === 'licensing'" />
         <TasksView v-else-if="view === 'tasks'" />
-        <HostnamesView v-else-if="view === 'hostnames'" @open-machine="openMachine" />
         <EventsView v-else-if="view === 'events'" />
         <GroupsView v-else-if="view === 'groups'" :focus-group-id="groupFocusId" @clear-focus="navigate('groups')" />
         <PoliciesView v-else-if="view === 'policies'" />
         <ApiKeysView v-else-if="view === 'api-keys'" />
+        <AdminsView v-else-if="view === 'admins'" :role="session.role" />
         <SettingsView v-else-if="view === 'settings'" />
       </div>
       <AppFooter />

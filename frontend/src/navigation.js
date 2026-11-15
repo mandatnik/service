@@ -1,4 +1,5 @@
-const sections = new Set(['overview', 'machines', 'groups', 'policies', 'certificates', 'licensing', 'tasks', 'hostnames', 'events', 'api-keys', 'settings'])
+const sections = new Set(['overview', 'machines', 'groups', 'policies', 'certificates', 'licensing', 'tasks', 'events', 'api-keys', 'admins', 'settings'])
+const aliases = { arm: 'machines', hostnames: 'machines' }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const sha256 = /^[0-9a-f]{64}$/i
 
@@ -8,7 +9,8 @@ export function parseRoute(path) {
   const match = /^\/([^/?#]+)(?:\/([^/?#]+))?\/?$/.exec(path)
   if (!match) return fallback
   const [, rawSection, id] = match
-  const section = rawSection === 'arm' ? 'machines' : rawSection
+  if (rawSection === 'hostnames') return { view: 'machines', id: '' }
+  const section = aliases[rawSection] || rawSection
   if (!sections.has(section)) return fallback
   if (!id) return { view: section, id: '' }
   if (section === 'machines' && uuid.test(id)) return { view: 'machine', id: id.toLowerCase() }

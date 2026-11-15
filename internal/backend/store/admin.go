@@ -18,8 +18,8 @@ import (
 	"mandatnik/internal/protocol"
 )
 
-// Administrator roles. The superadmin role is the extension point for the
-// future administrator-management section; no such routes exist yet.
+// Administrator roles. Only the local bootstrap path can create or change a
+// superadmin; the administrator-management API is limited to regular admins.
 const (
 	AdminRoleAdmin      = "admin"
 	AdminRoleSuperAdmin = "superadmin"
@@ -88,6 +88,7 @@ type AdminAccount struct {
 	Role         string
 	PasswordHash string
 	Disabled     bool
+	CreatedAt    time.Time
 }
 
 // AdminSession is an authenticated browser session.
@@ -109,8 +110,8 @@ func (s *Store) AdminByEmail(ctx context.Context, email string) (*AdminAccount, 
 	}
 	var account AdminAccount
 	err = s.DB.QueryRowContext(ctx, `
-SELECT admin_id, email, display_name, role, password_hash, disabled FROM dbo.administrators WHERE email=@p1`, email).
-		Scan(&account.ID, &account.Email, &account.DisplayName, &account.Role, &account.PasswordHash, &account.Disabled)
+SELECT admin_id, email, display_name, role, password_hash, disabled, created_at FROM dbo.administrators WHERE email=@p1`, email).
+		Scan(&account.ID, &account.Email, &account.DisplayName, &account.Role, &account.PasswordHash, &account.Disabled, &account.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, sql.ErrNoRows
 	}
@@ -241,6 +242,9 @@ type MachineSummary struct {
 	LastSeenAt        *time.Time        `json:"last_seen_at,omitempty"`
 	SourceIP          string            `json:"source_ip,omitempty"`
 	DNSStatus         string            `json:"dns_status,omitempty"`
+	DNSReverseStatus  string            `json:"dns_reverse_status,omitempty"`
+	DNSVerified       bool              `json:"dns_verified"`
+	DNSVerifiedAt     *time.Time        `json:"dns_verified_at,omitempty"`
 	HostnameConflict  bool              `json:"hostname_conflict"`
 	CSPPresent        bool              `json:"csp_present"`
 	ProductVersion    string            `json:"product_version,omitempty"`
@@ -401,6 +405,7 @@ WHERE ` + strings.Join(where, " AND ")
 SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
        m.archived_at, COALESCE(m.archived_by,''), COALESCE(m.archive_reason,''),
        r.uuid, r.hostname, r.state, r.last_seen_at, r.last_source_ip, r.last_dns_status,
+       r.last_dns_reverse_status, r.last_dns_hostname, r.last_dns_source_ip, r.last_dns_checked_at,
        c.present, c.product_version, c.core_version, c.license_kind, c.license_kind_raw, c.license_state, c.term_kind, c.is_trial, c.valid_to_utc,
        rp.report_id, rp.status, rp.collected_at, COALESCE(rp.applied_sources,0),
        (SELECT COUNT(*) FROM dbo.machine_users mu WHERE mu.machine_id=m.machine_id),
@@ -426,9 +431,10 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		var uuid mssql.NullUniqueIdentifier
 		var hostname, regState sql.NullString
 		var lastSeen sql.NullTime
-		var ip []byte
+		var ip, dnsIP []byte
 		var cspPresent sql.NullBool
-		var dns, product, core, kind, raw, state, term, trial sql.NullString
+		var dns, dnsReverse, dnsHostname, product, core, kind, raw, state, term, trial sql.NullString
+		var dnsChecked sql.NullTime
 		var validTo sql.NullTime
 		var reportID mssql.NullUniqueIdentifier
 		var reportStatus sql.NullString
@@ -436,6 +442,7 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		var applied, users, certs, conflict, registryCerts, fileCerts, licensedCerts int
 		if err := rows.Scan(&id, &item.DisplayName, &displayNameCustom, &created, &archived, &archivedBy, &archiveReason,
 			&uuid, &hostname, &regState, &lastSeen, &ip, &dns,
+			&dnsReverse, &dnsHostname, &dnsIP, &dnsChecked,
 			&cspPresent, &product, &core, &kind, &raw, &state, &term, &trial, &validTo, &reportID, &reportStatus, &collected, &applied,
 			&users, &certs, &conflict, &registryCerts, &fileCerts, &licensedCerts); err != nil {
 			return Page[MachineSummary]{}, err
@@ -454,6 +461,19 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		item.LastSeenAt = nullTime(lastSeen)
 		item.SourceIP = ipString(ip)
 		item.DNSStatus = nullString(dns)
+		item.DNSReverseStatus = nullString(dnsReverse)
+		if regState.Valid && regState.String == "active" {
+			var checkedAt *time.Time
+			if dnsChecked.Valid {
+				value := dnsChecked.Time.UTC()
+				checkedAt = &value
+			}
+			if dnsVerificationConfirmed(item.DNSStatus, item.DNSReverseStatus, nullString(dnsHostname), item.Hostname,
+				ipString(dnsIP), item.SourceIP, checkedAt, now) {
+				item.DNSVerified = true
+				item.DNSVerifiedAt = checkedAt
+			}
+		}
 		item.HostnameConflict = conflict != 0
 		item.CSPPresent = cspPresent.Valid && cspPresent.Bool
 		item.ProductVersion = nullString(product)

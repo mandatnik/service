@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
+	"mandatnik/internal/backend/adminauth"
 	"mandatnik/internal/backend/config"
 	"mandatnik/internal/backend/db"
 	"mandatnik/internal/backend/store"
@@ -14,14 +14,7 @@ import (
 // HashAdminPassword produces the bcrypt hash format used by the
 // administrators table. The plaintext is never persisted or logged.
 func HashAdminPassword(password string) (string, error) {
-	if len(password) < 12 {
-		return "", fmt.Errorf("administrator password must contain at least 12 characters")
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
-	if err != nil {
-		return "", fmt.Errorf("hash administrator password: %w", err)
-	}
-	return string(hash), nil
+	return adminauth.Hash(password)
 }
 
 // CreateOrUpdateAdmin is the supported local bootstrap path. It connects with

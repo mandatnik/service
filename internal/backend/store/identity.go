@@ -73,6 +73,18 @@ type RegisterResult struct {
 	Warnings     []string
 }
 
+// DNSVerification is the cached trust signal for one hostname/source pair.
+// Forward is hostname -> source IP, Reverse is source IP -> hostname. Both
+// lookups happen outside the request path in the API DNS cache; the store
+// only records the result for the machine list.
+type DNSVerification struct {
+	Forward   string
+	Reverse   string
+	Hostname  string
+	SourceIP  net.IP
+	CheckedAt time.Time
+}
+
 // Register implements the registration matrix. It runs under a serializable
 // transaction and locks the UUID/hostname rows to avoid silent races.
 func (s *Store) Register(ctx context.Context, request *protocol.SignedRequest, sourceIP net.IP, dnsStatus string) (*RegisterResult, *protocol.APIError) {
@@ -537,6 +549,28 @@ func (s *Store) UpdateNetworkTrust(ctx context.Context, identity *Identity, sour
 	_, _ = s.DB.ExecContext(ctx, `
 UPDATE dbo.registrations SET last_seen_at=@p1, last_source_ip=@p2, last_dns_status=@p3, last_dns_checked_at=@p1
 WHERE registration_id=@p4`, s.now(), ipBytes(sourceIP), dnsStatus, identity.RegistrationID)
+}
+
+// RecordDNSVerification stores the complete mutual DNS result together with
+// the exact hostname and source IP it was checked for. The machine list only
+// shows a confirmation when all of them still match the active registration.
+// An unknown result (lookup not completed yet) is never written over a known
+// result; the binding and freshness checks make an old value harmless.
+func (s *Store) RecordDNSVerification(ctx context.Context, uuid string, verification DNSVerification) {
+	normalized, err := protocol.NormalizeUUID(uuid)
+	if err != nil || verification.SourceIP == nil || verification.CheckedAt.IsZero() {
+		return
+	}
+	hostname := strings.TrimSuffix(strings.TrimSpace(verification.Hostname), ".")
+	if hostname == "" || verification.Forward == "" || verification.Reverse == "" {
+		return
+	}
+	_, _ = s.DB.ExecContext(ctx, `
+UPDATE dbo.registrations
+SET last_dns_status=@p1, last_dns_reverse_status=@p2, last_dns_hostname=@p3,
+    last_dns_source_ip=@p4, last_dns_checked_at=@p5
+WHERE uuid=@p6 AND state=N'active'`,
+		verification.Forward, verification.Reverse, hostname, ipBytes(verification.SourceIP), verification.CheckedAt.UTC(), normalized)
 }
 
 // Config returns the current configuration and hash.

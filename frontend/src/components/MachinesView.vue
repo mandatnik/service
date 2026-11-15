@@ -1,6 +1,6 @@
 <script setup>
 import { useAutoRefresh } from '../autoRefresh'
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
 import { emptyMachineFilters, normalizeMachineFilters, monitoringLabels } from '../machineFilters'
 import { badgeClass, formatTime, machineRowView, pluralRu } from '../format'
@@ -10,6 +10,7 @@ import Pager from './Pager.vue'
 import RefreshControl from './RefreshControl.vue'
 import InstallationReview from './InstallationReview.vue'
 import MachineRenameDialog from './MachineRenameDialog.vue'
+import MachineDeactivateDialog from './MachineDeactivateDialog.vue'
 
 const props = defineProps({ filters: { type: Object, default: () => ({}) } })
 const emit = defineEmits(['open-machine', 'open-group', 'filters-change'])
@@ -22,7 +23,9 @@ const pollText = computed(() => `Опрос агента — раз в ${pollSec
 const pendingInstallations = ref([])
 const reviewing = ref(null)
 const renameTarget = ref(null)
+const deactivateTarget = ref(null)
 const actionMenu = ref(null)
+const menuElement = ref(null)
 const selectableRows = computed(() => data.value.items.filter(m => !m.archived))
 const allSelected = computed(() => selectableRows.value.length > 0 && selectableRows.value.every(m => selected.value.includes(m.machine_id)))
 const rows = computed(() => data.value.items.map(machine => ({ machine, view: machineRowView(machine) })))
@@ -82,20 +85,61 @@ function reviewInstallation(request) { reviewing.value = request; message.value 
 function toggleRowActions(machine, event) {
   event.stopPropagation()
   if (actionMenu.value?.machine.machine_id === machine.machine_id) {
-    actionMenu.value = null
+    closeRowActions()
     return
   }
   const rect = event.currentTarget.getBoundingClientRect()
   actionMenu.value = {
     machine,
-    top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 120)),
-    left: Math.max(8, Math.min(rect.right - 200, window.innerWidth - 208))
+    trigger: event.currentTarget,
+    top: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 170)),
+    left: Math.max(8, Math.min(rect.right - 224, window.innerWidth - 232))
   }
+  nextTick(() => menuElement.value?.querySelector('button:not([disabled])')?.focus())
 }
 function closeRowActions() { actionMenu.value = null }
+function closeRowActionsAndRestoreFocus() {
+  const trigger = actionMenu.value?.trigger
+  actionMenu.value = null
+  trigger?.focus?.()
+}
+function menuKeydown(event) {
+  const buttons = [...(event.currentTarget.querySelectorAll('button:not([disabled])'))]
+  const index = buttons.indexOf(document.activeElement)
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeRowActionsAndRestoreFocus()
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    buttons[(index + 1 + buttons.length) % buttons.length]?.focus()
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    buttons[(index < 0 ? buttons.length - 1 : index - 1 + buttons.length) % buttons.length]?.focus()
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    buttons[0]?.focus()
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    buttons[buttons.length - 1]?.focus()
+  }
+}
+function globalKeydown(event) {
+  if (event.key === 'Escape' && actionMenu.value) closeRowActionsAndRestoreFocus()
+}
 function startRename(machine) { actionMenu.value = null; renameTarget.value = machine; message.value = ''; groupNotice.value = null }
+function startDeactivate(machine) { actionMenu.value = null; deactivateTarget.value = machine; message.value = ''; groupNotice.value = null }
 function openFromMenu(machine) { actionMenu.value = null; emit('open-machine', machine.machine_id) }
 async function machineRenamed(result) { renameTarget.value = null; message.value = `Имя АРМ изменено: «${result.display_name}». Hostname и machine_id не изменялись.`; await load() }
+async function machineDeactivated(machine) {
+  deactivateTarget.value = null
+  selected.value = selected.value.filter(id => id !== machine.machine_id)
+  message.value = `АРМ «${machine.display_name || machine.machine_id}» деактивирован. Карточка, история и связанные данные сохранены; активная регистрация отозвана.`
+  await load()
+  if (!data.value.items.length && page.value > 1) {
+    page.value -= 1
+    await load()
+  }
+}
 async function installationResolved(payload) {
   const action = payload?.action
   reviewing.value = null
@@ -117,12 +161,14 @@ onMounted(() => {
   load(); loadPollInterval()
   document.addEventListener('click', closeRowActions)
   window.addEventListener('resize', closeRowActions)
+  window.addEventListener('keydown', globalKeydown)
 })
 onUnmounted(() => {
   document.removeEventListener('click', closeRowActions)
   window.removeEventListener('resize', closeRowActions)
+  window.removeEventListener('keydown', globalKeydown)
 })
-useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!reviewing.value || !!renameTarget.value || !!actionMenu.value)
+useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!reviewing.value || !!renameTarget.value || !!deactivateTarget.value || !!actionMenu.value)
 </script>
 <template>
   <section>
@@ -172,10 +218,12 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
     </div>
     <InstallationReview v-if="reviewing" :request="reviewing" @resolved="installationResolved" @cancel="reviewing = null" />
     <MachineRenameDialog v-if="renameTarget" :machine="renameTarget" @saved="machineRenamed" @close="renameTarget = null" />
+    <MachineDeactivateDialog v-if="deactivateTarget" :machine="deactivateTarget" @saved="machineDeactivated" @close="deactivateTarget = null" />
     <Teleport to="body">
-      <div v-if="actionMenu" class="row-actions-menu" role="menu" :style="{ top: actionMenu.top + 'px', left: actionMenu.left + 'px' }" @click.stop>
+      <div v-if="actionMenu" ref="menuElement" class="row-actions-menu" role="menu" :style="{ top: actionMenu.top + 'px', left: actionMenu.left + 'px' }" @click.stop @keydown="menuKeydown">
         <button type="button" role="menuitem" @click="startRename(actionMenu.machine)">Переименовать АРМ</button>
         <button type="button" role="menuitem" @click="openFromMenu(actionMenu.machine)">Открыть карточку</button>
+        <button type="button" role="menuitem" class="row-actions-danger" :disabled="actionMenu.machine.archived" :title="actionMenu.machine.archived ? 'Машина уже деактивирована' : ''" @click="startDeactivate(actionMenu.machine)">Деактивировать</button>
       </div>
     </Teleport>
     <div v-if="!reviewing" class="panel table-panel">
@@ -219,8 +267,8 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
               <code class="small muted machine-uuid">{{ row.view.uuid }}</code>
             </td>
             <td>
-              <div>{{ row.view.hostname }} <span v-if="row.machine.hostname_conflict" class="badge badge-warning">конфликт</span></div>
-              <div class="small muted">{{ row.view.ip }}</div>
+              <div>{{ row.view.hostname }} <span v-if="row.machine.hostname_conflict" class="badge badge-warning">Конфликт</span></div>
+              <div class="machine-source"><span class="small muted">{{ row.view.ip }}</span><span v-if="row.machine.dns_verified" class="badge badge-ok dns-verified" :title="`Взаимное соответствие hostname и IP подтверждено ${formatTime(row.machine.dns_verified_at)}`">Проверен DNS</span></div>
             </td>
             <td>
               <span class="badge" :class="badgeClass(row.view.online.tone)">{{ row.view.online.label }}</span>

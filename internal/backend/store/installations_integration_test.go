@@ -733,6 +733,47 @@ SELECT ti.registration_id,ti.encrypted_parameters FROM dbo.task_items ti JOIN db
 			t.Fatalf("new registration previous id = %+v, want %d", previous, f.regID)
 		}
 	})
+
+	t.Run("deactivation archives the card and revokes the active registration", func(t *testing.T) {
+		f := newInstallationFixture(t, ctx, pool, s)
+		if err := s.DeactivateMachine(ctx, f.machineID, "передана в другой отдел", "admin@test"); err != nil {
+			t.Fatalf("deactivate: %v", err)
+		}
+		page, err := s.ListMachines(ctx, AdminMachineFilter{MachineID: f.machineID, IncludeArchived: true, Page: 1, PageSize: 1})
+		if err != nil || len(page.Items) != 1 {
+			t.Fatalf("deactivated machine = %+v err=%v", page.Items, err)
+		}
+		if !page.Items[0].Archived || page.Items[0].ArchiveReason != "передана в другой отдел" {
+			t.Fatalf("deactivation did not archive the card: %+v", page.Items[0])
+		}
+		var state string
+		if err := pool.QueryRowContext(ctx, `SELECT state FROM dbo.registrations WHERE registration_id=@p1`, f.regID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state != "revoked" {
+			t.Fatalf("registration state = %q, want revoked", state)
+		}
+		var active int
+		if err := pool.QueryRowContext(ctx, `SELECT COUNT(1) FROM dbo.registrations WHERE machine_id=@p1 AND state=N'active'`, f.machineID).Scan(&active); err != nil || active != 0 {
+			t.Fatalf("active registrations = %d err=%v", active, err)
+		}
+		detail, err := s.MachineDetail(ctx, f.machineID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		foundDeactivated := false
+		for _, event := range detail.Events {
+			if event.Kind == "machine_deactivated" {
+				foundDeactivated = true
+			}
+		}
+		if !foundDeactivated {
+			t.Fatal("deactivation audit event is missing")
+		}
+		if err := s.DeactivateMachine(ctx, f.machineID, "повторно", "admin@test"); err != nil {
+			t.Fatalf("repeated deactivation must be idempotent: %v", err)
+		}
+	})
 }
 
 // newPendingKey asserts that re-registering a rejected pending request returns

@@ -60,7 +60,10 @@ func (s *Store) ResolveMachineSelection(ctx context.Context, machineIDs, groupID
 	}
 	if len(machineIDs) > 0 {
 		rows, err := s.DB.QueryContext(ctx, `
-SELECT machine_id FROM dbo.machines WHERE machine_id IN (SELECT CONVERT(UNIQUEIDENTIFIER,value) FROM OPENJSON(@p1))`, jsonString(machineIDs))
+SELECT m.machine_id FROM dbo.machines m
+WHERE m.machine_id IN (SELECT CONVERT(UNIQUEIDENTIFIER,value) FROM OPENJSON(@p1))
+  AND m.archived_at IS NULL
+  AND EXISTS (SELECT 1 FROM dbo.registrations r WHERE r.machine_id=m.machine_id AND r.state=N'active')`, jsonString(machineIDs))
 		if err != nil {
 			return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "load selected machines"}
 		}
@@ -77,7 +80,7 @@ SELECT machine_id FROM dbo.machines WHERE machine_id IN (SELECT CONVERT(UNIQUEID
 		for _, id := range machineIDs {
 			normalized := strings.ToLower(id)
 			if !found[normalized] {
-				return nil, &protocol.APIError{Code: protocol.CodeMachineNotEligible, Message: "one or more selected machines do not exist"}
+				return nil, &protocol.APIError{Code: protocol.CodeMachineNotEligible, Message: "one or more selected machines do not exist or are archived"}
 			}
 			add(normalized)
 		}
@@ -94,6 +97,8 @@ SELECT COUNT(1) FROM dbo.machine_groups WHERE group_id IN (SELECT CONVERT(UNIQUE
 		}
 		rows, err := s.DB.QueryContext(ctx, `
 SELECT gm.machine_id FROM dbo.machine_group_members gm
+JOIN dbo.machines m ON m.machine_id=gm.machine_id AND m.archived_at IS NULL
+JOIN dbo.registrations r ON r.machine_id=gm.machine_id AND r.state=N'active'
 WHERE gm.group_id IN (SELECT CONVERT(UNIQUEIDENTIFIER,value) FROM OPENJSON(@p1))
 ORDER BY gm.machine_id`, jsonString(groupIDs))
 		if err != nil {
