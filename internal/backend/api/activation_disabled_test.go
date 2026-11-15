@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"telehack2026/internal/backend/store"
+	"mandatnik/internal/backend/store"
 	"testing"
 )
 

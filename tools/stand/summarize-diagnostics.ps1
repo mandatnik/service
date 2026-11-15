@@ -53,8 +53,8 @@ foreach ($source in $diagnostic.collection.sources) {
     }
 }
 $mounts = @()
-Get-ChildItem Registry::HKEY_USERS | Where-Object { $_.Name -match 'Telehack' } | ForEach-Object { $mounts += $_.Name }
-$service = Get-Service -Name TelehackAgent -ErrorAction SilentlyContinue
+Get-ChildItem Registry::HKEY_USERS | Where-Object { $_.Name -match 'Mandatnik' } | ForEach-Object { $mounts += $_.Name }
+$service = Get-Service -Name MandatnikAgent -ErrorAction SilentlyContinue
 $summary = [ordered]@{
     captured_at = (Get-Date).ToUniversalTime().ToString('o')
     host = $env:COMPUTERNAME
@@ -81,7 +81,7 @@ $summary = [ordered]@{
             is_trial = $diagnostic.collection.csp.license.is_trial
         }
     }
-    leftover_telehack_mounts = $mounts
+    leftover_mandatnik_mounts = $mounts
 }
 $directory = Split-Path -Parent $OutputPath
 if ($directory) { New-Item -ItemType Directory -Force $directory | Out-Null }

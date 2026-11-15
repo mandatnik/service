@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"telehack2026/internal/backend/config"
+	"mandatnik/internal/backend/config"
 )
 
 type acceptanceConfig struct {
@@ -89,7 +89,7 @@ func main() {
 	case "replay-prepare", "replay-check":
 		fs := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
 		configPath := fs.String("config", "acceptance.json", "acceptance JSON")
-		file := fs.String("file", "/tmp/telehack-replay.json", "replay state file")
+		file := fs.String("file", "/tmp/mandatnik-replay.json", "replay state file")
 		_ = fs.Parse(os.Args[2:])
 		cfg, err := loadAcceptanceConfig(*configPath)
 		if err != nil {

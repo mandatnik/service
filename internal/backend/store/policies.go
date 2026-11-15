@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/folderpolicy"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/folderpolicy"
+	"mandatnik/internal/protocol"
 )
 
 // ErrInvalidRules marks policy rule compilation errors separately from SQL

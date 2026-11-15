@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/protocol"
 )
 
 type adminIntegrationKey struct {

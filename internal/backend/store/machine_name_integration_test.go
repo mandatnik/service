@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"telehack2026/internal/backend/config"
-	"telehack2026/internal/backend/db"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/config"
+	"mandatnik/internal/backend/db"
+	"mandatnik/internal/protocol"
 )
 
 func TestMachineRenameSQLServer(t *testing.T) {
-	file := os.Getenv("TELEHACK_POLICY_TEST_CONFIG")
+	file := os.Getenv("MANDATNIK_POLICY_TEST_CONFIG")
 	if file == "" {
-		t.Skip("set TELEHACK_POLICY_TEST_CONFIG to an authorized SQL Server acceptance config")
+		t.Skip("set MANDATNIK_POLICY_TEST_CONFIG to an authorized SQL Server acceptance config")
 	}
 	raw, err := os.ReadFile(file)
 	if err != nil {

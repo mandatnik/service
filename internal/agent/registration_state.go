@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"telehack2026/internal/platform"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/platform"
+	"mandatnik/internal/protocol"
 )
 
 // registrationNotice is deliberately stored outside state.json. Older agents

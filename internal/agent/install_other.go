@@ -3,7 +3,7 @@
 package agent
 
 import (
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func newInstallExecutor() InstallExecutor { return unsupportedInstallExecutor{} }

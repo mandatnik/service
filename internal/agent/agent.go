@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"telehack2026/internal/platform"
+	"mandatnik/internal/platform"
 )
 
 // SystemIdentity is diagnostic context for service-only evidence.

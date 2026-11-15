@@ -9,7 +9,7 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // applyLicensesTx replaces the current license set for one machine. The

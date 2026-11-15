@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // runP10Proxy is a deterministic acceptance-only fault injector. It terminates

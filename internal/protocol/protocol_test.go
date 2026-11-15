@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"telehack2026/internal/certparse"
+	"mandatnik/internal/certparse"
 )
 
 func testKey(t *testing.T) *ecdsa.PrivateKey {

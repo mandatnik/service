@@ -14,8 +14,8 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/certparse"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/certparse"
+	"mandatnik/internal/protocol"
 )
 
 // scanNewer compares an installation-local scan sequence together with the

@@ -1,8 +1,8 @@
-# GPO computer startup script for the Telehack 2026 agent.
+# GPO computer startup script for the Мандатник agent.
 # The share and configuration are deployment inputs; no secrets are embedded.
 $ErrorActionPreference = 'Stop'
-$share = '\\SERVER-WINDOWS\TelehackDeploy'
-$root = 'C:\ProgramData\Telehack2026'
+$share = '\\SERVER-WINDOWS\MandatnikDeploy'
+$root = 'C:\ProgramData\Mandatnik'
 $log = Join-Path $root 'gpo-install.log'
 
 New-Item -ItemType Directory -Force -Path $root | Out-Null
@@ -15,10 +15,10 @@ try {
     Copy-Item (Join-Path $share 'agent-config.json') (Join-Path $root 'agent-config.json') -Force
     Write-Log 'GPO startup: config copied'
 
-    $exe = 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe'
+    $exe = 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe'
     if (-not (Test-Path $exe)) {
-        $msi = Join-Path $share 'TelehackAgent.msi'
-        $arguments = '/i "{0}" /qn /norestart /l*v C:\Windows\Temp\telehack-gpo-msi.log' -f $msi
+        $msi = Join-Path $share 'MandatnikAgent.msi'
+        $arguments = '/i "{0}" /qn /norestart /l*v C:\Windows\Temp\mandatnik-gpo-msi.log' -f $msi
         $process = Start-Process -FilePath 'C:\Windows\System32\msiexec.exe' -ArgumentList $arguments -Wait -PassThru
         Write-Log ('GPO startup: msiexec exit=' + $process.ExitCode)
         if ($process.ExitCode -ne 0) { exit $process.ExitCode }
@@ -26,7 +26,7 @@ try {
         Write-Log 'GPO startup: agent already installed'
     }
 
-    Start-Service TelehackAgent -ErrorAction SilentlyContinue
+    Start-Service MandatnikAgent -ErrorAction SilentlyContinue
     Write-Log 'GPO startup: service start requested'
     exit 0
 } catch {

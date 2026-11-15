@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // RegisterCapabilities records the agent's signed task capabilities and

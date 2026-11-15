@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"telehack2026/internal/backend/migrations"
+	"mandatnik/internal/backend/migrations"
 )
 
 // LogFunc receives migration progress. It must not receive credentials.

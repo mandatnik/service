@@ -12,8 +12,8 @@ import (
 	"sort"
 	"time"
 
-	"telehack2026/internal/platform"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/platform"
+	"mandatnik/internal/protocol"
 )
 
 const encryptionMagic = "THK2"

@@ -1,7 +1,7 @@
 ---
 schema_version: "1.1"
 document_type: "implementation_plan"
-task_id: "telehack2026-case-03-grchc"
+task_id: "mandatnik-case-03-grchc"
 updated_at: "2026-11-14"
 status: "planned_not_implemented"
 sources:

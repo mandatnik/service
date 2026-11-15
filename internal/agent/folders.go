@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	"telehack2026/internal/certparse"
-	"telehack2026/internal/folderpolicy"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/certparse"
+	"mandatnik/internal/folderpolicy"
+	"mandatnik/internal/protocol"
 )
 
 const maxFolderDepth = 64

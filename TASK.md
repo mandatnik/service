@@ -1,6 +1,6 @@
 ---
 schema_version: "1.1"
-task_id: "telehack2026-case-03-grchc"
+task_id: "mandatnik-case-03-grchc"
 title: "Разработка модуля сбора данных о СКЗИ"
 language: "ru"
 event: "Всероссийский хакатон связи 2026"

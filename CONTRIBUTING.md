@@ -108,8 +108,8 @@ make clean        # только выбранный каталог сборки
 
 Результаты по умолчанию в `artifacts/ci/`:
 
-- `telehack-agent.exe`, `telehack-backend.exe`, `telehack-acceptance.exe`;
-- `TelehackAgent-<version>.msi` после MSI-сборки;
+- `mandatnik-agent.exe`, `mandatnik-backend.exe`, `mandatnik-acceptance.exe`;
+- `MandatnikAgent-<version>.msi` после MSI-сборки;
 - `build-info.json`, `SHA256SUMS`.
 
 `make build` на Linux выполняет кросс-сборку Windows EXE. Linux-агент не
@@ -158,7 +158,7 @@ make test-e2e E2E_CONFIG=/absolute/path/acceptance.json
 В Windows:
 
 ```powershell
-make test-e2e E2E_CONFIG="C:/TelehackCI/private/acceptance.json"
+make test-e2e E2E_CONFIG="C:/MandatnikCI/private/acceptance.json"
 ```
 
 Используйте только согласованный тестовый SQL Server. Конфиг соответствует
@@ -204,10 +204,10 @@ CI не устанавливает агент автоматически на м
 
 Раннеры 5.2.0 зарегистрированы **только в этом репозитории**:
 
-- `telehack-linux-140`: Ubuntu, `telehack-linux:host`, пользователь mimbol,
-  `~/telehack-ci/`, автозапуск через его `crontab @reboot` и flock.
-- `telehack-windows-138`: Windows Server, `telehack-windows:host`, SYSTEM,
-  `C:\TelehackCI\`, задача планировщика `TelehackGiteaRunner` при старте ОС.
+- `mandatnik-linux-140`: Ubuntu, `mandatnik-linux:host`, пользователь mimbol,
+  `~/mandatnik-ci/`, автозапуск через его `crontab @reboot` и flock.
+- `mandatnik-windows-138`: Windows Server, `mandatnik-windows:host`, SYSTEM,
+  `C:\MandatnikCI\`, задача планировщика `MandatnikGiteaRunner` при старте ОС.
 
 Host-раннеры предназначены для доверенного кода этого приватного репозитория.
 Windows-раннер использует SYSTEM для обязательной ICE-валидации WiX: обычные
@@ -216,8 +216,8 @@ Windows-раннер использует SYSTEM для обязательной
 валидация не отключается флагом -sval. Unit-тесты очереди также проверены под
 LocalService; их логика не требует административных ACL. Для ручной MSI-сборки
 в неинтерактивном Windows-сеансе используйте администратора / SYSTEM.
-Windows-конфиг SQL — в ACL-защищённом `C:\TelehackCI\private\acceptance.json`,
-путь передаётся через TELEHACK_E2E_CONFIG. Пароль — отдельным защищённым файлом.
+Windows-конфиг SQL — в ACL-защищённом `C:\MandatnikCI\private\acceptance.json`,
+путь передаётся через MANDATNIK_E2E_CONFIG. Пароль — отдельным защищённым файлом.
 Runner registration tokens и `.runner` не хранятся в Git и не попадают
 в артефакты. В каждом раннере capacity=1; логи задач сохраняются 7 дней.
 

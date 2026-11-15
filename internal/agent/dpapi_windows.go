@@ -2,7 +2,7 @@
 
 package agent
 
-import "telehack2026/internal/agent/winapi"
+import "mandatnik/internal/agent/winapi"
 
 func protectIdentity(plain []byte) ([]byte, error) {
 	return winapi.ProtectData(plain)

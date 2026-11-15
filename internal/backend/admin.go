@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-	"telehack2026/internal/backend/config"
-	"telehack2026/internal/backend/db"
-	"telehack2026/internal/backend/store"
+	"mandatnik/internal/backend/config"
+	"mandatnik/internal/backend/db"
+	"mandatnik/internal/backend/store"
 )
 
 // HashAdminPassword produces the bcrypt hash format used by the

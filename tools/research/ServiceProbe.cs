@@ -81,9 +81,9 @@ public static class NativeProbe {
     }
 }
 
-public sealed class TelehackResearchService : ServiceBase {
+public sealed class MandatnikResearchService : ServiceBase {
     readonly string directory;
-    public TelehackResearchService(string dir) { directory=dir; ServiceName="TelehackResearchProbe"; AutoLog=false; }
+    public MandatnikResearchService(string dir) { directory=dir; ServiceName="MandatnikResearchProbe"; AutoLog=false; }
     protected override void OnStart(string[] args) {
         ThreadPool.QueueUserWorkItem(delegate {
             try {
@@ -99,5 +99,5 @@ public sealed class TelehackResearchService : ServiceBase {
             finally { Stop(); }
         });
     }
-    public static void Main(string[] args) { if(args.Length!=1) throw new ArgumentException("directory required"); ServiceBase.Run(new TelehackResearchService(args[0])); }
+    public static void Main(string[] args) { if(args.Length!=1) throw new ArgumentException("directory required"); ServiceBase.Run(new MandatnikResearchService(args[0])); }
 }

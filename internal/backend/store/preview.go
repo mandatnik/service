@@ -13,8 +13,8 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/activation"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/activation"
+	"mandatnik/internal/protocol"
 )
 
 type ActivationPreviewInput struct {

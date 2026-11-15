@@ -15,8 +15,8 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/protocol"
 )
 
 const (

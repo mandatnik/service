@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"telehack2026/internal/backend/config"
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/config"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/protocol"
 )
 
 // Logger is the minimal logging interface used by the API.

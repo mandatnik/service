@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/microsoft/go-mssqldb"
 	"net/http"
-	"telehack2026/internal/backend/store"
+	"mandatnik/internal/backend/store"
 	"time"
 )
 

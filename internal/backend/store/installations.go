@@ -10,7 +10,7 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // InstallationRegistrationInfo is the registration view shown to an

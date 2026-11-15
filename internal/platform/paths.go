@@ -12,16 +12,17 @@ import (
 // agent configuration and the backend configuration live here on Windows.
 func ProgramDataDir() string {
 	if runtime.GOOS == "windows" {
-		if value := os.Getenv("ProgramData"); value != "" {
-			return filepath.Join(value, "Telehack2026")
+		base := os.Getenv("ProgramData")
+		if base == "" {
+			base = `C:\ProgramData`
 		}
-		return `C:\ProgramData\Telehack2026`
+		return existingDataDir(base, "Mandatnik", "Telehack2026")
 	}
 	base, err := os.UserConfigDir()
 	if err != nil || base == "" {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "telehack2026")
+	return existingDataDir(base, "mandatnik", "telehack2026")
 }
 
 func AgentDir() string          { return filepath.Join(ProgramDataDir(), "Agent") }
@@ -54,4 +55,17 @@ func BackendLogDir() string     { return filepath.Join(BackendDir(), "logs") }
 // platform. The unsupported-platform response is explicit, not a mock.
 func Supported() bool {
 	return runtime.GOOS == "windows"
+}
+
+// Reuse existing state after a brand change; never create a second agent identity.
+func existingDataDir(base, current, legacy string) string {
+	currentPath := filepath.Join(base, current)
+	if _, err := os.Stat(currentPath); err == nil {
+		return currentPath
+	}
+	legacyPath := filepath.Join(base, legacy)
+	if info, err := os.Stat(legacyPath); err == nil && info.IsDir() {
+		return legacyPath
+	}
+	return currentPath
 }

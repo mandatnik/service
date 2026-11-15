@@ -14,7 +14,7 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // CertificateRecord is one certificate context plus the provider facts read

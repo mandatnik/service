@@ -71,15 +71,15 @@ if ($LASTEXITCODE -ne 0) { throw 'Сборка не завершилась ус�
 собирает Windows amd64 EXE и MSI. Отдельно запускать frontend при работе сервера
 не нужно. В `artifacts\ci` появятся:
 
-- `telehack-backend.exe` — сервер;
-- `telehack-agent.exe` — агент;
-- `telehack-acceptance.exe` — вспомогательный приёмочный клиент;
-- `TelehackAgent-0.5.0.msi` — установщик агента (номер зависит от версии кода);
+- `mandatnik-backend.exe` — сервер;
+- `mandatnik-agent.exe` — агент;
+- `mandatnik-acceptance.exe` — вспомогательный приёмочный клиент;
+- `MandatnikAgent-0.5.0.msi` — установщик агента (номер зависит от версии кода);
 - `build-info.json`, `SHA256SUMS` — сведения о сборке и контрольные суммы.
 
 ```powershell
-.\artifacts\ci\telehack-backend.exe version
-.\artifacts\ci\telehack-agent.exe version
+.\artifacts\ci\mandatnik-backend.exe version
+.\artifacts\ci\mandatnik-agent.exe version
 Get-FileHash .\artifacts\ci\*.exe, .\artifacts\ci\*.msi -Algorithm SHA256
 ```
 
@@ -117,10 +117,10 @@ SQL Browser для такого подключения не нужен. Порт
 Создай каталоги, скопируй собранный сервер (путь к исходникам поправь при необходимости):
 
 ```powershell
-$root = 'C:\ProgramData\Telehack2026\Backend'
+$root = 'C:\ProgramData\Mandatnik\Backend'
 New-Item -ItemType Directory -Force -Path $root, "$root\tls", "$root\logs" | Out-Null
 icacls.exe $root /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F'
-Copy-Item C:\src\mandatnik\artifacts\ci\telehack-backend.exe $root
+Copy-Item C:\src\mandatnik\artifacts\ci\mandatnik-backend.exe $root
 Set-Location $root
 ```
 
@@ -134,7 +134,7 @@ Set-Location $root
 УЦ, можно вместо этого выдать сертификат с Server Authentication и SAN для
 реального имени/адреса сервера и использовать его PEM-сертификат и PEM-ключ.
 
-Следующие команды выполняются в `C:\ProgramData\Telehack2026\Backend`.
+Следующие команды выполняются в `C:\ProgramData\Mandatnik\Backend`.
 `openssl` должен быть в PATH; иначе укажи полный путь к `openssl.exe`.
 
 ```powershell
@@ -160,24 +160,24 @@ Import-Certificate -FilePath .\tls\tls-ca.cer -CertStoreLocation Cert:\LocalMach
 
 ## 5. Конфигурация, БД и первый администратор
 
-Создай `C:\ProgramData\Telehack2026\Backend\backend.json`:
+Создай `C:\ProgramData\Mandatnik\Backend\backend.json`:
 
 ```json
 {
   "agent_listen": "0.0.0.0:8443",
   "admin_listen": "0.0.0.0:8444",
   "integration_listen": "127.0.0.1:8446",
-  "tls_cert_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.crt",
-  "tls_key_file": "C:\\ProgramData\\Telehack2026\\Backend\\tls\\backend.key",
-  "log_file": "C:\\ProgramData\\Telehack2026\\Backend\\logs\\backend.txt",
-  "license_keyring_file": "C:\\ProgramData\\Telehack2026\\Backend\\license-keyring.json",
-  "license_fingerprint_key_file": "C:\\ProgramData\\Telehack2026\\Backend\\license-fingerprint.key",
+  "tls_cert_file": "C:\\ProgramData\\Mandatnik\\Backend\\tls\\backend.crt",
+  "tls_key_file": "C:\\ProgramData\\Mandatnik\\Backend\\tls\\backend.key",
+  "log_file": "C:\\ProgramData\\Mandatnik\\Backend\\logs\\backend.txt",
+  "license_keyring_file": "C:\\ProgramData\\Mandatnik\\Backend\\license-keyring.json",
+  "license_fingerprint_key_file": "C:\\ProgramData\\Mandatnik\\Backend\\license-fingerprint.key",
   "db": {
     "server": "127.0.0.1",
     "port": 1433,
-    "database": "Telehack2026",
-    "user": "telehack_app",
-    "password_file": "C:\\ProgramData\\Telehack2026\\Backend\\db-password.txt",
+    "database": "Mandatnik",
+    "user": "mandatnik_app",
+    "password_file": "C:\\ProgramData\\Mandatnik\\Backend\\db-password.txt",
     "encrypt": true,
     "trust_server_certificate": true,
     "allow_insecure_db_tls": true
@@ -199,26 +199,26 @@ TLS-сертификат, задай оба флага `false`, `db.server_name`
 Здесь ввод скрыт; файл пароля будет доступен только по ACL каталога сервера.
 
 ```powershell
-Set-Location C:\ProgramData\Telehack2026\Backend
-$appCredential = Get-Credential -UserName telehack_app -Message 'Новый пароль приложения для SQL'
+Set-Location C:\ProgramData\Mandatnik\Backend
+$appCredential = Get-Credential -UserName mandatnik_app -Message 'Новый пароль приложения для SQL'
 [System.IO.File]::WriteAllText("$PWD\db-password.txt", $appCredential.GetNetworkCredential().Password)
 Remove-Variable appCredential
 $saCredential = Get-Credential -UserName sa -Message 'Пароль sa, заданный при установке SQL'
-$env:TELEHACK_SA_PASSWORD = $saCredential.GetNetworkCredential().Password
-.\telehack-backend.exe bootstrap -config .\backend.json
-# Должно быть: database Telehack2026 and login telehack_app are ready
-Remove-Item Env:\TELEHACK_SA_PASSWORD
+$env:MANDATNIK_SA_PASSWORD = $saCredential.GetNetworkCredential().Password
+.\mandatnik-backend.exe bootstrap -config .\backend.json
+# Должно быть: database Mandatnik and login mandatnik_app are ready
+Remove-Item Env:\MANDATNIK_SA_PASSWORD
 Remove-Variable saCredential
 
-.\telehack-backend.exe migrate -config .\backend.json
-.\telehack-backend.exe license-init -config .\backend.json
+.\mandatnik-backend.exe migrate -config .\backend.json
+.\mandatnik-backend.exe license-init -config .\backend.json
 
 $adminCredential = Get-Credential -UserName 'misha@example.test' -Message 'Новый пароль админки: минимум 12 символов'
-$env:TELEHACK_ADMIN_PASSWORD = $adminCredential.GetNetworkCredential().Password
-.\telehack-backend.exe admin-create -config .\backend.json -email misha@example.test -name 'Миша' -role superadmin
-Remove-Item Env:\TELEHACK_ADMIN_PASSWORD
+$env:MANDATNIK_ADMIN_PASSWORD = $adminCredential.GetNetworkCredential().Password
+.\mandatnik-backend.exe admin-create -config .\backend.json -email misha@example.test -name 'Миша' -role superadmin
+Remove-Item Env:\MANDATNIK_ADMIN_PASSWORD
 Remove-Variable adminCredential
-.\telehack-backend.exe health -config .\backend.json
+.\mandatnik-backend.exe health -config .\backend.json
 ```
 
 После каждой команды проверяй отсутствие ошибок. `health` должен вывести `ok`:
@@ -234,7 +234,7 @@ Remove-Variable adminCredential
 
 ```powershell
 New-NetFirewallRule -DisplayName 'Mandatnik test HTTPS' -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8443,8444 -RemoteAddress '192.168.1.0/24'
-.\telehack-backend.exe run -config .\backend.json
+.\mandatnik-backend.exe run -config .\backend.json
 ```
 
 Оставь окно открытым: закрытие окна или Ctrl+C останавливает сервер.
@@ -248,13 +248,13 @@ New-NetFirewallRule -DisplayName 'Mandatnik test HTTPS' -Direction Inbound -Acti
 планировщика (сначала останови ручной процесс, чтобы не занять порты дважды):
 
 ```powershell
-$root = 'C:\ProgramData\Telehack2026\Backend'
-$action = New-ScheduledTaskAction -Execute "$root\telehack-backend.exe" -Argument "run -config `"$root\backend.json`"" -WorkingDirectory $root
+$root = 'C:\ProgramData\Mandatnik\Backend'
+$action = New-ScheduledTaskAction -Execute "$root\mandatnik-backend.exe" -Argument "run -config `"$root\backend.json`"" -WorkingDirectory $root
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $principal = New-ScheduledTaskPrincipal -UserId SYSTEM -LogonType ServiceAccount -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-Register-ScheduledTask -TaskName TelehackBackend -Action $action -Trigger $trigger -Principal $principal -Settings $settings
-Start-ScheduledTask -TaskName TelehackBackend
+Register-ScheduledTask -TaskName MandatnikBackend -Action $action -Trigger $trigger -Principal $principal -Settings $settings
+Start-ScheduledTask -TaskName MandatnikBackend
 ```
 
 Backend не является Windows-службой SCM: регистрировать его через `sc.exe
@@ -269,26 +269,26 @@ create` нельзя. Пароль БД в защищённом файле по�
 
 ```powershell
 Import-Certificate -FilePath C:\MandatnikDeploy\tls-ca.cer -CertStoreLocation Cert:\LocalMachine\Root
-New-Item -ItemType Directory -Force C:\ProgramData\Telehack2026 | Out-Null
+New-Item -ItemType Directory -Force C:\ProgramData\Mandatnik | Out-Null
 @'
 {
   "server_url": "https://192.168.1.50:8443",
   "request_timeout_seconds": 30
 }
-'@ | Set-Content -Encoding ascii C:\ProgramData\Telehack2026\agent-config.json
+'@ | Set-Content -Encoding ascii C:\ProgramData\Mandatnik\agent-config.json
 
 Test-NetConnection 192.168.1.50 -Port 8443
-$msi = 'C:\MandatnikDeploy\TelehackAgent-0.5.0.msi'
+$msi = 'C:\MandatnikDeploy\MandatnikAgent-0.5.0.msi'
 $p = Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart /l*v C:\MandatnikDeploy\install.log" -Wait -PassThru
 $p.ExitCode
-Get-Service TelehackAgent
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' status
+Get-Service MandatnikAgent
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' status
 ```
 
 Путь MSI поправь под свою версию. Код 0 — успешная установка, 3010 — успешная
 установка с требованием перезагрузки; остальные коды разбирай по `install.log`.
 MSI запускает службу автоматически от LocalSystem. Если она остановлена,
-проверь лог и выполни `Start-Service TelehackAgent`.
+проверь лог и выполни `Start-Service MandatnikAgent`.
 Рабочий конфиг надо создать **до установки**: MSI содержит только пример.
 Входящие порты на АРМ открывать не нужно — агент сам обращается к серверу.
 
@@ -298,11 +298,11 @@ MSI запускает службу автоматически от LocalSystem.
 службу непосредственно из EXE. Выбери один способ установки на одной машине:
 
 ```powershell
-New-Item -ItemType Directory -Force 'C:\Program Files\Telehack2026\Agent' | Out-Null
-Copy-Item C:\MandatnikDeploy\telehack-agent.exe 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe'
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' install -config C:\ProgramData\Telehack2026\agent-config.json
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' start
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' status
+New-Item -ItemType Directory -Force 'C:\Program Files\Mandatnik\Agent' | Out-Null
+Copy-Item C:\MandatnikDeploy\mandatnik-agent.exe 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe'
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' install -config C:\ProgramData\Mandatnik\agent-config.json
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' start
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' status
 ```
 
 EXE должен оставаться по этому пути: служба запускает именно его. Для проверки
@@ -314,18 +314,18 @@ EXE должен оставаться по этому пути: служба з�
 Нужна доменная тестовая OU с выбранными компьютерами. Сервер приложения при
 этом не обязан быть контроллером домена.
 
-1. Создай сетевую папку, например `\\FILESERVER\TelehackDeploy`. Размести там
-   MSI под именем **`TelehackAgent.msi`** и `agent-config.json` из раздела 7.
+1. Создай сетевую папку, например `\\FILESERVER\MandatnikDeploy`. Размести там
+   MSI под именем **`MandatnikAgent.msi`** и `agent-config.json` из раздела 7.
    Компьютерным учётным записям тестовых АРМ нужны права чтения **и на шару,
    и NTFS**; запись оставь только администраторам развёртывания.
 2. Создай отдельную GPO, привяжи к тестовой OU. Через **Computer Configuration
    → Policies → Windows Settings → Security Settings → Public Key Policies →
    Trusted Root Certification Authorities** импортируй только `tls-ca.cer`.
-3. Возьми `deploy\gpo\install-telehack.ps1` и `install-telehack.cmd` из кода.
-   В копии PS1 замени `$share` с `\\SERVER-WINDOWS\TelehackDeploy` на свою шару.
+3. Возьми `deploy\gpo\install-mandatnik.ps1` и `install-mandatnik.cmd` из кода.
+   В копии PS1 замени `$share` с `\\SERVER-WINDOWS\MandatnikDeploy` на свою шару.
 4. В этой GPO открой **Computer Configuration → Policies → Windows Settings →
    Scripts (Startup/Shutdown) → Startup → Show Files**, скопируй туда оба
-   скрипта и через **Add** добавь `install-telehack.cmd` как startup script.
+   скрипта и через **Add** добавь `install-mandatnik.cmd` как startup script.
    Настраивай через редактор GPO: он зарегистрирует нужное расширение и версии.
 5. Для доступности шары при старте включи **Computer Configuration → Policies →
    Administrative Templates → System → Logon → Always wait for the network
@@ -338,8 +338,8 @@ EXE должен оставаться по этому пути: служба з�
 **Автоматическое обновление уже установленного EXE этот скрипт не выполняет**:
 для upgrade запусти новый MSI отдельно. Он также не ставит CSP и сертификаты
 пользователей. Держи исходный MSI доступным для Windows Installer repair.
-Логи: `C:\ProgramData\Telehack2026\gpo-install.log`,
-`C:\Windows\Temp\telehack-gpo-msi.log`, `telehack-gpo-wrapper.log` в той же Temp.
+Логи: `C:\ProgramData\Mandatnik\gpo-install.log`,
+`C:\Windows\Temp\mandatnik-gpo-msi.log`, `mandatnik-gpo-wrapper.log` в той же Temp.
 Подробности ручного формирования GPO: [deploy/gpo/README.md](deploy/gpo/README.md).
 
 ## 9. Что проверить как проверяющий
@@ -368,7 +368,7 @@ EXE должен оставаться по этому пути: служба з�
 
 Новая чистая установка с именем уже существующего АРМ может попасть в
 **«АРМ → Ожидают подтверждения»**: подтверди замену в интерфейсе. Это ожидаемый
-сценарий, а не повод удалять БД. Не копируй `ProgramData\Telehack2026\Agent`
+сценарий, а не повод удалять БД. Не копируй `ProgramData\Mandatnik\Agent`
 с одной машины на другую и не клонируй уже зарегистрированный агент в шаблон VM.
 
 Проверку удалённой установки лицензии делай отдельно на тестовой VM с CSP
@@ -384,7 +384,7 @@ EXE должен оставаться по этому пути: служба з�
 | PowerShell запрещает сборочный PS1 | Для текущего окна при допустимой политике организации: `Set-ExecutionPolicy -Scope Process Bypass`; доменную политику это не переопределяет |
 | WiX/ICE завершился ошибкой | Полный WiX 3.14.1, .NET Framework, лог сборки; для неинтерактивной сборки повышенные права/контекст SYSTEM |
 | SQL connection refused/timeout | Служба SQL, TCP/IP, фиксированный 1433, `Test-NetConnection`, перезапуск SQL после настройки |
-| SQL login failed | Mixed Mode, включённый `sa`, правильный пароль, файл `db-password.txt`; bootstrap может обновлять пароль существующего `telehack_app` |
+| SQL login failed | Mixed Mode, включённый `sa`, правильный пароль, файл `db-password.txt`; bootstrap может обновлять пароль существующего `mandatnik_app` |
 | Ошибка SQL TLS | В тестовом локальном варианте нужны оба флага из примера; при строгой проверке — CA, SAN и `server_name` |
 | Агент: x509/unknown authority | Корень в `LocalMachine\Root` именно на АРМ, совпадение SAN с URL, срок сертификата и время |
 | АРМ не появился | Порт 8443, адрес без localhost, конфиг до установки, служба, очередь ожидающих подтверждения |
@@ -394,11 +394,11 @@ EXE должен оставаться по этому пути: служба з�
 Диагностика на АРМ, из административного PowerShell:
 
 ```powershell
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' diag
-Get-Content C:\ProgramData\Telehack2026\Agent\logs\current.txt -Tail 100
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' diag
+Get-Content C:\ProgramData\Mandatnik\Agent\logs\current.txt -Tail 100
 ```
 
-Лог сервера: `C:\ProgramData\Telehack2026\Backend\logs\backend.txt`.
+Лог сервера: `C:\ProgramData\Mandatnik\Backend\logs\backend.txt`.
 Если потребуется разбор, передай ревизию/`build-info.json`, версии EXE, шаг,
 текст ошибки, соответствующий лог и код msiexec. Пароли, `*.key`, keyring,
 `identity.dpapi` и остальные DPAPI-файлы пересылать не нужно.
@@ -409,7 +409,7 @@ Get-Content C:\ProgramData\Telehack2026\Agent\logs\current.txt -Tail 100
 снова при следующей загрузке. Обычное удаление сохраняет состояние агента:
 
 ```powershell
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' uninstall
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' uninstall
 ```
 
 Полный сброс нужен только при намеренной проверке новой установки:
@@ -417,8 +417,8 @@ Get-Content C:\ProgramData\Telehack2026\Agent\logs\current.txt -Tail 100
 `agent-config.json` сохраняется. После сброса при занятом имени потребуется
 подтверждение новой установки в админке.
 
-Сервер останови Ctrl+C либо `Stop-ScheduledTask -TaskName TelehackBackend`;
-для отмены автозапуска — `Unregister-ScheduledTask -TaskName TelehackBackend`.
+Сервер останови Ctrl+C либо `Stop-ScheduledTask -TaskName MandatnikBackend`;
+для отмены автозапуска — `Unregister-ScheduledTask -TaskName MandatnikBackend`.
 БД и серверные ключи при этом не удаляются. Если стенд нужен для повторной
 проверки, сохрани БД вместе с `license-keyring.json` и
 `license-fingerprint.key`: без этих файлов номера лицензий из БД не восстановить.

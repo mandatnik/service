@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"telehack2026/internal/agent/winapi"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/agent/winapi"
+	"mandatnik/internal/protocol"
 )
 
 // NewCollector returns the Windows collector.

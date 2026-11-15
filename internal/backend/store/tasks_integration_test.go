@@ -21,19 +21,19 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/activation"
-	"telehack2026/internal/backend/config"
-	"telehack2026/internal/backend/db"
-	"telehack2026/internal/backend/licensecrypto"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/activation"
+	"mandatnik/internal/backend/config"
+	"mandatnik/internal/backend/db"
+	"mandatnik/internal/backend/licensecrypto"
+	"mandatnik/internal/protocol"
 )
 
 // TestTasksSQLServer exercises the real reservation/task SQL. It is skipped
 // unless an authorized stand configuration is provided.
 func TestTasksSQLServer(t *testing.T) {
-	file := os.Getenv("TELEHACK_POLICY_TEST_CONFIG")
+	file := os.Getenv("MANDATNIK_POLICY_TEST_CONFIG")
 	if file == "" {
-		t.Skip("set TELEHACK_POLICY_TEST_CONFIG to an authorized SQL Server acceptance config")
+		t.Skip("set MANDATNIK_POLICY_TEST_CONFIG to an authorized SQL Server acceptance config")
 	}
 	raw, err := os.ReadFile(file)
 	if err != nil {

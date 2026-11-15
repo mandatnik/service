@@ -3,7 +3,7 @@ package store
 import (
 	"testing"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func TestLicensesCollectionApplicable(t *testing.T) {

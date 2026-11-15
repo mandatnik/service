@@ -23,7 +23,7 @@ import (
 // Run the candidate backend, not the currently deployed server. Only loopback
 // ports and a short-lived test CA are used. The authorized SQL stand is real.
 func endToEnd(o options) (err error) {
-	tmp, err := os.MkdirTemp("", "telehack-e2e-")
+	tmp, err := os.MkdirTemp("", "mandatnik-e2e-")
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func ephemeralTLS(dir string) (string, string, *x509.Certificate, error) {
 	if err != nil {
 		return "", "", nil, err
 	}
-	template := x509.Certificate{SerialNumber: serial, Subject: pkix.Name{CommonName: "Telehack ephemeral CI TLS"}, NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
+	template := x509.Certificate{SerialNumber: serial, Subject: pkix.Name{CommonName: "Mandatnik ephemeral CI TLS"}, NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}}
 	der, err := x509.CreateCertificate(rand.Reader, &template, &template, &key.PublicKey, key)
 	if err != nil {
 		return "", "", nil, err

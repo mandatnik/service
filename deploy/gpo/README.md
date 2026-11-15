@@ -2,15 +2,15 @@
 
 This directory contains the reference computer startup script used by the
 P09 test. The agent MSI is deployed from a share; the script also writes the
-GPO-managed `C:\ProgramData\Telehack2026\agent-config.json` before installing
+GPO-managed `C:\ProgramData\Mandatnik\agent-config.json` before installing
 the MSI. No CryptoPro, browser plugin, user certificate or test root is
 installed by this script.
 
 ## Reference layout
 
 ```text
-\\SERVER\TelehackDeploy\TelehackAgent.msi
-\\SERVER\TelehackDeploy\agent-config.json
+\\SERVER\MandatnikDeploy\MandatnikAgent.msi
+\\SERVER\MandatnikDeploy\agent-config.json
 ```
 
 `agent-config.json` is a product input, not a secret:
@@ -30,13 +30,13 @@ test scope (and for administrators who need to run repair).
 Use a dedicated test GPO and the narrowest possible scope (a test OU or
 security filtering). Never change Default Domain Policy for this test.
 
-Create `Machine\Scripts\Startup\install-telehack.cmd` and `.ps1` from this
+Create `Machine\Scripts\Startup\install-mandatnik.cmd` and `.ps1` from this
 directory, and put `scripts.ini` at **`Machine\Scripts\scripts.ini`** — not
 inside `Startup`:
 
 ```ini
 [Startup]
-0CmdLine=install-telehack.cmd
+0CmdLine=install-mandatnik.cmd
 0Parameters=
 ```
 
@@ -61,7 +61,7 @@ deployment.
 
 - First boot: copy config, install MSI, start LocalSystem service.
 - Later boots: copy the current GPO config and leave the existing agent/state.
-- The MSI never overwrites `C:\ProgramData\Telehack2026\agent-config.json`.
+- The MSI never overwrites `C:\ProgramData\Mandatnik\agent-config.json`.
 - Upgrade and repair keep ProgramData state. An ordinary uninstall also keeps
   the agent identity/state; only the explicit product CLI
   `uninstall -purge` removes agent-owned state and deliberately keeps the GPO

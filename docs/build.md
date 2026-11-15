@@ -23,9 +23,9 @@ Go-зависимости фиксируются в `go.mod`/`go.sum`; frontend 
 go mod download
 go vet ./...
 go test ./...
-go build -trimpath -o bin/telehack-agent ./cmd/agent
-go build -trimpath -o bin/telehack-backend ./cmd/backend
-go build -trimpath -o bin/telehack-acceptance ./cmd/acceptance
+go build -trimpath -o bin/mandatnik-agent ./cmd/agent
+go build -trimpath -o bin/mandatnik-backend ./cmd/backend
+go build -trimpath -o bin/mandatnik-acceptance ./cmd/acceptance
 ```
 
 Админка уже лежит в `internal/backend/web/dist` (закоммичена). Backend EXE
@@ -40,22 +40,22 @@ BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
   go build -trimpath -ldflags "-s -w \
-  -X telehack2026/internal/version.Commit=$COMMIT \
-  -X telehack2026/internal/version.BuildDate=$BUILD_DATE" \
-  -o bin/telehack-agent.exe ./cmd/agent
+  -X mandatnik/internal/version.Commit=$COMMIT \
+  -X mandatnik/internal/version.BuildDate=$BUILD_DATE" \
+  -o bin/mandatnik-agent.exe ./cmd/agent
 
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
   go build -trimpath -ldflags "-s -w \
-  -X telehack2026/internal/version.Commit=$COMMIT \
-  -X telehack2026/internal/version.BuildDate=$BUILD_DATE" \
-  -o bin/telehack-backend.exe ./cmd/backend
+  -X mandatnik/internal/version.Commit=$COMMIT \
+  -X mandatnik/internal/version.BuildDate=$BUILD_DATE" \
+  -o bin/mandatnik-backend.exe ./cmd/backend
 ```
 
 Проверка:
 
 ```bash
-file bin/telehack-agent.exe bin/telehack-backend.exe
-shasum -a 256 bin/telehack-agent.exe bin/telehack-backend.exe
+file bin/mandatnik-agent.exe bin/mandatnik-backend.exe
+shasum -a 256 bin/mandatnik-agent.exe bin/mandatnik-backend.exe
 ```
 
 ## 4. Frontend
@@ -77,10 +77,10 @@ Vite настроен на `entryFileNames: app.js`, `assetFileNames: app.[ext]`
 
 ```powershell
 .\deploy\msi\build-msi.ps1 `
-  -AgentExe .\bin\telehack-agent.exe `
+  -AgentExe .\bin\mandatnik-agent.exe `
   -ProductVersion 0.4.0 `
   -ProductCode '{35F44613-8F88-4599-8D86-C901BB368F47}' `
-  -Output .\artifacts\TelehackAgent-0.4.0.msi
+  -Output .\artifacts\MandatnikAgent-0.4.0.msi
 ```
 
 WiX 3.14.1:
@@ -91,12 +91,12 @@ MSI не содержит идентичности/ключей; состоян�
 ## 6. Воспроизводимая проверка из чистого clone
 
 ```bash
-git clone <repo> /tmp/telehack2026-fresh
-cd /tmp/telehack2026-fresh
+git clone <repo> /tmp/mandatnik-fresh
+cd /tmp/mandatnik-fresh
 go mod verify
 go test ./...
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o /tmp/telehack-agent.exe ./cmd/agent
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o /tmp/telehack-backend.exe ./cmd/backend
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o /tmp/mandatnik-agent.exe ./cmd/agent
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o /tmp/mandatnik-backend.exe ./cmd/backend
 (cd frontend && npm ci && npm run build)
 # на Windows с WiX:
 # build-msi.ps1 из этого же clone
@@ -107,7 +107,7 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -o /tmp/telehack-back
 
 ## 7. Свежий clone P10
 
-Проверено на `/tmp/telehack2026-fresh-p10` из Gitea:
+Проверено на `/tmp/mandatnik-fresh-p10` из Gitea:
 
 - `go mod verify` — all modules verified;
 - `go test ./...` — PASS;

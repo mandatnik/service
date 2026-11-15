@@ -127,12 +127,12 @@ function unauthorized() {
 onMounted(() => {
   readRoute()
   window.addEventListener('popstate', readRoute)
-  window.addEventListener('telehack:unauthorized', unauthorized)
+  window.addEventListener('mandatnik:unauthorized', unauthorized)
   checkSession()
 })
 onUnmounted(() => {
   window.removeEventListener('popstate', readRoute)
-  window.removeEventListener('telehack:unauthorized', unauthorized)
+  window.removeEventListener('mandatnik:unauthorized', unauthorized)
   if (expiryTimer) clearTimeout(expiryTimer)
 })
 </script>

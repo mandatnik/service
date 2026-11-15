@@ -1,4 +1,4 @@
-# Telehack 2026 — модуль сбора сведений о СКЗИ
+# Мандатник — модуль сбора сведений о СКЗИ
 
 Курсовой/хакатонный проект по кейсу №03 ГРЧЦ: инвентаризация личных
 сертификатов и лицензий КриптоПро CSP 4/5 на рабочих станциях Windows 10.
@@ -72,8 +72,8 @@ go test ./...
 Кросс-сборка под стенд:
 
 ```bash
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/telehack-agent.exe ./cmd/agent
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/telehack-backend.exe ./cmd/backend
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/mandatnik-agent.exe ./cmd/agent
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/mandatnik-backend.exe ./cmd/backend
 ```
 
 Подробно: [docs/build.md](docs/build.md), [docs/configuration.md](docs/configuration.md),
@@ -85,3 +85,5 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/telehack-backend.exe ./c
 `test-data/certificates-2026-11-14/` — публичные синтетические сертификаты,
 манифест ожидаемых полей и SHA-256. Закрытые ключи тестового УЦ находятся
 только в `.secrets/` и не публикуются.
+
+Правила обновления существующих установок: [переход на новое название](docs/renaming.md).

@@ -31,7 +31,7 @@ try {
     $report.LoadedProfileReads=@(foreach($p in $profiles|Where-Object Loaded){try{[pscustomobject]@{SID=$p.SID;Path=$p.LocalPath;Result=[NativeProbe]::Read(($p.SID+'\'+$suffix))}}catch{[pscustomobject]@{SID=$p.SID;Error=$_.Exception.Message}}})
     $target=@($profiles|Where-Object { -not $_.Loaded -and $_.LocalPath -match '\\user[12]$'})
     if($target.Count -ne 1){throw 'Need exactly one unloaded user1/user2 target'}
-    $p=$target[0];$mount='TelehackResearch_'+[guid]::NewGuid().ToString('N');$hive=Join-Path $p.LocalPath 'NTUSER.DAT'
+    $p=$target[0];$mount='MandatnikResearch_'+[guid]::NewGuid().ToString('N');$hive=Join-Path $p.LocalPath 'NTUSER.DAT'
     $state=[ordered]@{SID=$p.SID;Path=$p.LocalPath;LoadedBefore=$p.Loaded;Mount=$mount;Seeded=$false;ReadSucceeded=$false;FixtureCleaned=$false;Unmounted=$false}
     $report.OfflineTest=$state
     $files=@(Get-ChildItem (Join-Path $Directory 'fixtures') -Filter '*.cer'|Sort-Object Name|ForEach-Object FullName)
@@ -67,7 +67,7 @@ try {
         if($mounted){Unmount-Hive $mount;$mounted=$false;$state.Unmounted=$true}
     }
     $report.ProfilesAfter=Get-CimInstance Win32_UserProfile|Where-Object SID -eq $p.SID|Select-Object SID,LocalPath,Loaded
-    $report.RemainingResearchMounts=@(Get-ChildItem Registry::HKEY_USERS|Where-Object PSChildName -like 'TelehackResearch_*'|ForEach-Object PSChildName)
+    $report.RemainingResearchMounts=@(Get-ChildItem Registry::HKEY_USERS|Where-Object PSChildName -like 'MandatnikResearch_*'|ForEach-Object PSChildName)
 } catch {$report.Errors+=($_.Exception.ToString())}
 finally {
     $report.FinishedUTC=[DateTime]::UtcNow.ToString('o')

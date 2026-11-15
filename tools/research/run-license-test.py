@@ -15,8 +15,8 @@ if suffix not in ('136', '137'):
     raise SystemExit('Only authorized workstation suffixes 136/137 are accepted')
 socket = sys.argv[2]
 host = f'agent@192.168.189.{suffix}'
-remote = 'C:\\ProgramData\\TelehackActivationProbe-' + uuid.uuid4().hex[:12]
-service = 'TelehackResearchProbe'
+remote = 'C:\\ProgramData\\MandatnikActivationProbe-' + uuid.uuid4().hex[:12]
+service = 'MandatnikResearchProbe'
 mode = sys.argv[3] if len(sys.argv) > 3 else '--msi-negative'
 scripts = {'--verify-installed': 'license_verify_installed.ps1', '--msi-negative': 'license_msi_negative.ps1', '--registry-negative': 'license_registry_negative.ps1'}
 if mode not in scripts:

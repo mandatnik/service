@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"telehack2026/internal/platform"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/platform"
+	"mandatnik/internal/protocol"
 )
 
 // FileConfig is the small bootstrap file managed by GPO or created manually

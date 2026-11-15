@@ -35,7 +35,7 @@ if a.phase == 'prepare':
     group = call('/groups', 'POST', {'name': 'Проверка политик 0.4.0', 'machine_ids': list(current.values())})['id']; state['groups'].append(group); save()
     # Bulk-add is idempotent and never replaces other memberships.
     call('/groups/' + group + '/members', 'POST', {'machine_ids': list(current.values())})
-    root = 'C:/ProgramData/Telehack2026/policy-acceptance'
+    root = 'C:/ProgramData/Mandatnik/policy-acceptance'
     entries = [
       {'name': 'Проверка: групповые папки', 'rules': root + '/*/\n!' + root + '/trash/', 'group_ids': [group], 'machine_ids': []},
       {'name': 'Проверка: независимое групповое включение', 'rules': root + '/trash/', 'group_ids': [group], 'machine_ids': []},
@@ -47,7 +47,7 @@ if a.phase == 'prepare':
 else:
     state = json.loads(state_file.read_text())
     if a.phase == 'reinclusion':
-        policy = {'name': 'Проверка: независимое прямое включение', 'rules': 'C:/ProgramData/Telehack2026/policy-acceptance/trash/', 'machine_ids': [state['machines']['136']], 'group_ids': []}
+        policy = {'name': 'Проверка: независимое прямое включение', 'rules': 'C:/ProgramData/Mandatnik/policy-acceptance/trash/', 'machine_ids': [state['machines']['136']], 'group_ids': []}
         state['policies'].append(call('/folder-policies', 'POST', policy)['id']); state['reinclusion'] = True; state_file.write_text(json.dumps(state, indent=2))
         for ident in state['machines'].values(): call('/machines/' + ident + '/jobs', 'POST', {})
         print('REINCLUSION queued')

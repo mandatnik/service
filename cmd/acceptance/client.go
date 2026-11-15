@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 type client struct {

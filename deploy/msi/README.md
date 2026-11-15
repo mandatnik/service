@@ -13,7 +13,7 @@ WiX 3.14.1: https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix3
 Проверенная установка на стенде:
 
 ```text
-C:\ProgramData\Telehack2026\build-tools\wix314
+C:\ProgramData\Mandatnik\build-tools\wix314
 ```
 
 `build-msi.ps1` использует этот каталог по умолчанию. WiX требует .NET
@@ -25,17 +25,17 @@ Framework; runtime-зависимостей у самого агента нет 
 
 ```powershell
 $env:GOOS='windows'; $env:GOARCH='amd64'; $env:CGO_ENABLED='0'
-go build -trimpath -ldflags "-s -w" -o bin\telehack-agent.exe .\cmd\agent
+go build -trimpath -ldflags "-s -w" -o bin\mandatnik-agent.exe .\cmd\agent
 ```
 
 Затем MSI:
 
 ```powershell
 .\deploy\msi\build-msi.ps1 `
-  -AgentExe .\bin\telehack-agent.exe `
+  -AgentExe .\bin\mandatnik-agent.exe `
   -ProductVersion 0.4.0 `
   -ProductCode '{35F44613-8F88-4599-8D86-C901BB368F47}' `
-  -Output .\artifacts\TelehackAgent-0.4.0.msi
+  -Output .\artifacts\MandatnikAgent-0.4.0.msi
 ```
 
 `UpgradeCode` зафиксирован в WXS:
@@ -51,13 +51,13 @@ go build -trimpath -ldflags "-s -w" -o bin\telehack-agent.exe .\cmd\agent
 
 ## Что устанавливает MSI
 
-- `telehack-agent.exe` в `C:\Program Files\Telehack2026\Agent`.
-- Службу `TelehackAgent`, `LocalSystem`, автоматический запуск, recovery
+- `mandatnik-agent.exe` в `C:\Program Files\Mandatnik\Agent`.
+- Службу `MandatnikAgent`, `LocalSystem`, автоматический запуск, recovery
   actions через `service-config` custom action.
-- `C:\ProgramData\Telehack2026\Agent\{logs,queue}` с DACL только SYSTEM и
+- `C:\ProgramData\Mandatnik\Agent\{logs,queue}` с DACL только SYSTEM и
   Administrators.
 - Пример `agent-config.example.json`; **рабочий**
-  `C:\ProgramData\Telehack2026\agent-config.json` не входит в MSI и не
+  `C:\ProgramData\Mandatnik\agent-config.json` не входит в MSI и не
   перезаписывается. Его создаёт администратор или GPO.
 - В MSI нет CryptoPro, браузерного плагина, пользовательских сертификатов,
   тестового корневого сертификата, UUID и приватных ключей.
@@ -66,16 +66,16 @@ go build -trimpath -ldflags "-s -w" -o bin\telehack-agent.exe .\cmd\agent
 
 ```powershell
 # молчаливая установка/обновление
-msiexec /i .\TelehackAgent-0.4.0.msi /qn /norestart /l*v install.log
+msiexec /i .\MandatnikAgent-0.4.0.msi /qn /norestart /l*v install.log
 
 # repair (источник MSI должен быть доступен)
 msiexec /f {64E20BF5-DDF6-4704-9374-E175CA30152F} /qn /norestart /l*v repair.log
 
 # удаление через CLI агента: сохраняет identity/state, затем вызывает msiexec /x
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' uninstall
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' uninstall
 
 # полное удаление с явной очисткой identity, ключей, очереди и журнала
-& 'C:\Program Files\Telehack2026\Agent\telehack-agent.exe' uninstall -purge
+& 'C:\Program Files\Mandatnik\Agent\mandatnik-agent.exe' uninstall -purge
 
 # стандартное MSI-удаление (например, Add/Remove Programs) сохраняет состояние
 msiexec /x {64E20BF5-DDF6-4704-9374-E175CA30152F} /qn /norestart
@@ -85,7 +85,7 @@ msiexec /x {64E20BF5-DDF6-4704-9374-E175CA30152F} /qn /norestart
 очередь и журнал остаются, поэтому повторная установка не создаёт новую
 машину молча. Только `uninstall -purge` выполняет полную очистку состояния
 перед MSI uninstall. Стандартный MSI uninstall также сохраняет
-`C:\ProgramData\Telehack2026`; GPO-конфиг не является собственностью MSI.
+`C:\ProgramData\Mandatnik`; GPO-конфиг не является собственностью MSI.
 
 `repair`/upgrade не должны удалять `AgentDir`: в WXS это учтено; состояние
 проверяется отдельно. Большой `RemoveFolderEx` намеренно не используется,

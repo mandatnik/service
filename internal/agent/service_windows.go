@@ -42,7 +42,7 @@ func (h *serviceHandler) Execute(_ []string, requests <-chan svc.ChangeRequest, 
 		select {
 		case err := <-done:
 			if err != nil {
-				fmt.Fprintln(os.Stderr, "telehack-agent service stopped:", err)
+				fmt.Fprintln(os.Stderr, "mandatnik-agent service stopped:", err)
 				return false, 1
 			}
 			return false, 0
@@ -56,7 +56,7 @@ func (h *serviceHandler) Execute(_ []string, requests <-chan svc.ChangeRequest, 
 				select {
 				case err := <-done:
 					if err != nil {
-						fmt.Fprintln(os.Stderr, "telehack-agent service stop:", err)
+						fmt.Fprintln(os.Stderr, "mandatnik-agent service stop:", err)
 						return false, 1
 					}
 					return false, 0

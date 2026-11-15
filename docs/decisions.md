@@ -7,7 +7,7 @@
 ## D01. Один Go-модуль, монорепозиторий
 
 Агент, бэкенд, общие контракты и приёмочный клиент живут в одном модуле
-`telehack2026`. Причина: контракт не может разойтись между двумя
+`mandatnik`. Причина: контракт не может разойтись между двумя
 репозиториями; сборка из одного clone воспроизводима. Агент и бэкенд — разные
 `main`-пакеты и разные EXE.
 
@@ -79,7 +79,7 @@ JCS — официальная реализация `cyberphone/json-canonicaliz
 ## D09. DPAPI и права
 
 Идентичность и ключ хранятся в едином `identity.dpapi` под
-`%ProgramData%\Telehack2026\Agent`, защищённом DPAPI в user-scope учётной
+`%ProgramData%\Mandatnik\Agent`, защищённом DPAPI в user-scope учётной
 записи службы (LocalSystem). Единый bundle делает переход при переименовании
 атомарным (`os.Rename`); отдельный `identity-public.json` не содержит секретов.
 Файлы и каталог получают DACL: только SYSTEM и Administrators, наследование
@@ -89,7 +89,7 @@ JCS — официальная реализация `cyberphone/json-canonicaliz
 
 ## D10. GPO-конфиг
 
-Стартовый файл: `C:\ProgramData\Telehack2026\agent-config.json` (путь можно
+Стартовый файл: `C:\ProgramData\Mandatnik\agent-config.json` (путь можно
 переопределить `-config` для стенда). Формат — только адрес сервера и
 безопасные тайм-ауты; `insecure_skip_verify` отсутствует. Для ручного запуска
 вне домена используется тот же файл. Период опроса 10 минут, интервал сбора
@@ -107,7 +107,7 @@ JCS — официальная реализация `cyberphone/json-canonicaliz
 
 Приложение использует отдельную БД (не `master`), создаваемую отдельной
 bootstrap-командой. Пароль sa никогда не встраивается: bootstrap читает
-`TELEHACK_SA_PASSWORD`, runtime — `TELEHACK_DB_PASSWORD` (имя переменной
+`MANDATNIK_SA_PASSWORD`, runtime — `MANDATNIK_DB_PASSWORD` (имя переменной
 задаётся конфигом). TLS к SQL включён; `TrustServerCertificate=true` не
 является настройкой по умолчанию. Для стенда выпускается отдельный
 RSA TLS-УЦ, его корень указывается в `db.ca_file`; сертификат SQL Server

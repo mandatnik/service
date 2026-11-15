@@ -67,7 +67,7 @@ func publish(o options) error {
 	}
 	var result release
 	if status == 404 {
-		payload, _ := json.Marshal(map[string]any{"tag_name": tag, "name": "Telehack 2026 " + tag, "target_commitish": os.Getenv("GITEA_SHA"), "body": "Windows amd64 EXE, MSI, build metadata and SHA-256 checksums. Built and tested through Makefile/Gitea Actions.", "draft": true, "prerelease": false})
+		payload, _ := json.Marshal(map[string]any{"tag_name": tag, "name": "Мандатник " + tag, "target_commitish": os.Getenv("GITEA_SHA"), "body": "Windows amd64 EXE, MSI, build metadata and SHA-256 checksums. Built and tested through Makefile/Gitea Actions.", "draft": true, "prerelease": false})
 		data, status, err = request("POST", "/releases", bytes.NewReader(payload), "application/json")
 	}
 	if err != nil {

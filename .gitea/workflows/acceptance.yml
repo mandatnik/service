@@ -4,7 +4,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: telehack-ci
+  group: mandatnik-ci
   cancel-in-progress: false
 jobs:
   acceptance:
@@ -16,7 +16,10 @@ jobs:
           persist-credentials: false
       - name: SQL and candidate HTTPS acceptance
         shell: powershell
-        run: make test-e2e E2E_CONFIG="$env:TELEHACK_E2E_CONFIG"
+        run: |
+          $config = $env:MANDATNIK_E2E_CONFIG
+          if (-not $config) { $config = $env:TELEHACK_E2E_CONFIG }
+          make test-e2e E2E_CONFIG="$config"
       - uses: https://github.com/actions/upload-artifact@v4
         if: always()
         with:

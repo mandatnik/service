@@ -24,7 +24,7 @@ var (
 	hkeyUsers         = windows.Handle(registry.USERS)
 )
 
-const hiveMountPrefix = "TelehackAgent_"
+const hiveMountPrefix = "MandatnikAgent_"
 
 // LoadHive temporarily mounts a user's NTUSER.DAT under a unique HKU name.
 // The caller must call UnloadHive. Only the newly created mount is unloaded;

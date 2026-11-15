@@ -1,21 +1,21 @@
 runner:
-  file: /home/mimbol/telehack-ci/runner/.runner
+  file: /home/mimbol/mandatnik-ci/runner/.runner
   capacity: 1
   timeout: 1h
   shutdown_timeout: 5m
   labels: [telehack-linux:host]
   envs:
-    GOPATH: /home/mimbol/telehack-ci/cache/go
-    GOCACHE: /home/mimbol/telehack-ci/cache/go-build
-    npm_config_cache: /home/mimbol/telehack-ci/cache/npm
+    GOPATH: /home/mimbol/mandatnik-ci/cache/go
+    GOCACHE: /home/mimbol/mandatnik-ci/cache/go-build
+    npm_config_cache: /home/mimbol/mandatnik-ci/cache/npm
 host:
-  workdir_parent: /home/mimbol/telehack-ci/work
+  workdir_parent: /home/mimbol/mandatnik-ci/work
 cache:
-  dir: /home/mimbol/telehack-ci/cache/actions
+  dir: /home/mimbol/mandatnik-ci/cache/actions
   host: 127.0.0.1
   port: 18088
 log:
   job:
-    dir: /home/mimbol/telehack-ci/logs
+    dir: /home/mimbol/mandatnik-ci/logs
     retention: 168h
     max_size: 20MB

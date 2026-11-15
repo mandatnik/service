@@ -1,4 +1,4 @@
-module telehack2026
+module mandatnik
 
 go 1.26.0
 

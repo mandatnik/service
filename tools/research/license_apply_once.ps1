@@ -16,7 +16,7 @@ try {
  [pscustomobject]@{Path=$path;Value=$original;Kind=$kind;GUID=$guid}|Export-Clixml (Join-Path $Directory 'rollback.xml')
 }finally{$key.Close()}
 $ps=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-$task='TelehackLicenseRollback-'+[Guid]::NewGuid().ToString('N').Substring(0,12)
+$task='MandatnikLicenseRollback-'+[Guid]::NewGuid().ToString('N').Substring(0,12)
 $r=[ordered]@{Host=$env:COMPUTERNAME;Identity=[Security.Principal.WindowsIdentity]::GetCurrent().Name;SID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;Method='Registry64 ProductID + fresh-process CryptoAPI/COM';LicenseKeySavedInEvidence=$false;RegistryPath=$path;NewValidLicenseTested=$true;RegistryWriteAttempts=0;AppliedSuccessfully=$false;RestoredExact=$false}
 function Snapshot {
  $raw=& $ps -NoProfile -NonInteractive -ExecutionPolicy Bypass -File (Join-Path $Directory 'license_apply_snapshot.ps1') -Directory $Directory

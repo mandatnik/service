@@ -377,7 +377,7 @@ JSON (RFC 8785) со всеми полями:
 
 ```json
 {
-  "protocol": "telehack2026/task-parameters/v1",
+  "protocol": "mandatnik/task-parameters/v1",
   "purpose": "task_item_parameters",
   "task_id": "uuid",
   "item_id": "uuid",

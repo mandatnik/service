@@ -10,7 +10,7 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 // Identity is an active agent registration used for request authentication.

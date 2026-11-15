@@ -12,11 +12,11 @@ function cookie(name) {
 }
 
 export function setCSRF(token) {
-  csrfToken = token || cookie('telehack_csrf')
+  csrfToken = token || cookie('mandatnik_csrf')
 }
 
 export function currentCSRF() {
-  return csrfToken || cookie('telehack_csrf')
+  return csrfToken || cookie('mandatnik_csrf')
 }
 
 async function request(path, options = {}) {
@@ -49,7 +49,7 @@ async function request(path, options = {}) {
     }
   }
   if (response.status === 401) {
-    window.dispatchEvent(new CustomEvent('telehack:unauthorized', { detail: body }))
+    window.dispatchEvent(new CustomEvent('mandatnik:unauthorized', { detail: body }))
   }
   if (!response.ok) {
     const message = body?.error?.message || `HTTP ${response.status}`

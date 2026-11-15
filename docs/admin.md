@@ -1,7 +1,7 @@
 # Админка P08
 
 Админка — Vue 3 + Vite, собирается в **один HTML, один CSS и один JS** и
-встраивается в `telehack-backend.exe`. Node.js нужен только при сборке
+встраивается в `mandatnik-backend.exe`. Node.js нужен только при сборке
 интерфейса; на стенде отдельный Node/статserver/CDN не требуется.
 
 ## Сборка
@@ -37,19 +37,19 @@ dist/app.js
 Создание/смена пароля через backend:
 
 ```powershell
-$env:TELEHACK_ADMIN_PASSWORD = '<сильный пароль>'
-telehack-backend.exe admin-create -config C:\ProgramData\Telehack2026\Backend\backend.json `
+$env:MANDATNIK_ADMIN_PASSWORD = '<сильный пароль>'
+mandatnik-backend.exe admin-create -config C:\ProgramData\Mandatnik\Backend\backend.json `
   -email admin@example.com -name "Малыгин А. Е." -role superadmin
-Remove-Item Env:TELEHACK_ADMIN_PASSWORD
+Remove-Item Env:MANDATNIK_ADMIN_PASSWORD
 ```
 
 Прямая SQL-вставка (если администратор создаётся DBA):
 
 ```powershell
-$env:TELEHACK_ADMIN_PASSWORD = '<сильный пароль>'
-telehack-backend.exe hash-password
+$env:MANDATNIK_ADMIN_PASSWORD = '<сильный пароль>'
+mandatnik-backend.exe hash-password
 # скопируйте полученный bcrypt-хеш в SQL ниже
-Remove-Item Env:TELEHACK_ADMIN_PASSWORD
+Remove-Item Env:MANDATNIK_ADMIN_PASSWORD
 ```
 
 ```sql
@@ -88,8 +88,8 @@ VALUES
   `expires_at` и `csrf_token`; устаревший `username` не отдаётся.
 - Сервер создаёт случайный 32-байтовый токен; в SQL хранится только
   SHA-256 токена. Сессия живёт `admin_session_hours` (по умолчанию 12 ч).
-- Cookie `telehack_admin` — `HttpOnly`, `Secure`, `SameSite=Strict`.
-- Cookie `telehack_csrf` доступна JS; для `POST/PUT/DELETE` требуется
+- Cookie `mandatnik_admin` — `HttpOnly`, `Secure`, `SameSite=Strict`.
+- Cookie `mandatnik_csrf` доступна JS; для `POST/PUT/DELETE` требуется
   заголовок `X-CSRF-Token`, совпадающий с cookie (double-submit).
 - На 401 интерфейс показывает форму входа; административные API без
   валидной сессии недоступны.

@@ -9,7 +9,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 const machineDisplayNameMax = 253

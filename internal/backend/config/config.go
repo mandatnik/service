@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"telehack2026/internal/platform"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/platform"
+	"mandatnik/internal/protocol"
 )
 
 // DB describes the SQL Server connection.

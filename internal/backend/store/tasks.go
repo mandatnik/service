@@ -13,9 +13,9 @@ import (
 	"time"
 
 	mssql "github.com/microsoft/go-mssqldb"
-	"telehack2026/internal/activation"
-	"telehack2026/internal/backend/licensecrypto"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/activation"
+	"mandatnik/internal/backend/licensecrypto"
+	"mandatnik/internal/protocol"
 )
 
 type TaskCounts struct {

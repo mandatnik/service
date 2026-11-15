@@ -529,3 +529,21 @@ button.metric-card:hover { border-color: var(--accent); transform: none; backgro
   .login-footer { position: static; width: 100%; }
   .login-footer .app-footer { padding: 0; justify-content: center; text-align: center; font-size: 10px; }
 }
+
+/* Fixed party columns truncate long subtitles; narrow screens can scroll. */
+.certificates-table { table-layout: fixed; min-width: 920px; }
+.certificates-table th, .certificates-table td { padding: 12px; }
+.certificates-table th { white-space: normal; }
+.certificates-table th:nth-child(1) { width: 26%; }
+.certificates-table th:nth-child(2) { width: 19%; }
+.certificates-table th:nth-child(3) { width: 14%; }
+.certificates-table th:nth-child(4) { width: 12%; }
+.certificates-table th:nth-child(5) { width: 15%; }
+.certificates-table th:nth-child(6) { width: 14%; }
+.certificate-party { min-width: 0; line-height: 1.5; }
+.certificate-party-name { display: block; overflow-wrap: anywhere; }
+.certificate-party-subtitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+.certificate-party-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.certificate-party-badges .badge { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 10px; text-decoration: none; }
+.certificate-party-badges a:hover { color: var(--accent); text-decoration: underline; }
+.certificate-sources, .certificate-period { line-height: 1.5; }

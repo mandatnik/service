@@ -14,8 +14,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"telehack2026/internal/certparse"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/certparse"
+	"mandatnik/internal/protocol"
 )
 
 func TestStripWhitespaceKeepsDERControlBytes(t *testing.T) {

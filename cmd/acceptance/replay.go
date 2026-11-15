@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"telehack2026/internal/backend/db"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/db"
+	"mandatnik/internal/protocol"
 )
 
 type replayFile struct {

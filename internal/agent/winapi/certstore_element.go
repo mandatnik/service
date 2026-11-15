@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 
-	"telehack2026/internal/certparse"
+	"mandatnik/internal/certparse"
 )
 
 // decodeFileStoreElement extracts the DER certificate from one physical file

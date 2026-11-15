@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/protocol"
 )
 
 func testProtect(data []byte) ([]byte, error) {

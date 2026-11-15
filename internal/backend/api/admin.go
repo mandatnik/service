@@ -19,14 +19,14 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-	"telehack2026/internal/backend/store"
-	"telehack2026/internal/backend/web"
-	"telehack2026/internal/protocol"
+	"mandatnik/internal/backend/store"
+	"mandatnik/internal/backend/web"
+	"mandatnik/internal/protocol"
 )
 
 const (
-	adminSessionCookie   = "telehack_admin"
-	adminCSRFCookie      = "telehack_csrf"
+	adminSessionCookie   = "mandatnik_admin"
+	adminCSRFCookie      = "mandatnik_csrf"
 	adminAPIPrefix       = "/api/admin/v1/"
 	adminLoginFailures   = 5
 	adminLoginIPFailures = 200
@@ -34,7 +34,7 @@ const (
 )
 
 var dummyPasswordHash = func() []byte {
-	hash, err := bcrypt.GenerateFromPassword([]byte("telehack-invalid-password"), 12)
+	hash, err := bcrypt.GenerateFromPassword([]byte("mandatnik-invalid-password"), 12)
 	if err != nil {
 		panic(err)
 	}

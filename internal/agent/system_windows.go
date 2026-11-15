@@ -2,7 +2,7 @@
 
 package agent
 
-import "telehack2026/internal/agent/winapi"
+import "mandatnik/internal/agent/winapi"
 
 func currentSystemIdentity() (SystemIdentity, error) {
 	identity := winapi.CurrentSystemIdentity()
