@@ -4,10 +4,12 @@
   <Product Id="$(var.ProductCode)"
            Name="Мандатник — агент"
            Language="1049"
+           Codepage="1251"
            Version="$(var.ProductVersion)"
            Manufacturer="Мандатник"
            UpgradeCode="$(var.UpgradeCode)">
     <Package InstallerVersion="500"
+             SummaryCodepage="1251"
              Compressed="yes"
              InstallScope="perMachine"
              Platform="x64"
