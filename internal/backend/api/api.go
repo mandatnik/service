@@ -200,7 +200,9 @@ func (s *Server) handleReport(w http.ResponseWriter, r *http.Request, body []byt
 	case s.reports <- struct{}{}:
 		defer func() { <-s.reports }()
 	default:
-		writeError(w, http.StatusServiceUnavailable, protocol.CodeInternal, "report processing is busy")
+		w.Header().Set("Retry-After", "1")
+		s.logf("report rejected: busy (capacity=%d)", cap(s.reports))
+		writeError(w, http.StatusServiceUnavailable, protocol.CodeServerBusy, "report processing is busy")
 		return
 	}
 	sourceIP := sourceIP(r)
@@ -380,18 +382,24 @@ type dnsCache struct {
 	mu      sync.Mutex
 	ttl     time.Duration
 	entries map[string]dnsEntry
+	refresh chan struct{}
 }
 
 type dnsEntry struct {
-	status    string
-	expires   time.Time
-	addresses []string
+	status     string
+	expires    time.Time
+	addresses  []string
+	refreshing bool
 }
 
 func newDNSCache(ttl time.Duration) *dnsCache {
-	return &dnsCache{ttl: ttl, entries: make(map[string]dnsEntry)}
+	return &dnsCache{ttl: ttl, entries: make(map[string]dnsEntry), refresh: make(chan struct{}, 4)}
 }
 
+// status returns the cached trust signal and never blocks on DNS. A missing or
+// expired entry is refreshed in the background; the request sees "unknown" or
+// the previous value. This keeps register/sync/report off the resolver's
+// 2-second timeout path, which otherwise dominates p95 at scale.
 func (d *dnsCache) status(ctx context.Context, hostname string, source net.IP) string {
 	if d == nil || hostname == "" || source == nil {
 		return "unknown"
@@ -403,20 +411,52 @@ func (d *dnsCache) status(ctx context.Context, hostname string, source net.IP) s
 	if ok && time.Now().Before(entry.expires) {
 		return compareDNS(entry.addresses, source, entry.status)
 	}
-	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	defer cancel()
-	addresses, err := net.DefaultResolver.LookupHost(lookupCtx, hostname)
-	status := "verified"
-	if err != nil {
-		status = "error"
-		addresses = nil
-	} else if !containsIP(addresses, source) {
-		status = "mismatch"
+	d.refreshAsync(key, hostname)
+	if !ok {
+		return "unknown"
 	}
+	return compareDNS(entry.addresses, source, entry.status)
+}
+
+func (d *dnsCache) refreshAsync(key, hostname string) {
 	d.mu.Lock()
-	d.entries[key] = dnsEntry{status: status, expires: time.Now().Add(d.ttl), addresses: addresses}
+	entry, ok := d.entries[key]
+	if entry.refreshing {
+		d.mu.Unlock()
+		return
+	}
+	if !ok {
+		entry.status = "unknown"
+		entry.expires = time.Now()
+	}
+	entry.refreshing = true
+	d.entries[key] = entry
 	d.mu.Unlock()
-	return compareDNS(addresses, source, status)
+	select {
+	case d.refresh <- struct{}{}:
+	default:
+		// A bounded number of lookups is already in flight. Keep serving the
+		// cached value and let the next request schedule the refresh.
+		d.mu.Lock()
+		entry.refreshing = false
+		d.entries[key] = entry
+		d.mu.Unlock()
+		return
+	}
+	go func() {
+		defer func() { <-d.refresh }()
+		lookupCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		addresses, err := net.DefaultResolver.LookupHost(lookupCtx, hostname)
+		status := "verified"
+		if err != nil {
+			status = "error"
+			addresses = nil
+		}
+		d.mu.Lock()
+		d.entries[key] = dnsEntry{status: status, expires: time.Now().Add(d.ttl), addresses: addresses}
+		d.mu.Unlock()
+	}()
 }
 
 func compareDNS(addresses []string, source net.IP, cached string) string {

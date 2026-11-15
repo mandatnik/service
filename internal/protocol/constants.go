@@ -69,6 +69,7 @@ const (
 	CodeUnsupported          = "unsupported"
 	CodeInternal             = "internal_error"
 	CodeDatabase             = "database_error"
+	CodeServerBusy           = "server_busy"
 	CodeConfigInvalid        = "config_invalid"
 	CodeRegistrationDeny     = "registration_denied"
 	CodeProtocolVersion      = "protocol_version_unsupported"
