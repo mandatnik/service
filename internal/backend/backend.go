@@ -24,7 +24,8 @@ import (
 )
 
 // Run loads configuration, applies migrations and serves both listeners in
-// one process until interrupted.
+// one process until interrupted. On Windows it transparently supports the
+// service context (SCM control codes) instead of Ctrl+C.
 func Run(configPath string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
@@ -37,6 +38,21 @@ func Run(configPath string) error {
 	defer logger.Close()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+	return serve(ctx, cfg, logger)
+}
+
+// ServeWithConfig exposes the serving loop for the Windows service handler.
+// It applies migrations and blocks until ctx is cancelled or a listener fails.
+func ServeWithConfig(ctx context.Context, configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+	logger, err := openLogger(cfg.LogFile)
+	if err != nil {
+		return err
+	}
+	defer logger.Close()
 	return serve(ctx, cfg, logger)
 }
 
@@ -73,9 +89,14 @@ func serve(ctx context.Context, cfg config.Config, logger *Logger) error {
 		}
 	}
 	apiServer := api.New(persistence, logger, cfg)
-	agentServer := newHTTPServer(cfg.AgentListen, apiServer.AgentHandler())
-	adminServer := newHTTPServer(cfg.AdminListen, apiServer.AdminHandler())
-	integrationServer := newHTTPServer(cfg.IntegrationListen, apiServer.IntegrationHandler())
+	for _, role := range []string{"agent", "admin", "integration"} {
+		if tlsPairFor(cfg, role) == nil {
+			return fmt.Errorf("TLS material for the %s listener failed to load", role)
+		}
+	}
+	agentServer := newHTTPServer(cfg.AgentListen, apiServer.AgentHandler(), tlsPairFor(cfg, "agent"))
+	adminServer := newHTTPServer(cfg.AdminListen, apiServer.AdminHandler(), tlsPairFor(cfg, "admin"))
+	integrationServer := newHTTPServer(cfg.IntegrationListen, apiServer.IntegrationHandler(), tlsPairFor(cfg, "integration"))
 	logger.Logf("backend ready: agent=%s admin=%s integration=%s db=%s/%s", cfg.AgentListen, cfg.AdminListen, cfg.IntegrationListen, cfg.DB.Server, cfg.DB.Database)
 
 	errorChannel := make(chan error, 3)
@@ -85,7 +106,7 @@ func serve(ctx context.Context, cfg config.Config, logger *Logger) error {
 		go func() {
 			defer wg.Done()
 			logger.Logf("%s listener starting on %s", name, server.Addr)
-			if err := server.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			if err := server.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				errorChannel <- fmt.Errorf("%s listener: %w", name, err)
 			}
 		}()
@@ -117,7 +138,13 @@ func serve(ctx context.Context, cfg config.Config, logger *Logger) error {
 	return runErr
 }
 
-func newHTTPServer(addr string, handler http.Handler) *http.Server {
+func newHTTPServer(addr string, handler http.Handler, pair *tls.Certificate) *http.Server {
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+	if pair != nil {
+		tlsConfig.Certificates = []tls.Certificate{*pair}
+	}
 	return &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -126,10 +153,24 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 		WriteTimeout:      protocol.HTTPWriteTimeout,
 		IdleTimeout:       protocol.HTTPIdleTimeout,
 		MaxHeaderBytes:    protocol.HTTPMaxHeaderBytes,
-		TLSConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
+		TLSConfig:         tlsConfig,
 	}
+}
+
+// tlsPairFor resolves the certificate pair of one interface: the dedicated
+// per-role pair when present, otherwise the shared configured pair.
+func tlsPairFor(cfg config.Config, role string) *tls.Certificate {
+	certFile, keyFile := cfg.TLSCertFile, cfg.TLSKeyFile
+	if cfg.TLSPerRole != nil {
+		if pair, ok := cfg.TLSPerRole[role]; ok && pair.CertFile != "" && pair.KeyFile != "" {
+			certFile, keyFile = pair.CertFile, pair.KeyFile
+		}
+	}
+	pair, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil
+	}
+	return &pair
 }
 
 // Bootstrap creates the application database and runtime login. The

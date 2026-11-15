@@ -49,6 +49,17 @@ type Config struct {
 
 	// Path is filled by Load and is not part of the JSON schema.
 	Path string `json:"-"`
+
+	// TLSPerRole assigns dedicated certificate pairs to each interface in the
+	// extended addressing scheme (written by the setup wizard). Absent for
+	// legacy configurations; the shared pair above is used then.
+	TLSPerRole map[string]TLSPair `json:"tls_per_role,omitempty"`
+}
+
+// TLSPair is one certificate/key pair for a single interface.
+type TLSPair struct {
+	CertFile string `json:"cert_file"`
+	KeyFile  string `json:"key_file"`
 }
 
 // Load reads and validates a backend configuration. An empty path uses the
@@ -157,10 +168,14 @@ func (d *DB) Validate() error {
 	if strings.TrimSpace(d.PasswordEnv) == "" && strings.TrimSpace(d.PasswordFile) == "" {
 		return fmt.Errorf("db.password_env or db.password_file is required")
 	}
+	// Encryption is on by default. encrypt=false is an explicit
+	// administrator decision taken in the setup/configure wizard; the SQL
+	// Server may still enforce its own TLS and refuse such connections.
 	if !d.Encrypt {
-		return fmt.Errorf("db.encrypt=false is not supported; SQL TLS is required")
-	}
-	if d.TrustServerCertificate && !d.AllowInsecureDBTLS {
+		d.TrustServerCertificate = false
+		d.ServerName = ""
+		d.CAFile = ""
+	} else if d.TrustServerCertificate && !d.AllowInsecureDBTLS {
 		return fmt.Errorf("db.trust_server_certificate requires explicit allow_insecure_db_tls")
 	}
 	if d.ConnectTimeoutSeconds == 0 {
@@ -189,7 +204,7 @@ func (d DB) Password() (string, error) {
 		if value == "" {
 			return "", fmt.Errorf("db.password_file is empty")
 		}
-		return value, nil
+		return unsealPasswordFile(value)
 	}
 	return "", fmt.Errorf("database password is not available")
 }
