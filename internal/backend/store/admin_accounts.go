@@ -72,11 +72,13 @@ func (s *Store) CreateAdminAccount(ctx context.Context, email, displayName, pass
 		return nil, err
 	}
 	defer tx.Rollback()
+	// The legacy username is a stable surrogate, not a copy of the mutable
+	// email. Old accounts may still occupy their original email as username.
 	var id int64
 	err = tx.QueryRowContext(ctx, `
 INSERT INTO dbo.administrators(username,email,display_name,role,password_hash,disabled,created_at)
 OUTPUT INSERTED.admin_id
-VALUES(LEFT(@p1,128),@p1,@p2,N'admin',@p3,0,@p4)`, email, displayName, passwordHash, now).Scan(&id)
+VALUES(CONCAT(N'admin-',CONVERT(nvarchar(36),NEWID())),@p1,@p2,N'admin',@p3,0,@p4)`, email, displayName, passwordHash, now).Scan(&id)
 	if err != nil {
 		if isDuplicateKey(err) {
 			return nil, ErrAdminEmailConflict

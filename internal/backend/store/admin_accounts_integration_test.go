@@ -40,7 +40,7 @@ func TestAdminAccountsSQLServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(func() { pool.Close() })
 	if err = db.Migrate(ctx, pool, t.Logf); err != nil {
 		t.Fatal(err)
 	}
@@ -75,6 +75,11 @@ func TestAdminAccountsSQLServer(t *testing.T) {
 		t.Fatalf("admin record exposed credential material: %s", raw)
 	}
 
+	// Emulate an existing installation whose legacy username still equals email.
+	if _, err := pool.ExecContext(ctx, `UPDATE dbo.administrators SET username=@p1 WHERE admin_id=@p2`, email, targetID); err != nil {
+		t.Fatal(err)
+	}
+
 	sessionToken := "session-" + suffix
 	if _, err := s.CreateAdminSession(ctx, targetID, TokenHash(sessionToken), time.Hour); err != nil {
 		t.Fatal(err)
@@ -92,6 +97,14 @@ func TestAdminAccountsSQLServer(t *testing.T) {
 	}
 	if _, err := s.ValidateAdminSession(ctx, TokenHash(sessionToken)); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("credential change left the old session valid: %v", err)
+	}
+
+	reused, err := s.CreateAdminAccount(ctx, email, "Повторное использование email", passwordHash, "super@test")
+	if err != nil {
+		t.Fatalf("reuse old email after change: %v", err)
+	}
+	if reused.ID == targetID {
+		t.Fatal("old email reused the original administrator identity")
 	}
 
 	// A fresh session must stop working as soon as the account is frozen.
@@ -153,4 +166,41 @@ func TestAdminAccountsSQLServer(t *testing.T) {
 SELECT COUNT(1) FROM dbo.events WHERE kind='admin_deleted' AND details_json LIKE @p1`, fmt.Sprintf("%%%d%%", targetID)).Scan(&audit); err != nil || audit == 0 {
 		t.Fatalf("delete audit rows=%d err=%v", audit, err)
 	}
+	t.Run("bootstrap can reuse legacy email", func(t *testing.T) {
+		oldEmail := "bootstrap-old-" + suffix + "@example.test"
+		newEmail := "bootstrap-new-" + suffix + "@example.test"
+		t.Cleanup(func() {
+			_, _ = pool.ExecContext(context.Background(), `DELETE FROM dbo.administrators WHERE email IN (@p1,@p2)`, oldEmail, newEmail)
+		})
+		oldID, err := s.UpsertAdmin(ctx, oldEmail, "Первый", AdminRoleAdmin, passwordHash)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.ExecContext(ctx, `UPDATE dbo.administrators SET username=@p1 WHERE admin_id=@p2`, oldEmail, oldID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = s.UpdateAdminAccount(ctx, oldID, newEmail, "Первый", "", "super@test"); err != nil {
+			t.Fatal(err)
+		}
+		newID, err := s.UpsertAdmin(ctx, oldEmail, "Другой", AdminRoleAdmin, passwordHash)
+		if err != nil {
+			t.Fatalf("bootstrap reuse of old email: %v", err)
+		}
+		if newID == oldID {
+			t.Fatal("bootstrap reused the old identity")
+		}
+	})
+	t.Run("long emails with same legacy prefix", func(t *testing.T) {
+		prefix := strings.Repeat("a", 60) + "@" + strings.Repeat("b", 60) + "." + strings.Repeat("c", 20)
+		first, second := prefix+".one.test", prefix+".two.test"
+		t.Cleanup(func() {
+			_, _ = pool.ExecContext(context.Background(), `DELETE FROM dbo.administrators WHERE email IN (@p1,@p2)`, first, second)
+		})
+		if _, err := s.CreateAdminAccount(ctx, first, "Первый", passwordHash, "super@test"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.UpsertAdmin(ctx, second, "Второй", AdminRoleAdmin, passwordHash); err != nil {
+			t.Fatalf("distinct emails collided on legacy username: %v", err)
+		}
+	})
 }

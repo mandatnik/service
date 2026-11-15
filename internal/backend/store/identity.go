@@ -554,6 +554,9 @@ WHERE registration_id=@p4`, s.now(), ipBytes(sourceIP), dnsStatus, identity.Regi
 // RecordDNSVerification stores the complete mutual DNS result together with
 // the exact hostname and source IP it was checked for. The machine list only
 // shows a confirmation when all of them still match the active registration.
+// The mutual forward result and timestamp are separate from the legacy
+// fields updated by register/sync/report, so heartbeats cannot refresh or mix
+// the components of a mutual result.
 // An unknown result (lookup not completed yet) is never written over a known
 // result; the binding and freshness checks make an old value harmless.
 func (s *Store) RecordDNSVerification(ctx context.Context, uuid string, verification DNSVerification) {
@@ -568,7 +571,8 @@ func (s *Store) RecordDNSVerification(ctx context.Context, uuid string, verifica
 	_, _ = s.DB.ExecContext(ctx, `
 UPDATE dbo.registrations
 SET last_dns_status=@p1, last_dns_reverse_status=@p2, last_dns_hostname=@p3,
-    last_dns_source_ip=@p4, last_dns_checked_at=@p5
+    last_dns_source_ip=@p4, last_dns_checked_at=@p5,
+    last_dns_mutual_forward_status=@p1, last_dns_mutual_checked_at=@p5
 WHERE uuid=@p6 AND state=N'active'`,
 		verification.Forward, verification.Reverse, hostname, ipBytes(verification.SourceIP), verification.CheckedAt.UTC(), normalized)
 }

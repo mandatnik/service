@@ -147,7 +147,7 @@ MERGE dbo.administrators WITH (HOLDLOCK) AS target
 USING (SELECT @p1 AS email) AS source ON target.email=source.email
 WHEN MATCHED THEN UPDATE SET display_name=@p2, role=@p3, password_hash=@p4, disabled=0
 WHEN NOT MATCHED THEN INSERT (username, email, display_name, role, password_hash, disabled, created_at)
-VALUES (LEFT(@p1,128), @p1, @p2, @p3, @p4, 0, @p5)
+VALUES (CONCAT(N'admin-',CONVERT(nvarchar(36),NEWID())), @p1, @p2, @p3, @p4, 0, @p5)
 OUTPUT INSERTED.admin_id;`, email, displayName, role, passwordHash, s.now()).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("upsert administrator: %w", err)
@@ -405,7 +405,7 @@ WHERE ` + strings.Join(where, " AND ")
 SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
        m.archived_at, COALESCE(m.archived_by,''), COALESCE(m.archive_reason,''),
        r.uuid, r.hostname, r.state, r.last_seen_at, r.last_source_ip, r.last_dns_status,
-       r.last_dns_reverse_status, r.last_dns_hostname, r.last_dns_source_ip, r.last_dns_checked_at,
+       r.last_dns_reverse_status, r.last_dns_mutual_forward_status, r.last_dns_hostname, r.last_dns_source_ip, r.last_dns_mutual_checked_at,
        c.present, c.product_version, c.core_version, c.license_kind, c.license_kind_raw, c.license_state, c.term_kind, c.is_trial, c.valid_to_utc,
        rp.report_id, rp.status, rp.collected_at, COALESCE(rp.applied_sources,0),
        (SELECT COUNT(*) FROM dbo.machine_users mu WHERE mu.machine_id=m.machine_id),
@@ -433,7 +433,7 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		var lastSeen sql.NullTime
 		var ip, dnsIP []byte
 		var cspPresent sql.NullBool
-		var dns, dnsReverse, dnsHostname, product, core, kind, raw, state, term, trial sql.NullString
+		var dns, dnsReverse, dnsMutualForward, dnsHostname, product, core, kind, raw, state, term, trial sql.NullString
 		var dnsChecked sql.NullTime
 		var validTo sql.NullTime
 		var reportID mssql.NullUniqueIdentifier
@@ -442,7 +442,7 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 		var applied, users, certs, conflict, registryCerts, fileCerts, licensedCerts int
 		if err := rows.Scan(&id, &item.DisplayName, &displayNameCustom, &created, &archived, &archivedBy, &archiveReason,
 			&uuid, &hostname, &regState, &lastSeen, &ip, &dns,
-			&dnsReverse, &dnsHostname, &dnsIP, &dnsChecked,
+			&dnsReverse, &dnsMutualForward, &dnsHostname, &dnsIP, &dnsChecked,
 			&cspPresent, &product, &core, &kind, &raw, &state, &term, &trial, &validTo, &reportID, &reportStatus, &collected, &applied,
 			&users, &certs, &conflict, &registryCerts, &fileCerts, &licensedCerts); err != nil {
 			return Page[MachineSummary]{}, err
@@ -468,7 +468,7 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 				value := dnsChecked.Time.UTC()
 				checkedAt = &value
 			}
-			if dnsVerificationConfirmed(item.DNSStatus, item.DNSReverseStatus, nullString(dnsHostname), item.Hostname,
+			if strings.EqualFold(item.DNSStatus, "verified") && dnsVerificationConfirmed(nullString(dnsMutualForward), item.DNSReverseStatus, nullString(dnsHostname), item.Hostname,
 				ipString(dnsIP), item.SourceIP, checkedAt, now) {
 				item.DNSVerified = true
 				item.DNSVerifiedAt = checkedAt
