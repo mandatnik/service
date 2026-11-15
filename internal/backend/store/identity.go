@@ -172,14 +172,27 @@ WHERE registration_id=@p8`,
 	}
 
 	warnings := []string{}
-	// A new UUID with a previously used key is allowed, but it must not merge
-	// machines or transfer history silently. Record the fact for an administrator.
+	// A key may authorize exactly one active identity. Allowing a second UUID
+	// with the same key would let one private key authenticate two machines
+	// and blur their inventory. Rebinding an existing identity is an explicit
+	// administrator action.
 	var reusedUUID string
 	err = tx.QueryRowContext(ctx, `
 SELECT uuid FROM dbo.registrations WITH (UPDLOCK, HOLDLOCK)
 WHERE public_key_sha256=@p1 AND state='active'`, fingerprint).Scan(&reusedUUID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "check public key reuse"}
+	}
 	if err == nil && !strings.EqualFold(reusedUUID, uuid) {
-		warnings = append(warnings, "public_key_reused")
+		if apiErr := recordRequest(ctx, tx, uuid, request.Data.RequestID, protocol.PathRegister, now); apiErr != nil {
+			return nil, apiErr
+		}
+		_ = insertEvent(ctx, tx, nil, nil, nil, request.Data.RequestID,
+			"key_reused", "error", "registration attempted to reuse an active public key", map[string]any{"uuid": uuid}, now)
+		if err := tx.Commit(); err != nil {
+			return nil, &protocol.APIError{Code: protocol.CodeDatabase, Message: "commit key reuse audit"}
+		}
+		return nil, &protocol.APIError{Code: protocol.CodeKeyConflict, Message: "public key is already active on another identity"}
 	}
 
 	// A name already associated with any machine card, including a historical

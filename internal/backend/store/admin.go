@@ -282,6 +282,12 @@ func normalizePage(page, pageSize int) (int, int) {
 	if page < 1 {
 		page = 1
 	}
+	// A page number near MaxInt overflows (page-1)*pageSize and turns the SQL
+	// OFFSET negative. Clamp instead of surfacing a database error to clients.
+	const maxPage = 1_000_000
+	if page > maxPage {
+		page = maxPage
+	}
 	if pageSize < 1 {
 		pageSize = 25
 	}
@@ -967,6 +973,17 @@ func (s *Store) RebindRegistrationKey(ctx context.Context, machineID string, reg
 		return "", err
 	}
 	defer tx.Rollback()
+	var reuse int
+	if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*) FROM dbo.registrations
+WHERE public_key_sha256=@p1 AND state='active'
+  AND NOT (registration_id=@p2 AND machine_id=@p3)`,
+		fingerprint, registrationID, machineID).Scan(&reuse); err != nil {
+		return "", err
+	}
+	if reuse > 0 {
+		return "", fmt.Errorf("public key is already active on another registration")
+	}
 	result, err := tx.ExecContext(ctx, `
 UPDATE dbo.registrations SET public_key_pem=@p1, public_key_sha256=@p2
 WHERE registration_id=@p3 AND machine_id=@p4 AND state='active'`, normalized, fingerprint, registrationID, machineID)

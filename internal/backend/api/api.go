@@ -270,7 +270,11 @@ func (s *Server) verifyRequest(ctx context.Context, body []byte, path string) (*
 }
 
 func readBody(w http.ResponseWriter, r *http.Request) ([]byte, *protocol.APIError) {
-	r.Body = http.MaxBytesReader(w, r.Body, protocol.MaxRequestBytes)
+	limit := int64(protocol.MaxSmallRequestBytes)
+	if r.URL.Path == protocol.PathReport {
+		limit = protocol.MaxRequestBytes
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		var maxErr *http.MaxBytesError

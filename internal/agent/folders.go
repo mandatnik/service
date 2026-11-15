@@ -165,15 +165,22 @@ func scanCertificateFile(ctx context.Context, source *protocol.SourceResult, pat
 		source.Complete = false
 	}
 	for _, cert := range certs {
-		source.Files = append(source.Files, protocol.ObservedFile{Path: path, SHA256: cert.SHA256})
 		if _, exists := seen[cert.SHA256]; exists {
+			source.Files = append(source.Files, protocol.ObservedFile{Path: path, SHA256: cert.SHA256})
 			continue
 		}
-		observation, observationErr := observeDER(cert.Raw)
+		observation, include, observationErr := observeDER(cert.Raw)
+		if !include {
+			source.Complete = false
+			appendSourceError(source, fmt.Sprintf("certificate %s: %v", path, observationErr))
+			source.Files = append(source.Files, protocol.ObservedFile{Path: path, Error: boundError(observationErr.Error())})
+			continue
+		}
 		if observationErr != nil {
 			source.Complete = false
 			appendSourceError(source, fmt.Sprintf("parse certificate fields %s: %v", path, observationErr))
 		}
+		source.Files = append(source.Files, protocol.ObservedFile{Path: path, SHA256: cert.SHA256})
 		seen[cert.SHA256] = len(source.Certificates)
 		source.Certificates = append(source.Certificates, observation)
 	}

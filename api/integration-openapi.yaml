@@ -1235,7 +1235,7 @@ components:
           type: string
           maxLength: 64
           description: Замаскированный серийный номер; полный serial не раскрывается.
-          example: 50509X00000130DFD8EV*****
+          example: 99999X00000999ZZZZZ0*****
         product:
           type: string
           description: Стабильный код продукта; известные значения csp, ocsp, tsp.

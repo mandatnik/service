@@ -3,10 +3,7 @@
 package winapi
 
 import (
-	"crypto/sha1"
 	"crypto/sha256"
-	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -17,7 +14,6 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
-	"telehack2026/internal/certparse"
 	"telehack2026/internal/protocol"
 )
 
@@ -226,51 +222,6 @@ func readFileStore(profilePath, appDataPath string) ([]CertificateRecord, bool, 
 		}
 	}
 	return certs, present, errors.Join(problems...)
-}
-
-func decodeFileStoreElement(data []byte, name string) ([]byte, error) {
-	if len(data) >= 44 && binary.LittleEndian.Uint32(data[0:4]) == 3 {
-		derLength := int(binary.LittleEndian.Uint32(data[40:44]))
-		if derLength > 0 && derLength <= len(data)-44 {
-			der := data[44 : 44+derLength]
-			if len(der) > 0 && der[0] == 0x30 {
-				if len(data[12:32]) == sha1.Size {
-					sum := sha1.Sum(der)
-					if hex.EncodeToString(sum[:]) != hex.EncodeToString(data[12:32]) {
-						return nil, errors.New("file-store SHA-1 header does not match DER")
-					}
-				}
-				if looksLikeSHA1Name(name) {
-					sum := sha1.Sum(der)
-					if hex.EncodeToString(sum[:]) != strings.ToLower(name) {
-						return nil, errors.New("file name does not match DER SHA-1")
-					}
-				}
-				return append([]byte(nil), der...), nil
-			}
-		}
-	}
-	// Raw DER fallback (some tools or future formats write the DER directly).
-	if _, err := certparse.Parse(data); err == nil {
-		return append([]byte(nil), data...), nil
-	}
-	return nil, errors.New("unsupported file-store element format")
-}
-
-func looksLikeSHA1Name(name string) bool {
-	if len(name) != 40 {
-		return false
-	}
-	for _, r := range name {
-		switch {
-		case r >= '0' && r <= '9':
-		case r >= 'a' && r <= 'f':
-		case r >= 'A' && r <= 'F':
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 func deduplicateRecords(certs []CertificateRecord) []CertificateRecord {

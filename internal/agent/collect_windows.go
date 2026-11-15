@@ -61,29 +61,38 @@ func (c *windowsCollector) Collect(ctx context.Context, cfg protocol.AgentConfig
 			Certificates: []protocol.ObservedCertificate{},
 		}
 		present, records, readErr := winapi.ReadUserStore(profile)
+		profileResult.StorePresent = present
 		if readErr != nil {
 			profileResult.Complete = false
 			profileResult.Error = boundError(readErr.Error())
 			source.Complete = false
 			source.Error = boundError(readErr.Error())
 			collection.Errors = append(collection.Errors, fmt.Sprintf("%s: %s", profile.SID, boundError(readErr.Error())))
-		} else {
-			profileResult.StorePresent = present
-			for _, record := range records {
-				observation, observationErr := observeDER(record.DER)
-				observation.ProviderBindings = record.Bindings
-				if observationErr != nil {
-					profileResult.Complete = false
-					source.Complete = false
-					source.Error = boundError("certificate field parsing failed: " + observationErr.Error())
-					collection.Errors = append(collection.Errors, fmt.Sprintf("%s: certificate parse failed", profile.SID))
-				}
-				source.Certificates = append(source.Certificates, observation)
-			}
-			sort.Slice(source.Certificates, func(i, j int) bool {
-				return source.Certificates[i].SHA256 < source.Certificates[j].SHA256
-			})
 		}
+		// Certificates that were read successfully are always reported. A
+		// partial source must not turn into a silently empty one: previously
+		// known certificates are kept on the server, and new ones are applied.
+		for _, record := range records {
+			observation, include, observationErr := observeDER(record.DER)
+			observation.ProviderBindings = record.Bindings
+			if !include {
+				profileResult.Complete = false
+				source.Complete = false
+				source.Error = boundError("certificate exceeds protocol limits: " + observationErr.Error())
+				collection.Errors = append(collection.Errors, fmt.Sprintf("%s: certificate exceeds protocol limits", profile.SID))
+				continue
+			}
+			if observationErr != nil {
+				profileResult.Complete = false
+				source.Complete = false
+				source.Error = boundError("certificate field parsing failed: " + observationErr.Error())
+				collection.Errors = append(collection.Errors, fmt.Sprintf("%s: certificate parse failed", profile.SID))
+			}
+			source.Certificates = append(source.Certificates, observation)
+		}
+		sort.Slice(source.Certificates, func(i, j int) bool {
+			return source.Certificates[i].SHA256 < source.Certificates[j].SHA256
+		})
 		collection.Profiles = append(collection.Profiles, profileResult)
 		collection.Sources = append(collection.Sources, source)
 	}

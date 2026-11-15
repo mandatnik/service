@@ -25,11 +25,12 @@ import (
 )
 
 const (
-	adminSessionCookie = "telehack_admin"
-	adminCSRFCookie    = "telehack_csrf"
-	adminAPIPrefix     = "/api/admin/v1/"
-	adminLoginFailures = 5
-	adminLoginWindow   = 5 * time.Minute
+	adminSessionCookie   = "telehack_admin"
+	adminCSRFCookie      = "telehack_csrf"
+	adminAPIPrefix       = "/api/admin/v1/"
+	adminLoginFailures   = 5
+	adminLoginIPFailures = 200
+	adminLoginWindow     = 5 * time.Minute
 )
 
 var dummyPasswordHash = func() []byte {
@@ -49,9 +50,13 @@ func newAdminLoginLimiter() *adminLoginLimiter {
 	return &adminLoginLimiter{failures: make(map[string][]time.Time)}
 }
 
-func (l *adminLoginLimiter) blocked(key string, now time.Time) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
+func adminLoginAccountKey(ip, email string) string {
+	return "acct|" + ip + "|" + strings.ToLower(email)
+}
+func adminLoginIPKey(ip string) string { return "ip|" + ip }
+
+// pruneLocked drops entries older than the window and returns the live count.
+func (l *adminLoginLimiter) pruneLocked(key string, now time.Time) int {
 	entries := l.failures[key]
 	cutoff := now.Add(-adminLoginWindow)
 	kept := entries[:0]
@@ -61,19 +66,32 @@ func (l *adminLoginLimiter) blocked(key string, now time.Time) bool {
 		}
 	}
 	l.failures[key] = kept
-	return len(kept) >= adminLoginFailures
+	return len(kept)
 }
 
-func (l *adminLoginLimiter) fail(key string, now time.Time) {
+func (l *adminLoginLimiter) blocked(ip, email string, now time.Time) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.failures[key] = append(l.failures[key], now)
+	// Per account and source: a shared NAT address must not lock every
+	// administrator out because one account is under attack. The broader
+	// per-IP cap still limits spraying across many account names.
+	if l.pruneLocked(adminLoginAccountKey(ip, email), now) >= adminLoginFailures {
+		return true
+	}
+	return l.pruneLocked(adminLoginIPKey(ip), now) >= adminLoginIPFailures
 }
 
-func (l *adminLoginLimiter) reset(key string) {
+func (l *adminLoginLimiter) fail(ip, email string, now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	delete(l.failures, key)
+	l.failures[adminLoginAccountKey(ip, email)] = append(l.failures[adminLoginAccountKey(ip, email)], now)
+	l.failures[adminLoginIPKey(ip)] = append(l.failures[adminLoginIPKey(ip)], now)
+}
+
+func (l *adminLoginLimiter) reset(ip, email string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.failures, adminLoginAccountKey(ip, email))
 }
 
 func (s *Server) handleAdmin(w http.ResponseWriter, r *http.Request) {
@@ -325,9 +343,9 @@ func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
 	}
-	key := remoteHost(r)
+	ip := remoteHost(r)
 	now := time.Now()
-	if s.adminLimiter.blocked(key, now) {
+	if s.adminLimiter.blocked(ip, input.Email, now) {
 		writeAdminError(w, http.StatusTooManyRequests, "rate_limited", "too many failed login attempts; try again later")
 		return
 	}
@@ -348,11 +366,11 @@ func (s *Server) adminLogin(w http.ResponseWriter, r *http.Request) {
 		hash = []byte(account.PasswordHash)
 	}
 	if bcrypt.CompareHashAndPassword(hash, []byte(input.Password)) != nil || lookupErr != nil || account == nil || account.Disabled {
-		s.adminLimiter.fail(key, now)
+		s.adminLimiter.fail(ip, input.Email, now)
 		writeAdminError(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		return
 	}
-	s.adminLimiter.reset(key)
+	s.adminLimiter.reset(ip, input.Email)
 	token, err := randomToken()
 	if err != nil {
 		writeAdminError(w, http.StatusInternalServerError, protocol.CodeInternal, "could not create session")
@@ -760,7 +778,8 @@ func (s *Server) adminAssignHostname(w http.ResponseWriter, r *http.Request, ses
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
 	if err := s.store.AssignHostname(ctx, hostname, input.RegistrationID, session.Email); err != nil {
-		writeAdminError(w, http.StatusUnprocessableEntity, "hostname_assign_failed", err.Error())
+		s.logf("hostname assign failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "hostname_assign_failed", "hostname assignment failed")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -775,7 +794,8 @@ func (s *Server) adminRevokeRegistration(w http.ResponseWriter, r *http.Request,
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
 	if err := s.store.RevokeRegistration(ctx, registrationID, session.Email); err != nil {
-		writeAdminError(w, http.StatusUnprocessableEntity, "revoke_failed", err.Error())
+		s.logf("registration revoke failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "revoke_failed", "registration revoke failed")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -804,7 +824,8 @@ func (s *Server) adminRebind(w http.ResponseWriter, r *http.Request, session *st
 	defer cancel()
 	fingerprint, err := s.store.RebindRegistrationKey(ctx, machineID, registrationID, input.PublicKeyPEM, session.Email)
 	if err != nil {
-		writeAdminError(w, http.StatusUnprocessableEntity, "rebind_failed", err.Error())
+		s.logf("registration rebind failed: %v", err)
+		writeAdminError(w, http.StatusUnprocessableEntity, "rebind_failed", "registration rebind failed")
 		return
 	}
 	writeAdminJSON(w, http.StatusOK, map[string]any{"ok": true, "key_fingerprint": fingerprint})

@@ -887,13 +887,14 @@ SELECT task_id,state,COUNT(1) FROM dbo.task_items GROUP BY task_id,state`)
 	}
 	states := map[string][]string{}
 	for stateRows.Next() {
-		var taskID string
+		var taskIDValue mssql.UniqueIdentifier
 		var state string
 		var count int
-		if err := stateRows.Scan(&taskID, &state, &count); err != nil {
+		if err := stateRows.Scan(&taskIDValue, &state, &count); err != nil {
 			stateRows.Close()
 			return Page[Task]{}, err
 		}
+		taskID := uuidString(taskIDValue)
 		for i := 0; i < count; i++ {
 			states[taskID] = append(states[taskID], state)
 		}
@@ -917,7 +918,11 @@ SELECT task_id,state,COUNT(1) FROM dbo.task_items GROUP BY task_id,state`)
 	if end > total {
 		end = total
 	}
-	return Page[Task]{Items: filtered[start:end], Page: page, PageSize: pageSize, Total: total}, nil
+	items := filtered[start:end]
+	if items == nil {
+		items = []Task{}
+	}
+	return Page[Task]{Items: items, Page: page, PageSize: pageSize, Total: total}, nil
 }
 
 func (s *Store) TaskItemEvents(ctx context.Context, itemID string) ([]TaskItemEvent, *protocol.APIError) {
