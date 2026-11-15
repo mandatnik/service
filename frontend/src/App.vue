@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { api, setCSRF } from './api'
 import { parseRoute, routePath } from './navigation'
+import { readMachineFilters, machineFilterSearch, normalizeMachineFilters } from './machineFilters'
 import { adminDisplayName, adminInitial, adminRoleLabel } from './identity'
 import AppFooter from './components/AppFooter.vue'
 import BrandLogo from './components/BrandLogo.vue'
@@ -30,6 +31,7 @@ const sessionNotice = ref('')
 const view = ref('overview')
 const menuOpen = ref(false)
 const machineId = ref('')
+const machineFilters = ref(readMachineFilters(window.location.search))
 const certificateSha = ref('')
 const groupFocusId = ref('')
 let expiryTimer = null
@@ -101,18 +103,21 @@ async function logout() {
 function readRoute() {
   const route = parseRoute(window.location.hash.startsWith('#/') ? window.location.hash.slice(1) : window.location.pathname)
   view.value = route.view
+  if (route.view === 'machines') machineFilters.value = readMachineFilters(window.location.search)
   machineId.value = route.view === 'machine' ? route.id : ''
   certificateSha.value = route.view === 'certificate' ? route.id : ''
   groupFocusId.value = route.view === 'groups' ? route.id : ''
   menuOpen.value = false
-  const canonical = routePath(route.view, route.id)
-  if (window.location.pathname !== canonical || window.location.hash.startsWith('#/')) window.history.replaceState(null, '', canonical)
+  const canonical = routePath(route.view, route.id) + (route.view === 'machines' ? machineFilterSearch(machineFilters.value) : '')
+  if (window.location.pathname + window.location.search !== canonical || window.location.hash.startsWith('#/')) window.history.replaceState(null, '', canonical)
 }
-function navigate(next, id = '') {
-  const path = routePath(next, id)
-  if (window.location.pathname !== path || window.location.hash.startsWith('#/')) window.history.pushState(null, '', path)
+function navigate(next, id = '', filters = {}) {
+  const path = routePath(next, id) + (next === 'machines' ? machineFilterSearch(filters) : '')
+  if (window.location.pathname + window.location.search !== path || window.location.hash.startsWith('#/')) window.history.pushState(null, '', path)
   readRoute()
 }
+function openMonitor(monitor, asOf) { navigate('machines', '', { monitor, as_of: asOf || '' }) }
+function changeMachineFilters(filters) { navigate('machines', '', normalizeMachineFilters(filters)) }
 function openMachine(id) { navigate('machine', id) }
 function openCertificate(sha) { navigate('certificate', sha) }
 function openGroup(id) { navigate('groups', id) }
@@ -164,8 +169,8 @@ onUnmounted(() => {
         <div class="topbar-controls"><RefreshControl v-if="['overview','machines','machine','certificate','certificates','licensing','tasks','hostnames','events','groups','policies','api-keys'].includes(view)" /><ThemePicker /></div>
       </header>
       <div class="content-body">
-        <OverviewView v-if="view === 'overview'" @navigate="navigate" />
-        <MachinesView v-else-if="view === 'machines'" @open-machine="openMachine" @open-group="openGroup" />
+        <OverviewView v-if="view === 'overview'" @navigate="navigate" @monitor="openMonitor" />
+        <MachinesView v-else-if="view === 'machines'" :filters="machineFilters" @filters-change="changeMachineFilters" @open-machine="openMachine" @open-group="openGroup" />
         <MachineDetail v-else-if="view === 'machine'" :key="machineId" :machine-id="machineId" @back="navigate('machines')" @open-machine="openMachine" />
         <CertificatesView v-else-if="view === 'certificates'" @open-certificate="openCertificate" />
         <CertificateDetail v-else-if="view === 'certificate'" :key="certificateSha" :sha256="certificateSha" @back="navigate('certificates')" @open-machine="openMachine" />

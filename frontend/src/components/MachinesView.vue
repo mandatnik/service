@@ -1,7 +1,8 @@
 <script setup>
 import { useAutoRefresh } from '../autoRefresh'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { api } from '../api'
+import { emptyMachineFilters, normalizeMachineFilters, monitoringLabels } from '../machineFilters'
 import { badgeClass, formatTime, machineRowView, pluralRu } from '../format'
 import ErrorState from './ErrorState.vue'
 import EmptyState from './EmptyState.vue'
@@ -10,7 +11,9 @@ import RefreshControl from './RefreshControl.vue'
 import InstallationReview from './InstallationReview.vue'
 import MachineRenameDialog from './MachineRenameDialog.vue'
 
-const emit = defineEmits(['open-machine', 'open-group'])
+const props = defineProps({ filters: { type: Object, default: () => ({}) } })
+const emit = defineEmits(['open-machine', 'open-group', 'filters-change'])
+const columnFilters = reactive(normalizeMachineFilters(props.filters))
 const selected = ref([]), catalog = ref({ groups: [] }), targetGroup = ref(''), newGroup = ref(''), adding = ref(false), message = ref('')
 const groupNotice = ref(null)
 const pollSeconds = ref(60)
@@ -54,8 +57,8 @@ async function startScan() {
     message.value = `Задача scan создана: ${task.task.id}.`
   } catch (e) { error.value = e.message } finally { scanBusy.value = false }
 }
-const query = ref('')
-const status = ref('active')
+const query = ref(columnFilters.query)
+const status = ref(columnFilters.status)
 const page = ref(1)
 const data = ref({ items: [], total: 0, page: 1, page_size: 25 })
 const error = ref('')
@@ -64,10 +67,16 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const results = await Promise.all([api.machines({ query: query.value, status: status.value, page: page.value, page_size: 25 }), api.inventorySettings(), api.installations({ status: 'pending' })]); data.value = results[0]; catalog.value = results[1]; pendingInstallations.value = results[2]?.items || []
+    const results = await Promise.all([api.machines({ ...columnFilters, query: query.value, status: status.value, page: page.value, page_size: 25 }), api.inventorySettings(), api.installations({ status: 'pending' })]); data.value = results[0]; catalog.value = results[1]; pendingInstallations.value = results[2]?.items || []
   } catch (e) { error.value = e.message } finally { loading.value = false }
 }
-function apply() { page.value = 1; load() }
+function apply() { emit('filters-change', { ...columnFilters, query: query.value, status: status.value }) }
+function clearFilters() { emit('filters-change', emptyMachineFilters()) }
+function clearMonitor() { emit('filters-change', { ...columnFilters, query: query.value, status: status.value, monitor: '', as_of: '' }) }
+watch(() => props.filters, value => {
+ Object.assign(columnFilters, normalizeMachineFilters(value)); query.value = columnFilters.query; status.value = columnFilters.status
+ page.value = 1; selected.value = []; load()
+}, { deep: true })
 function changePage(next) { page.value = next; load() }
 function reviewInstallation(request) { reviewing.value = request; message.value = '' }
 function toggleRowActions(machine, event) {
@@ -135,6 +144,8 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
       </form>
       <span class="muted">{{ pollText }}</span>
     </div>
+    <div v-if="columnFilters.monitor" class="alert alert-info monitoring-filter" role="status"><div><strong>{{ monitoringLabels[columnFilters.monitor] }}</strong><div class="small">Показаны только АРМ из выбранного показателя. Фильтры столбцов дополнительно сужают список.</div></div><button class="btn btn-small" @click="clearMonitor">Снять фильтр мониторинга</button></div>
+    <div class="machine-filter-summary"><span class="small muted">Найдено АРМ: {{ data.total }}</span><button class="btn btn-small btn-quiet" @click="clearFilters">Сбросить фильтры</button></div>
     <form v-if="selected.length" class="panel selection-toolbar" @submit.prevent="addToGroup"><strong>Выбрано: {{ selected.length }}</strong><select v-model="targetGroup" aria-label="Группа для выбранных машин" required><option disabled value="">Добавить в группу…</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option><option value="new">+ Создать группу</option></select><input v-if="targetGroup === 'new'" v-model="newGroup" required maxlength="200" placeholder="Название новой группы" aria-label="Название новой группы" /><button class="btn btn-primary" :disabled="adding || !targetGroup">Добавить</button><button class="btn" type="button" :disabled="scanBusy" @click="startScan">Запросить информацию</button><button class="btn" type="button" :disabled="adding" @click="selected = []">Снять выбор</button></form>
     <div v-if="groupNotice" class="alert alert-success" role="status"><strong>{{ groupNotice.title }}</strong><div>{{ groupNotice.text }}</div></div>
     <div v-if="message" class="alert alert-success" role="status">{{ message }}</div>
@@ -169,7 +180,6 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
     </Teleport>
     <div v-if="!reviewing" class="panel table-panel">
       <div v-if="loading && !data.items.length" class="state">Загрузка…</div>
-      <EmptyState v-else-if="!data.items.length" title="АРМ не найдены" text="Проверьте фильтры или зарегистрируйте агент." />
       <table v-else class="data-table machines-table">
         <thead>
           <tr>
@@ -184,8 +194,21 @@ useAutoRefresh(load, () => loading.value || adding.value || scanBusy.value || !!
             <th>Статус</th>
             <th class="actions-cell"><span class="sr-only">Действия</span></th>
           </tr>
+          <tr class="column-filters">
+            <th></th>
+            <th><input v-model="columnFilters.name" aria-label="Фильтр по названию АРМ" placeholder="Название" maxlength="512" @change="apply" @keydown.enter.prevent="apply" /></th>
+            <th><input v-model="columnFilters.hostname" aria-label="Фильтр по hostname" placeholder="Hostname" maxlength="512" @change="apply" @keydown.enter.prevent="apply" /><input v-model="columnFilters.source_ip" aria-label="Фильтр по IP" placeholder="Точный IP" @change="apply" @keydown.enter.prevent="apply" /></th>
+            <th><select v-model="columnFilters.connection" aria-label="Фильтр по связи" @change="apply"><option value="">Любая связь</option><option value="online">В сети</option><option value="offline">Не в сети</option></select></th>
+            <th><select v-model="columnFilters.csp" aria-label="Фильтр по CSP" @change="apply"><option value="">Любой CSP</option><option value="present">Установлен</option><option value="missing">Не найден</option></select></th>
+            <th><select v-model="columnFilters.group_id" aria-label="Фильтр по группе" @change="apply"><option value="">Все группы</option><option v-for="group in catalog.groups" :key="group.id" :value="group.id">{{ group.name }}</option></select></th>
+            <th><select v-model="columnFilters.license" aria-label="Фильтр по лицензии" @change="apply"><option value="">Любая лицензия</option><option value="active">Активная</option><option value="needs">Требуется лицензия</option><option value="trial">Пробная</option><option value="expired">Истекла</option><option value="perpetual">Бессрочная</option><option value="unknown">Не определена</option></select></th>
+            <th><select v-model="columnFilters.certificate" aria-label="Фильтр по сертификатам" @change="apply"><option value="">Все сертификаты</option><option value="present">Есть</option><option value="missing">Нет</option><option value="expired_recent">Истекли без замены</option></select></th>
+            <th><select v-model="columnFilters.machine_status" aria-label="Фильтр по статусу АРМ" @change="apply"><option value="">Все статусы</option><option value="ok">Работает</option><option value="trial">Пробная версия</option><option value="license_required">Требуется лицензия</option><option value="csp_missing">CSP не установлен</option></select></th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
+          <tr v-if="!data.items.length"><td colspan="10"><EmptyState title="АРМ не найдены" text="Измените фильтры столбцов или сбросьте их." /></td></tr>
           <tr v-for="row in rows" :key="row.machine.machine_id" class="clickable" tabindex="0" @keydown.enter.self="emit('open-machine', row.machine.machine_id)" @click="emit('open-machine', row.machine.machine_id)">
             <td class="selection-cell" @click.stop><input v-model="selected" type="checkbox" :value="row.machine.machine_id" :disabled="row.machine.archived" :aria-label="`Выбрать ${row.view.name}`" /></td>
             <td>

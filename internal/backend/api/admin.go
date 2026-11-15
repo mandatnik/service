@@ -444,10 +444,27 @@ func (s *Server) adminOverview(w http.ResponseWriter, r *http.Request) {
 func (s *Server) adminMachines(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := contextWithTimeout(r, 10*time.Second)
 	defer cancel()
-	page, err := s.store.ListMachines(ctx, store.AdminMachineFilter{
-		Query: r.URL.Query().Get("query"), Status: r.URL.Query().Get("status"),
+	params := r.URL.Query()
+	filter := store.AdminMachineFilter{
+		Query: params.Get("query"), Status: params.Get("status"),
 		Page: queryInt(r, "page", 1), PageSize: queryInt(r, "page_size", 25),
-	})
+		Monitor: params.Get("monitor"), Connection: params.Get("connection"), CSP: params.Get("csp"),
+		License: params.Get("license"), GroupID: params.Get("group_id"), Certificate: params.Get("certificate"),
+		MachineStatus: params.Get("machine_status"), Name: params.Get("name"), Hostname: params.Get("hostname"), SourceIP: params.Get("source_ip"),
+	}
+	if value := params.Get("as_of"); value != "" {
+		at, parseErr := time.Parse(time.RFC3339Nano, value)
+		if parseErr != nil {
+			writeAdminError(w, http.StatusBadRequest, "invalid_filter", "invalid monitoring timestamp")
+			return
+		}
+		filter.AsOf = &at
+	}
+	if err := store.ValidateAdminMachineFilter(filter); err != nil {
+		writeAdminError(w, http.StatusBadRequest, "invalid_filter", err.Error())
+		return
+	}
+	page, err := s.store.ListMachines(ctx, filter)
 	if err != nil {
 		s.logf("admin machines failed: %v", err)
 		writeAdminError(w, http.StatusServiceUnavailable, protocol.CodeDatabase, "could not load machines")

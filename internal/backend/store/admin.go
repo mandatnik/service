@@ -325,6 +325,17 @@ func ipString(value []byte) string {
 }
 
 type AdminMachineFilter struct {
+	Monitor         string
+	Connection      string
+	CSP             string
+	License         string
+	GroupID         string
+	Certificate     string
+	MachineStatus   string
+	Name            string
+	Hostname        string
+	SourceIP        string
+	AsOf            *time.Time
 	Query           string
 	Status          string
 	Page            int
@@ -364,24 +375,28 @@ func (s *Store) ListMachines(ctx context.Context, filter AdminMachineFilter) (Pa
 		case "active":
 			where = append(where, "r.state='active'")
 		case "offline":
-			where = append(where, fmt.Sprintf("r.state='active' AND (r.last_seen_at IS NULL OR r.last_seen_at <= DATEADD(minute, -%d, SYSUTCDATETIME()))", machineOfflineMinutes))
+			where = append(where, fmt.Sprintf("r.state='active' AND (r.last_seen_at IS NULL OR r.last_seen_at <= DATEADD(minute, -%d, @asof))", machineOfflineMinutes))
 		case "conflict":
 			where = append(where, "EXISTS (SELECT 1 FROM dbo.registrations r2 WHERE r2.hostname_norm=r.hostname_norm AND r2.state='active' AND r2.registration_id<>r.registration_id)")
 		}
 	}
-	baseJoin := `
-FROM dbo.machines m
-LEFT JOIN dbo.registrations r ON r.machine_id=m.machine_id AND r.state='active'
-LEFT JOIN dbo.csp_states c ON c.machine_id=m.machine_id
+	now := s.now()
+	if filter.AsOf != nil {
+		now = filter.AsOf.UTC()
+	}
+	if err := applyAdminMachineColumns(filter, &where, add); err != nil {
+		return Page[MachineSummary]{}, err
+	}
+	baseJoin := adminMachineLiveJoins + `
 OUTER APPLY (SELECT TOP 1 report_id,status,collected_at,applied_sources FROM dbo.reports rep WHERE rep.machine_id=m.machine_id ORDER BY rep.scan_epoch DESC, rep.scan_seq DESC) rp
 WHERE ` + strings.Join(where, " AND ")
-	countArgs := append([]any(nil), args...)
+	countArgs := append(append([]any(nil), args...), sql.Named("asof", now))
 	var total int
 	if err := s.DB.QueryRowContext(ctx, "SELECT COUNT(1) "+baseJoin, countArgs...).Scan(&total); err != nil {
 		return Page[MachineSummary]{}, err
 	}
 	queryArgs := append([]any(nil), args...)
-	queryArgs = append(queryArgs, (page-1)*pageSize, pageSize)
+	queryArgs = append(queryArgs, (page-1)*pageSize, pageSize, sql.Named("asof", now))
 	query := `
 SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
        m.archived_at, COALESCE(m.archived_by,''), COALESCE(m.archive_reason,''),
@@ -401,7 +416,6 @@ SELECT m.machine_id, m.display_name, m.display_name_custom, m.created_at,
 	}
 	defer rows.Close()
 	items := []MachineSummary{}
-	now := s.now()
 	for rows.Next() {
 		var item MachineSummary
 		var id mssql.NullUniqueIdentifier
@@ -1006,18 +1020,19 @@ VALUES(@p1,@p2,N'key_rebound',N'warning',N'administrator rebound the agent publi
 
 // Overview is the admin dashboard summary.
 type AdminOverview struct {
-	Machines            int        `json:"machines"`
-	ActiveRegistrations int        `json:"active_registrations"`
-	Users               int        `json:"users"`
-	Certificates        int        `json:"certificates"`
-	ActiveObservations  int        `json:"active_observations"`
-	PendingJobs         int        `json:"pending_jobs"`
-	Events24h           int        `json:"events_24h"`
-	Reports24h          int        `json:"reports_24h"`
-	LastReportAt        *time.Time `json:"last_report_at,omitempty"`
-	ConfigVersion       int        `json:"config_version"`
-	ConfigHash          string     `json:"config_hash"`
-	DBOK                bool       `json:"db_ok"`
+	Monitoring          AdminMonitoring `json:"monitoring"`
+	Machines            int             `json:"machines"`
+	ActiveRegistrations int             `json:"active_registrations"`
+	Users               int             `json:"users"`
+	Certificates        int             `json:"certificates"`
+	ActiveObservations  int             `json:"active_observations"`
+	PendingJobs         int             `json:"pending_jobs"`
+	Events24h           int             `json:"events_24h"`
+	Reports24h          int             `json:"reports_24h"`
+	LastReportAt        *time.Time      `json:"last_report_at,omitempty"`
+	ConfigVersion       int             `json:"config_version"`
+	ConfigHash          string          `json:"config_hash"`
+	DBOK                bool            `json:"db_ok"`
 }
 
 func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
@@ -1026,7 +1041,7 @@ func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
 		target *int
 		query  string
 	}{
-		{&out.Machines, `SELECT COUNT(*) FROM dbo.machines WHERE archived_at IS NULL`},
+		{&out.Machines, `SELECT COUNT(*) ` + adminMachineLiveJoins + ` WHERE ` + currentMonitoringMachineSQL},
 		{&out.ActiveRegistrations, `SELECT COUNT(*) FROM dbo.registrations WHERE state='active'`},
 		{&out.Users, `SELECT COUNT(*) FROM dbo.machine_users WHERE present=1`},
 		{&out.Certificates, `SELECT COUNT(*) FROM dbo.certificates`},
@@ -1052,6 +1067,11 @@ func (s *Store) AdminOverview(ctx context.Context) (AdminOverview, error) {
 	}
 	out.ConfigVersion = version
 	out.ConfigHash = strings.TrimSpace(hash)
+	monitoring, err := s.adminMonitoring(ctx, s.now())
+	if err != nil {
+		return out, err
+	}
+	out.Monitoring = monitoring
 	out.DBOK = s.DB.PingContext(ctx) == nil
 	return out, nil
 }
