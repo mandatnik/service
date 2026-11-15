@@ -43,3 +43,4 @@ evidence/local/
 # Full test campaign evidence and local test-instance artifacts
 /evidence/test-campaign/
 /artifacts/testcamp/
+/artifacts/deploy/
